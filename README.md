@@ -1,3 +1,10 @@
+# Sulla Desktop
+
+Forked from Rancher Desktop<a href="https://github.com/rancher-sandbox/rancher-desktop" target="_blank" rel="noopener noreferrer nofollow"></a>  
+Licensed under Apache-2.0. See LICENSE for details.
+
+Original copyright: © Rancher Labs, Inc. and contributors.
+
 # Rancher Desktop
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/rancher-sandbox/rancher-desktop)
