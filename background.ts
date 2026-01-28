@@ -65,6 +65,9 @@ Electron.app.setPath('userData', path.join(paths.appHome, 'electron'));
 Electron.app.setPath('cache', paths.cache);
 Electron.app.setAppLogsPath(paths.logs);
 
+// Set the app name for macOS menu bar (shows next to Apple icon)
+Electron.app.setName('Sulla Desktop');
+
 const console = Logging.background;
 
 // Do an early check for debugging enabled via the environment variable so that
