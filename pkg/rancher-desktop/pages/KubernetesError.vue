@@ -89,7 +89,7 @@ export default defineComponent({
       return arch === 'arm64' ? 'aarch64' : arch;
     },
     versionString(): string {
-      return `Rancher Desktop ${ this.appVersion } - ${ this.platform } (${ this.arch })`;
+      return `Sulla Desktop ${ this.appVersion } - ${ this.platform } (${ this.arch })`;
     },
   },
   beforeMount() {

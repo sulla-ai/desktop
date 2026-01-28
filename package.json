@@ -1,5 +1,5 @@
 {
-  "name": "rancher-desktop",
+  "name": "sulla-desktop",
   "productName": "Rancher Desktop",
   "license": "Apache-2.0",
   "version": "1.22.0",
@@ -14,7 +14,7 @@
   "packageManager": "yarn@4.9.4",
   "repository": {
     "type": "git",
-    "url": "https://github.com/rancher-sandbox/rancher-desktop.git"
+    "url": "https://github.com/sulla-ai/desktop.git"
   },
   "scripts": {
     "dev": "node scripts/ts-wrapper.js scripts/dev.ts",

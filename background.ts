@@ -1179,8 +1179,8 @@ function showErrorDialog(title: string, message: string, fatal?: boolean) {
 }
 
 async function handleFailure(payload: any) {
-  let titlePart = 'Error Starting Rancher Desktop';
-  let message = 'There was an unknown error starting Rancher Desktop';
+  let titlePart = 'Error Starting Sulla Desktop';
+  let message = 'There was an unknown error starting Sulla Desktop';
   let secondaryMessage = '';
 
   if (payload instanceof K8s.KubernetesError) {
@@ -1200,12 +1200,12 @@ async function handleFailure(payload: any) {
   } else if (payload instanceof Error) {
     secondaryMessage = payload.toString();
   } else if (typeof payload === 'number') {
-    message = `Rancher Desktop was unable to start with the following exit code: ${ payload }`;
+    message = `Sulla Desktop was unable to start with the following exit code: ${ payload }`;
   } else if ('errorCode' in payload) {
     message = payload.message || message;
     titlePart = payload.context || titlePart;
   }
-  console.log(`Rancher Desktop was unable to start:`, payload);
+  console.log(`Sulla Desktop was unable to start:`, payload);
   try {
     // getFailureDetails is going to read from existing log files.
     // Wait 1 second before reading them to allow recent writes to appear in them.
@@ -1488,7 +1488,7 @@ class BackgroundCommandWorker implements CommandWorkerInterface {
       pendingRestartContext = undefined;
       setImmediate(doFullRestart, context);
 
-      return ['reconfiguring Rancher Desktop to apply changes (this may take a while)', ''];
+      return ['reconfiguring Sulla Desktop to apply changes (this may take a while)', ''];
     } else {
       // Call doFullRestart once the UI is finished starting or stopping
       pendingRestartContext = context;

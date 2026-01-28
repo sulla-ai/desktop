@@ -99,7 +99,7 @@ export default defineComponent({
       const cancelPosition = 1;
 
       const result = await ipcRenderer.invoke('show-message-box', {
-        title:    'Rancher Desktop - Reset Kubernetes',
+        title:    'Sulla Desktop - Reset Kubernetes',
         type:     'warning',
         message:  'Apply preferences and reset Kubernetes?',
         detail:   'These changes will reset the Kubernetes cluster, which will result in a loss of workloads and container images.',

@@ -94,7 +94,7 @@ export class Tray {
     { type: 'separator' },
     {
       id:    'quit',
-      label: 'Quit Rancher Desktop',
+      label: 'Quit Sulla Desktop',
       role:  'quit',
       type:  'normal',
     },
@@ -165,7 +165,7 @@ export class Tray {
   private constructor(settings: Settings) {
     this.settings = settings;
     this.trayMenu = new Electron.Tray(this.trayIconSet.starting);
-    this.trayMenu.setToolTip('Rancher Desktop');
+    this.trayMenu.setToolTip('Sulla Desktop');
     const menuItem = this.contextMenuItems.find(item => item.id === 'container-engine');
 
     if (menuItem) {

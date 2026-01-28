@@ -31,7 +31,7 @@ const CheckKubeConfigSymlink: DiagnosticsChecker = {
   },
   async check() {
     return Promise.resolve({
-      description: 'Rancher Desktop cannot automatically convert the provided kubeconfig file to a symlink' +
+      description: 'Sulla Desktop cannot automatically convert the provided kubeconfig file to a symlink' +
         ' due to existing configurations within that file. To resolve this issue, you will need to ' +
         'manually create the symlink to ensure existing configurations are preserved and to prevent ' +
         'any loss of configuration.',

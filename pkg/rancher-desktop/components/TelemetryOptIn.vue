@@ -28,11 +28,11 @@ export default {
       <rd-checkbox
         :value="telemetry"
         :is-locked="isTelemetryLocked"
-        label="Allow collection of anonymous statistics to help us improve Rancher Desktop"
+        label="Allow collection of anonymous statistics to help us improve Sulla Desktop"
         @update:value="toggleTelemetry"
       />
       <p class="fineprint">
-        Send anonymized usage info, error reports, etc. to help improve Rancher Desktop. Your data will not be shared with anyone else, and no information about what specific resources or endpoints you are deploying is included.
+        Send anonymized usage info, error reports, etc. to help improve Sulla Desktop. Your data will not be shared with anyone else, and no information about what specific resources or endpoints you are deploying is included.
       </p>
     </div>
   </div>

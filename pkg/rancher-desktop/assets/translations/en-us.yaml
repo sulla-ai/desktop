@@ -174,8 +174,8 @@ suffix:
 # Components & Pages
 ##############################
 app:
-  name: Rancher Desktop
-  update: "There's one last step to finish updating Rancher Desktop"
+  name: Sulla Desktop
+  update: "There's one last step to finish updating Sulla Desktop"
 firstRun:
   kubernetesVersion:
     legend: Kubernetes Version
@@ -325,8 +325,8 @@ portForwarding:
   sortableTables:
     noRows: There are no port forwarding entries to show
 general:
-  title: Welcome to Rancher Desktop by SUSE
-  description: Rancher Desktop provides Kubernetes and image management through the use of a desktop application.
+  title: Welcome to Sulla Desktop by SUSE
+  description: Sulla Desktop provides Kubernetes and image management through the use of a desktop application.
 about:
   title: About
   versions:
@@ -354,8 +354,8 @@ application:
     background:
       legendText: Background
       legendTooltip: >
-        Hide the app window when Rancher Desktop is running in the background.
-        It can be opened via the Notification Icon (if visible) or by running Rancher Desktop from the Applications menu.
+        Hide the app window when Sulla Desktop is running in the background.
+        It can be opened via the Notification Icon (if visible) or by running Sulla Desktop from the Applications menu.
     startInBackground:
       label: Start in the background
     windowQuitOnClose:
@@ -462,42 +462,42 @@ allowedImages:
 
 pathManagement:
   label: Configure PATH
-  tooltip: Rancher Desktop ships with tools, such as kubectl, nerdctl, helm and docker. In order to use these tools, <code>$HOME/.rd/bin</code> must be in your PATH.
+  tooltip: Sulla Desktop ships with tools, such as kubectl, nerdctl, helm and docker. In order to use these tools, <code>$HOME/.rd/bin</code> must be in your PATH.
   options:
     rcFiles:
       label: Automatic
-      description: Rancher Desktop edits your shell profile for you. Restart any open shells for changes to take effect.
+      description: Sulla Desktop edits your shell profile for you. Restart any open shells for changes to take effect.
     manual:
       label: Manual
-      description: 'Rancher Desktop does not change your PATH configuration; add <code>$HOME/.rd/bin</code> to your path manually.'
+      description: 'Sulla Desktop does not change your PATH configuration; add <code>$HOME/.rd/bin</code> to your path manually.'
   accept: Accept
 
 legacyIntegrations:
   title: Legacy Integrations Found
-  messageFirstPart: Rancher Desktop detected legacy tool symlinks in
+  messageFirstPart: Sulla Desktop detected legacy tool symlinks in
   messageSecondPart: but did not have the permissions required to remove them.
   messageThirdPart: >
     Legacy symlinks have the potential to cause path conflicts.
     Please remove them at your earliest convenience.
   details: >
-    Rancher Desktop creates symlinks from bundled tools, such as kubectl and docker,
-    to a directory in order to make them usable. This directory changed in Rancher Desktop
-    1.3.0. If you are seeing this message, Rancher Desktop was unable to remove the symlinks
+    Sulla Desktop creates symlinks from bundled tools, such as kubectl and docker,
+    to a directory in order to make them usable. This directory changed in Sulla Desktop
+    1.3.0. If you are seeing this message, Sulla Desktop was unable to remove the symlinks
     from the old directory automatically. You should remove them manually to prevent future
     path conflicts.
   ok: OK
 
 sudoPrompt:
   title: Administrative Access Required
-  message: 'Rancher Desktop requires administrative access ("sudo access") for the following reasons:'
-  messageSecondPart: The prompt will be displayed once this window is closed. Cancelling the prompt or disabling administrative access requires you to switch the docker context to rancher-desktop in order to continue using Rancher Desktop.
+  message: 'Sulla Desktop requires administrative access ("sudo access") for the following reasons:'
+  messageSecondPart: The prompt will be displayed once this window is closed. Cancelling the prompt or disabling administrative access requires you to switch the docker context to rancher-desktop in order to continue using Sulla Desktop.
   explanation: 'This will modify the following paths:'
   buttonText: OK
 
 unmetPrerequisites:
-  title: Rancher Desktop is unable to start
-  message: 'Rancher Desktop cannot start because requirements are missing or not configured:'
-  action: 'Please ensure all requirements are met and try again. Rancher Desktop will now close.'
+  title: Sulla Desktop is unable to start
+  message: 'Sulla Desktop cannot start because requirements are missing or not configured:'
+  action: 'Please ensure all requirements are met and try again. Sulla Desktop will now close.'
   buttonText: OK
 
 accountAndKeys:
@@ -3260,7 +3260,7 @@ setup:
   defaultPasswordError: It looks like this is your first time visiting the Rancher UI, but the local admin account password is already set to something unique. Log in with that account below to continue the setup process.
   telemetry:
     label: Allow collection of anonymous statistics to help us improve Rancher
-    tip:  'Rancher Labs would like to collect a bit of anonymized information
+    tip:  'Sulla Labs would like to collect a bit of anonymized information
           about the configuration of your installation to help make Rio better.
           Your data will not be shared with anyone else, and no information about
           what specific resources or endpoints you are deploying is included.
@@ -4798,7 +4798,7 @@ snapshots:
     actions:
       submit: Create
       back: Cancel
-    info: 'Rancher Desktop will be temporarily unavailable while creating a new Snapshot'
+    info: 'Sulla Desktop will be temporarily unavailable while creating a new Snapshot'
   empty:
     icon: icon-search
     heading: No snapshots found
@@ -4812,8 +4812,8 @@ snapshots:
         cancel: 'Cancel'
       error:
         header: 'Error restoring snapshot'
-        description: "Failed to restore snapshot '<b>'{snapshot}'</b>'.'<br/><br/>'Rancher Desktop has performed a Factory Reset and will now exit. Please try to address the issue that led to this error before restarting Rancher Desktop and attempting to restore the snapshot again."
-        buttonText: 'Quit Rancher Desktop'
+        description: "Failed to restore snapshot '<b>'{snapshot}'</b>'.'<br/><br/>'Sulla Desktop has performed a Factory Reset and will now exit. Please try to address the issue that led to this error before restarting Sulla Desktop and attempting to restore the snapshot again."
+        buttonText: 'Quit Sulla Desktop'
     delete:
       header: Permanently delete snapshot?
       info: 'text'
@@ -4822,19 +4822,19 @@ snapshots:
         cancel: 'Cancel'
     restoring:
       header: 'Restoring {snapshot}'
-      message: "Please wait while snapshot '<b>'{snapshot}'</b>' is being restored. This may take some time depending on your machine's resources.<br/><br/>Rancher Desktop will be temporarily unavailable during this operation. Once completed, the VM will restart with the {snapshot} snapshot active."
+      message: "Please wait while snapshot '<b>'{snapshot}'</b>' is being restored. This may take some time depending on your machine's resources.<br/><br/>Sulla Desktop will be temporarily unavailable during this operation. Once completed, the VM will restart with the {snapshot} snapshot active."
       actions:
         cancel: 'Cancel'
     creating:
       header: 'Creating {snapshot}'
-      message: "Please wait while snapshot '<b>'{snapshot}'</b>' is being created.'<br/>'This may take some time depending on your machine's resources.'<br/>'Rancher Desktop will be temporarily unavailable during this operation.'<br/><br/>'Once the snapshot is complete, the VM will restart."
+      message: "Please wait while snapshot '<b>'{snapshot}'</b>' is being created.'<br/>'This may take some time depending on your machine's resources.'<br/>'Sulla Desktop will be temporarily unavailable during this operation.'<br/><br/>'Once the snapshot is complete, the VM will restart."
       actions:
         cancel: 'Cancel'
     buttons:
       error: Close
     generic:
       header: Snapshot operation in progress
-      message: "Please wait while the snapshot operation is active.<br/>This may take some time depending on your machine's resources.<br/>Rancher Desktop will be temporarily unavailable during this operation.<br/><br/>Once the snapshot process is complete, the VM will restart."
+      message: "Please wait while the snapshot operation is active.<br/>This may take some time depending on your machine's resources.<br/>Sulla Desktop will be temporarily unavailable during this operation.<br/><br/>Once the snapshot process is complete, the VM will restart."
     showLogs: Show logs
   info:
     when: " at {time}"
@@ -4864,7 +4864,7 @@ troubleshooting:
       description: Resetting Kubernetes will delete all workloads and configuration.
       buttonText: Reset Kubernetes
       messageBox:
-        title: Rancher Desktop - Reset Kubernetes
+        title: Sulla Desktop - Reset Kubernetes
         message: Reset Kubernetes?
         checkboxLabel: Delete container images
         ok: Reset
@@ -4877,16 +4877,16 @@ troubleshooting:
     title: General
     logs:
       title: Logs
-      description: Show Rancher Desktop logs
+      description: Show Sulla Desktop logs
       buttonText: Show Logs
     factoryReset:
       title: Factory Reset
-      description: Factory Reset will remove all Rancher Desktop Configurations.
+      description: Factory Reset will remove all Sulla Desktop Configurations.
       buttonText: Factory Reset
       messageBox:
-        title: Rancher Desktop - Factory Reset
+        title: Sulla Desktop - Factory Reset
         message: Perform a factory reset?
-        detail: <p>Doing a factory reset will remove your cluster and all Rancher Desktop settings, and shut down Rancher Desktop. If you intend to continue using Rancher Desktop, you will need to manually start it and go through the initial set up again.</p><p>Are you sure you want to reset everything?</p>
+        detail: <p>Doing a factory reset will remove your cluster and all Sulla Desktop settings, and shut down Sulla Desktop. If you intend to continue using Sulla Desktop, you will need to manually start it and go through the initial set up again.</p><p>Are you sure you want to reset everything?</p>
         checkboxLabel: Keep cached Kubernetes images
         ok: Factory Reset
         cancel: Cancel
@@ -4904,7 +4904,7 @@ diagnostics:
     success:
       icon: icon-checkmark
       heading: No problems detected
-      body: Rancher Desktop appears to be functioning correctly.
+      body: Sulla Desktop appears to be functioning correctly.
 
 
 ##############################
@@ -4925,7 +4925,7 @@ extensions:
   view:
     emptyState:
       heading: Extension removed
-      body: '{extensionId} was removed. Please visit the extensions catalog to reinstall the extension or browse for other extensions to enhance your Rancher Desktop experience.'
+      body: '{extensionId} was removed. Please visit the extensions catalog to reinstall the extension or browse for other extensions to enhance your Sulla Desktop experience.'
 
 ##############################
 ### Preferences Page
@@ -4948,7 +4948,7 @@ preferences:
 integrations:
   windows:
     title: WSL Integrations
-    description: "Expose Rancher Desktop's Kubernetes configuration and Docker socket to Windows Subsystem for Linux (WSL) distros"
+    description: "Expose Sulla Desktop's Kubernetes configuration and Docker socket to Windows Subsystem for Linux (WSL) distros"
 
 ##############################
 ### Support Page
@@ -4984,7 +4984,7 @@ support:
       text: Run SUSE Rancher products with confidence, knowing that the developers who built them are available to quickly resolve issues.
     three:
       title: Troubleshooting
-      text: We focus on uncovering the root cause of any issue, whether it is related to Rancher Labs products, Kubernetes, Docker or your underlying infrastructure.
+      text: We focus on uncovering the root cause of any issue, whether it is related to Sulla Labs products, Kubernetes, Docker or your underlying infrastructure.
     four:
       title: Innovate with Freedom
       text: Take advantage of our certified compatibility with a wide range of Kubernetes providers, operating systems, and open source software.

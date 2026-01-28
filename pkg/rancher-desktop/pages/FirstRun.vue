@@ -1,7 +1,7 @@
 <template>
   <div class="first-run-container">
     <h2 data-test="k8s-settings-header">
-      Welcome to Rancher Desktop by SUSE
+      Welcome to Sulla Desktop by SUSE
     </h2>
     <rd-checkbox
       label="Enable Kubernetes"

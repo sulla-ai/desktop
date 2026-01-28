@@ -4,7 +4,7 @@
       Cannot run as Root
     </h2>
     <p>
-      Rancher Desktop cannot be run with root privileges.
+      Sulla Desktop cannot be run with root privileges.
       Please run again as a regular user.
     </p>
     <div class="button-area">

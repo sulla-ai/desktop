@@ -103,7 +103,7 @@ function getHelpMenu(isMac: boolean): MenuItem {
       ]
       : []),
     {
-      label: isMac ? 'Rancher Desktop &Help' : 'Get &Help',
+      label: isMac ? 'Sulla Desktop &Help' : 'Get &Help',
       click: async() => {
         shell.openExternal(await versionedDocsUrl());
       },

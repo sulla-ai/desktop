@@ -90,7 +90,7 @@ export default {
   beforeMount() {
     // The window title isn't set correctly in E2E; as a workaround, force set
     // it here again.
-    document.title ||= 'Rancher Desktop';
+    document.title ||= 'Sulla Desktop';
 
     this.fetch().catch(ex => console.error(ex));
 

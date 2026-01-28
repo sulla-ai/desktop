@@ -2,7 +2,7 @@
 copyright: Copyright © 2021-2026 SUSE LLC
 productName: Rancher Desktop
 icon: ./resources/icons/logo-square-512.png
-appId: io.rancherdesktop.app
+appId: io.sulla.desktop
 asar: true
 asarUnpack:
 - '**/*.node'
@@ -43,10 +43,6 @@ win:
   - { from: dist/electron-builder.yaml, to: electron-builder.yml }
 linux:
   category: Utility
-  executableName: rancher-desktop
+  executableName: sulla-desktop
   artifactName: ${name}-${version}-linux.zip
   target: [ zip ]
-publish:
-  provider: custom
-  upgradeServer: https://desktop.version.rancher.io/v1/checkupgrade
-  vPrefixedTagName: true

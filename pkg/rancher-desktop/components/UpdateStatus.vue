@@ -67,7 +67,7 @@
       </template>
       <template #body>
         <p>
-          A newer version of Rancher Desktop is available, but not supported on your system.
+          A newer version of Sulla Desktop is available, but not supported on your system.
         </p>
         <br>
         <p>
