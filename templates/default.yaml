@@ -1,0 +1,22 @@
+# templates/default.yaml
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+vmType: vz
+vz:
+  rosetta: false  # disable if not needed
+
+mounts:
+  - location: "~"
+    writable: true
+  - location: "/tmp/lima"
+    writable: true
+
+provision:
+  - mode: system
+    script: "#!/bin/sh\nsudo apt update && sudo apt install -y qemu-guest-agent"
+
+containerd:
+  system: true
+  user: false

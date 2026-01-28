@@ -13,16 +13,20 @@ cleanup:
     rm -rf dist
     rm -rf resources/darwin/lima
     rm -rf resources/darwin/_output
+    rm -f resources/darwin/alpine-lima-*.iso
     rm -rf ~/.lima
     rm -rf ~/Library/Application\ Support/rancher-desktop
     rm -rf ~/Library/Application\ Support/sulla-desktop
     rm -rf ~/Library/Caches/lima
-    @echo "Cleanup complete. Run 'yarn install' for a fresh install."
+    @echo "Cleanup complete. Run 'just build' for a fresh install."
 
 # Install dependencies and build the application for production
 build:
     yarn install
+    yarn run postinstall
     yarn build
+
+rebuild: cleanup build
 
 # Start the development server (runs in foreground)
 start:

@@ -535,7 +535,9 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
   }
 
   protected get baseDiskImage() {
-    const imageName = `alpine-lima-v${ IMAGE_VERSION }-${ ALPINE_EDITION }-${ ALPINE_VERSION }.iso`;
+    // Auto-detect arm64 architecture for ISO filename
+    const arch = os.arch() === 'arm64' ? 'aarch64' : 'x86_64';
+    const imageName = `alpine-lima-v${ IMAGE_VERSION }-${ ALPINE_EDITION }-${ ALPINE_VERSION }-${ arch }.iso`;
 
     return path.join(paths.resources, os.platform(), imageName);
   }

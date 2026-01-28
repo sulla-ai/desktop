@@ -30,11 +30,13 @@ export class Lima extends GlobalDependency(GitHubDependency) {
   async download(context: DownloadContext): Promise<void> {
     const baseUrl = `https://github.com/${ this.githubOwner }/${ this.githubRepo }/releases/download`;
     let platform: string = context.platform;
+    // Auto-detect arm64 architecture instead of relying on M1 env var
+    const isArm64 = process.env.M1 || os.arch() === 'arm64';
 
     if (platform === 'darwin') {
-      platform = `macos-15.${ process.env.M1 ? 'arm64' : 'amd64' }`;
+      platform = `macos-15.${ isArm64 ? 'arm64' : 'amd64' }`;
     } else {
-      platform = `linux.${ process.env.M1 ? 'arm64' : 'amd64' }`;
+      platform = `linux.${ isArm64 ? 'arm64' : 'amd64' }`;
     }
 
     const url = `${ baseUrl }/v${ context.versions.lima }/lima.${ platform }.tar.gz`;
@@ -70,13 +72,16 @@ export class Qemu extends GlobalDependency(GitHubDependency) {
   readonly githubRepo = 'rancher-desktop-qemu';
 
   async download(context: DownloadContext): Promise<void> {
+    // Auto-detect arm64 architecture instead of relying on M1 env var
+    const isArm64 = process.env.M1 || os.arch() === 'arm64';
+
     // TODO: we don't have an arm64 version of QEMU for Linux yet.
-    if (context.platform === 'linux' && context.isM1) {
+    if (context.platform === 'linux' && isArm64) {
       return;
     }
 
     const baseUrl = `https://github.com/${ this.githubOwner }/${ this.githubRepo }/releases/download`;
-    const arch = context.isM1 ? 'aarch64' : 'x86_64';
+    const arch = isArm64 ? 'aarch64' : 'x86_64';
 
     const url = `${ baseUrl }/v${ context.versions.qemu }/qemu-${ context.versions.qemu }-${ context.platform }-${ arch }.tar.gz`;
     const expectedChecksum = (await getResource(`${ url }.sha512sum`)).split(/\s+/)[0];
@@ -98,7 +103,9 @@ export class SocketVMNet extends GlobalDependency(GitHubDependency) {
   readonly githubRepo = 'socket_vmnet';
 
   async download(context: DownloadContext): Promise<void> {
-    const arch = context.isM1 ? 'arm64' : 'x86_64';
+    // Auto-detect arm64 architecture instead of relying on M1 env var
+    const isArm64 = process.env.M1 || os.arch() === 'arm64';
+    const arch = isArm64 ? 'arm64' : 'x86_64';
     const baseURL = `https://github.com/${ this.githubOwner }/${ this.githubRepo }/releases/download/v${ context.versions.socketVMNet }`;
     const archiveName = `socket_vmnet-${ context.versions.socketVMNet }-${ arch }.tar.gz`;
     const expectedChecksum = await findChecksum(`${ baseURL }/SHA256SUMS`, archiveName);
@@ -117,13 +124,15 @@ export class AlpineLimaISO extends GlobalDependency(GitHubDependency) {
 
   async download(context: DownloadContext): Promise<void> {
     const baseUrl = `https://github.com/${ this.githubOwner }/${ this.githubRepo }/releases/download`;
-    const edition = 'rd';
+    // Auto-detect arm64 architecture instead of relying on M1 env var
+    const isArm64 = process.env.M1 || os.arch() === 'arm64';
+    const arch = isArm64 ? 'aarch64' : 'x86_64';
     const version = context.versions.alpineLimaISO;
-    const arch = process.env.M1 ? 'aarch64' : 'x86_64';
+    const edition = 'rd';
 
     const isoName = `alpine-lima-${ edition }-${ version.alpineVersion }-${ arch }.iso`;
     const url = `${ baseUrl }/v${ version.isoVersion }/${ isoName }`;
-    const destPath = path.join(process.cwd(), 'resources', os.platform(), `alpine-lima-v${ version.isoVersion }-${ edition }-${ version.alpineVersion }.iso`);
+    const destPath = path.join(process.cwd(), 'resources', os.platform(), `alpine-lima-v${ version.isoVersion }-${ edition }-${ version.alpineVersion }-${ arch }.iso`);
     const expectedChecksum = (await getResource(`${ url }.sha512sum`)).split(/\s+/)[0];
 
     await download(url, destPath, {
