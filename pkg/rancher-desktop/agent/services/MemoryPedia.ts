@@ -2,11 +2,10 @@
 // Stores conversation summaries and wikipedia-style entity pages
 // Uses LangGraph-style processing for extraction refinement
 
-import { ChatOllama } from '@langchain/ollama';
-import { HumanMessage } from '@langchain/core/messages';
 import { MemoryGraph, MemoryProcessingState } from './MemoryGraph';
-import { getOllamaModel, getOllamaBase } from './ConfigService';
 import { getChromaService } from './ChromaService';
+import type { ILLMService } from './ILLMService';
+import { getLLMService, getCurrentMode } from './LLMServiceFactory';
 
 // Collection names
 const COLLECTIONS = {
@@ -51,7 +50,7 @@ export function getMemoryPedia(): MemoryPedia {
 }
 
 export class MemoryPedia {
-  private llm: ChatOllama | null = null;
+  private llmService: ILLMService | null = null;
   private memoryGraph: MemoryGraph | null = null;
   private initialized = false;
   private processingQueue: Array<{ threadId: string; messages: Array<{ role: string; content: string }> }> = [];
@@ -65,13 +64,13 @@ export class MemoryPedia {
 
     console.log('[MemoryPedia] Initializing...');
 
-    // Initialize LLM with configured model
+    // Initialize LLM service (local or remote)
     try {
-      this.llm = new ChatOllama({
-        baseUrl: getOllamaBase(),
-        model:   getOllamaModel(),
-      });
-      console.log(`[MemoryPedia] LLM initialized with model: ${getOllamaModel()}`);
+      this.llmService = getLLMService();
+      await this.llmService.initialize();
+      const mode = getCurrentMode();
+
+      console.log(`[MemoryPedia] LLM initialized: mode=${mode}, model=${this.llmService.getModel()}`);
     } catch (err) {
       console.warn('[MemoryPedia] LLM init failed:', err);
     }
@@ -293,7 +292,7 @@ export class MemoryPedia {
     conversationText: string,
     threadId: string,
   ): Promise<ConversationSummary | null> {
-    if (!this.llm) {
+    if (!this.llmService) {
       return null;
     }
 
@@ -310,8 +309,7 @@ Respond in JSON only:
 }`;
 
     try {
-      const response = await this.llm.invoke([new HumanMessage(prompt)]);
-      const content = typeof response.content === 'string' ? response.content : '';
+      const content = await this.llmService.generate(prompt) || '';
 
       // Extract JSON from response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -340,7 +338,7 @@ Respond in JSON only:
    * Use LLM to extract entities that should become pages
    */
   private async extractEntities(conversationText: string): Promise<ExtractedEntities | null> {
-    if (!this.llm) {
+    if (!this.llmService) {
       return null;
     }
 
@@ -382,8 +380,7 @@ Respond in JSON only. Only include entities worth remembering (not generic terms
 If nothing notable to extract, respond: { "entities": [], "topics": [] }`;
 
     try {
-      const response = await this.llm.invoke([new HumanMessage(prompt)]);
-      const content = typeof response.content === 'string' ? response.content : '';
+      const content = await this.llmService.generate(prompt) || '';
 
       const jsonMatch = content.match(/\{[\s\S]*\}/);
 
@@ -516,7 +513,7 @@ If nothing notable to extract, respond: { "entities": [], "topics": [] }`;
   }
 
   private async mergePageContent(existing: string, newInfo: string): Promise<string> {
-    if (!this.llm) {
+    if (!this.llmService) {
       return `${existing}\n\nUpdate: ${newInfo}`;
     }
 
@@ -531,9 +528,9 @@ ${newInfo}
 Respond with the merged content only (no JSON, no explanation):`;
 
     try {
-      const response = await this.llm.invoke([new HumanMessage(prompt)]);
+      const content = await this.llmService.generate(prompt);
 
-      return typeof response.content === 'string' ? response.content : existing;
+      return content || existing;
     } catch {
       return `${existing}\n\nUpdate: ${newInfo}`;
     }

@@ -1,14 +1,9 @@
 // OllamaService - Centralized Ollama API client
 // Handles all Ollama operations with consistent error handling
+// Implements ILLMService for interchangeable use with RemoteModelService
 
 import { getOllamaModel, getOllamaBase } from './ConfigService';
-
-interface GenerateOptions {
-  stream?: boolean;
-  timeout?: number;
-  temperature?: number;
-  system?: string;
-}
+import type { ILLMService, ChatMessage, GenerateOptions, ChatOptions } from './ILLMService';
 
 interface GenerateResponse {
   response: string;
@@ -16,17 +11,6 @@ interface GenerateResponse {
   done: boolean;
   total_duration?: number;
   eval_count?: number;
-}
-
-interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-interface ChatOptions {
-  stream?: boolean;
-  timeout?: number;
-  temperature?: number;
 }
 
 interface ChatResponse {
@@ -44,7 +28,7 @@ interface ModelInfo {
   modified_at: string;
 }
 
-class OllamaServiceClass {
+class OllamaServiceClass implements ILLMService {
   private available = false;
   private initialized = false;
   private availableModels: string[] = [];

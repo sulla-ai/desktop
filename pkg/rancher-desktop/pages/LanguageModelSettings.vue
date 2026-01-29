@@ -55,6 +55,58 @@ interface InstalledModel {
   digest: string;
 }
 
+// Remote API providers
+const REMOTE_PROVIDERS = [
+  {
+    id:          'grok',
+    name:        'Grok (xAI)',
+    description: 'xAI\'s Grok models - fast, witty, and capable',
+    baseUrl:     'https://api.x.ai/v1',
+    models:      [
+      { id: 'grok-4-1-fast-reasoning', name: 'Grok 4.1 Fast Reasoning', description: '2M context, best for reasoning tasks', pricing: '$0.20/$0.50' },
+      { id: 'grok-4-1-fast-non-reasoning', name: 'Grok 4.1 Fast', description: '2M context, fast general purpose', pricing: '$0.20/$0.50' },
+      { id: 'grok-code-fast-1', name: 'Grok Code Fast', description: '256K context, optimized for code', pricing: '$0.20/$1.50' },
+      { id: 'grok-4-fast-reasoning', name: 'Grok 4 Fast Reasoning', description: '2M context, reasoning tasks', pricing: '$0.20/$0.50' },
+      { id: 'grok-4-fast-non-reasoning', name: 'Grok 4 Fast', description: '2M context, fast general purpose', pricing: '$0.20/$0.50' },
+      { id: 'grok-4-0709', name: 'Grok 4', description: '256K context, flagship model', pricing: '$3.00/$15.00' },
+      { id: 'grok-3-mini', name: 'Grok 3 Mini', description: '131K context, fast and affordable', pricing: '$0.30/$0.50' },
+      { id: 'grok-3', name: 'Grok 3', description: '131K context, previous flagship', pricing: '$3.00/$15.00' },
+    ],
+  },
+  {
+    id:          'openai',
+    name:        'OpenAI',
+    description: 'GPT-4, GPT-3.5, and other OpenAI models',
+    baseUrl:     'https://api.openai.com/v1',
+    models:      [
+      { id: 'gpt-4o', name: 'GPT-4o', description: 'Most capable multimodal model' },
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Fast and affordable' },
+      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', description: 'High capability with vision' },
+    ],
+  },
+  {
+    id:          'anthropic',
+    name:        'Anthropic',
+    description: 'Claude models - safe, helpful, and honest',
+    baseUrl:     'https://api.anthropic.com/v1',
+    models:      [
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', description: 'Best balance of speed and capability' },
+      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', description: 'Most capable Claude model' },
+      { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', description: 'Fastest Claude model' },
+    ],
+  },
+  {
+    id:          'google',
+    name:        'Google AI',
+    description: 'Gemini models from Google',
+    baseUrl:     'https://generativelanguage.googleapis.com/v1beta',
+    models:      [
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', description: 'Most capable Gemini model' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', description: 'Fast and efficient' },
+    ],
+  },
+];
+
 export default defineComponent({
   name: 'language-model-settings',
 
@@ -62,15 +114,26 @@ export default defineComponent({
     return {
       currentNav:       'models' as string,
       navItems,
-      // Models tab - mode selection
-      modelMode:        'local' as 'local' | 'remote',
-      activeModel:      'tinyllama:latest', // The currently saved/active model
-      pendingModel:     'tinyllama:latest', // The model selected in dropdown (may differ from active)
-      // Models tab - installed models
+      // Which tab is being viewed (local or remote)
+      viewingTab:       'local' as 'local' | 'remote',
+      // Which mode is currently active (saved in settings)
+      activeMode:       'local' as 'local' | 'remote',
+      // Local model settings
+      activeModel:      'tinyllama:latest', // The currently saved/active local model
+      pendingModel:     'tinyllama:latest', // The model selected in dropdown
       installedModels:  [] as InstalledModel[],
       loadingModels:    false,
       downloadingModel: null as string | null,
       downloadProgress: 0,
+      // Remote model settings
+      remoteProviders:      REMOTE_PROVIDERS,
+      selectedProvider:     'grok',
+      selectedRemoteModel:  'grok-4-1-fast-reasoning',
+      apiKey:               '',
+      apiKeyVisible:        false,
+      // Activation state
+      activating:           false,
+      activationError:      '' as string,
     };
   },
 
@@ -98,14 +161,46 @@ export default defineComponent({
         formattedSize: this.formatBytes(model.size),
       }));
     },
+    currentProvider(): typeof REMOTE_PROVIDERS[0] | undefined {
+      return this.remoteProviders.find(p => p.id === this.selectedProvider);
+    },
+    currentProviderModels(): Array<{ id: string; name: string; description: string; pricing?: string }> {
+      return this.currentProvider?.models || [];
+    },
+    selectedRemoteModelDescription(): string {
+      const model = this.currentProviderModels.find(m => m.id === this.selectedRemoteModel);
+
+      return model?.description || '';
+    },
   },
 
   async mounted() {
     // Load saved settings
-    ipcRenderer.on('settings-read', (_event: unknown, settings: { experimental?: { sullaModel?: string } }) => {
+    ipcRenderer.on('settings-read', (_event: unknown, settings: {
+      experimental?: {
+        sullaModel?: string;
+        modelMode?: 'local' | 'remote';
+        remoteProvider?: string;
+        remoteModel?: string;
+        remoteApiKey?: string;
+      };
+    }) => {
       if (settings.experimental?.sullaModel) {
         this.activeModel = settings.experimental.sullaModel;
         this.pendingModel = settings.experimental.sullaModel;
+      }
+      if (settings.experimental?.modelMode) {
+        this.activeMode = settings.experimental.modelMode;
+        this.viewingTab = settings.experimental.modelMode;
+      }
+      if (settings.experimental?.remoteProvider) {
+        this.selectedProvider = settings.experimental.remoteProvider;
+      }
+      if (settings.experimental?.remoteModel) {
+        this.selectedRemoteModel = settings.experimental.remoteModel;
+      }
+      if (settings.experimental?.remoteApiKey) {
+        this.apiKey = settings.experimental.remoteApiKey;
       }
     });
     ipcRenderer.send('settings-read');
@@ -226,6 +321,126 @@ export default defineComponent({
       }
     },
 
+    // Remote model methods
+    onProviderChange() {
+      // Reset to first model of new provider
+      const provider = this.remoteProviders.find(p => p.id === this.selectedProvider);
+
+      if (provider && provider.models.length > 0) {
+        this.selectedRemoteModel = provider.models[0].id;
+      }
+    },
+
+    async activateLocalModel() {
+      this.activating = true;
+      this.activationError = '';
+
+      try {
+        // Check if Ollama is running
+        const ollamaRes = await fetch('http://127.0.0.1:30114/api/tags', {
+          signal: AbortSignal.timeout(5000),
+        });
+
+        if (!ollamaRes.ok) {
+          this.activationError = 'Cannot connect to Ollama. Make sure the service is running.';
+
+          return;
+        }
+
+        // Check if selected model is installed
+        if (!this.isPendingModelInstalled) {
+          this.activationError = `Model "${this.pendingModel}" is not installed. Please download it first.`;
+
+          return;
+        }
+
+        // Save settings
+        await ipcRenderer.invoke('settings-write', {
+          experimental: {
+            modelMode:  'local',
+            sullaModel: this.pendingModel,
+          },
+        });
+
+        this.activeMode = 'local';
+        this.activeModel = this.pendingModel;
+        console.log(`[LM Settings] Local model activated: ${this.pendingModel}`);
+      } catch (err) {
+        this.activationError = 'Failed to connect to Ollama. Is the service running?';
+        console.error('Failed to activate local model:', err);
+      } finally {
+        this.activating = false;
+      }
+    },
+
+    async activateRemoteModel() {
+      this.activating = true;
+      this.activationError = '';
+
+      try {
+        // Validate API key
+        if (!this.apiKey.trim()) {
+          this.activationError = 'Please enter an API key.';
+
+          return;
+        }
+
+        // Test connection to remote API
+        const provider = this.currentProvider;
+
+        if (!provider) {
+          this.activationError = 'Invalid provider selected.';
+
+          return;
+        }
+
+        // Try a simple API call to validate the key
+        const testUrl = provider.id === 'grok' || provider.id === 'openai'
+          ? `${provider.baseUrl}/models`
+          : null;
+
+        if (testUrl) {
+          try {
+            const testRes = await fetch(testUrl, {
+              headers: { Authorization: `Bearer ${this.apiKey}` },
+              signal:  AbortSignal.timeout(10000),
+            });
+
+            if (!testRes.ok) {
+              const errorText = await testRes.text();
+
+              this.activationError = `API key validation failed: ${testRes.status}. Check your API key.`;
+              console.error('API validation error:', errorText);
+
+              return;
+            }
+          } catch {
+            this.activationError = 'Could not connect to API. Check your internet connection and API key.';
+
+            return;
+          }
+        }
+
+        // Save settings
+        await ipcRenderer.invoke('settings-write', {
+          experimental: {
+            modelMode:      'remote',
+            remoteProvider: this.selectedProvider,
+            remoteModel:    this.selectedRemoteModel,
+            remoteApiKey:   this.apiKey,
+          },
+        });
+
+        this.activeMode = 'remote';
+        console.log(`[LM Settings] Remote model activated: ${this.selectedProvider}/${this.selectedRemoteModel}`);
+      } catch (err) {
+        this.activationError = 'Failed to save remote settings.';
+        console.error('Failed to activate remote model:', err);
+      } finally {
+        this.activating = false;
+      }
+    },
+
     async deleteModel(modelName: string) {
       if (!confirm(`Delete model "${ modelName }"?`)) {
         return;
@@ -247,7 +462,7 @@ export default defineComponent({
     },
 
     closeWindow() {
-      ipcRenderer.send('preferences-close');
+      window.close();
     },
   },
 });
@@ -282,40 +497,57 @@ export default defineComponent({
           v-if="currentNav === 'models'"
           class="tab-content"
         >
-          <!-- Model Mode Selection -->
-          <div class="setting-group">
-            <label class="setting-label">Model Source</label>
-            <div class="radio-group">
-              <label class="radio-option">
-                <input
-                  v-model="modelMode"
-                  type="radio"
-                  value="local"
-                >
-                <span>Local Model (Ollama)</span>
-              </label>
-              <label class="radio-option">
-                <input
-                  v-model="modelMode"
-                  type="radio"
-                  value="remote"
-                >
-                <span>Remote Model</span>
-              </label>
-            </div>
+          <!-- Active Mode Indicator -->
+          <div class="active-mode-banner">
+            <span class="active-label">Active:</span>
+            <span class="active-value">
+              {{ activeMode === 'local' ? `Local (${activeModel})` : `Remote (${selectedProvider}/${selectedRemoteModel})` }}
+            </span>
+          </div>
+
+          <!-- Model Source Tabs -->
+          <div class="model-tabs">
+            <button
+              class="model-tab"
+              :class="{ active: viewingTab === 'local' }"
+              @click="viewingTab = 'local'; activationError = ''"
+            >
+              Local Model (Ollama)
+            </button>
+            <button
+              class="model-tab"
+              :class="{ active: viewingTab === 'remote' }"
+              @click="viewingTab = 'remote'; activationError = ''"
+            >
+              Remote Model (API)
+            </button>
+          </div>
+
+          <!-- Activation Error -->
+          <div
+            v-if="activationError"
+            class="activation-error"
+          >
+            {{ activationError }}
           </div>
 
           <!-- Local Model Settings (Ollama) -->
-          <template v-if="modelMode === 'local'">
+          <template v-if="viewingTab === 'local'">
+            <!-- Activate Button -->
+            <div class="activate-section">
+              <button
+                class="btn role-primary activate-btn"
+                :class="{ 'is-active': activeMode === 'local' }"
+                :disabled="activating || activeMode === 'local'"
+                @click="activateLocalModel"
+              >
+                {{ activating ? 'Activating...' : (activeMode === 'local' ? '✓ Active' : 'Activate Local Model') }}
+              </button>
+            </div>
+
             <!-- Model Selection -->
             <div class="setting-group">
-              <label class="setting-label">Active Model</label>
-              <p
-                v-if="activeModel"
-                class="current-model"
-              >
-                Currently using: <strong>{{ activeModel }}</strong>
-              </p>
+              <label class="setting-label">Select Model</label>
               <select
                 v-model="pendingModel"
                 class="model-select"
@@ -376,23 +608,86 @@ export default defineComponent({
                 <p class="model-status installed">
                   ✓ Model is installed and ready to use.
                 </p>
-                <button
-                  v-if="isPendingDifferentFromActive"
-                  class="btn role-primary"
-                  @click="activateModel"
-                >
-                  Use This Model
-                </button>
               </div>
             </div>
 
           </template>
 
           <!-- Remote Model Settings -->
-          <template v-if="modelMode === 'remote'">
+          <template v-if="viewingTab === 'remote'">
+            <!-- Activate Button -->
+            <div class="activate-section">
+              <button
+                class="btn role-primary activate-btn"
+                :class="{ 'is-active': activeMode === 'remote' }"
+                :disabled="activating || activeMode === 'remote'"
+                @click="activateRemoteModel"
+              >
+                {{ activating ? 'Activating...' : (activeMode === 'remote' ? '✓ Active' : 'Activate Remote Model') }}
+              </button>
+            </div>
+
+            <!-- Provider Selection -->
             <div class="setting-group">
+              <label class="setting-label">API Provider</label>
+              <select
+                v-model="selectedProvider"
+                class="model-select"
+                @change="onProviderChange"
+              >
+                <option
+                  v-for="provider in remoteProviders"
+                  :key="provider.id"
+                  :value="provider.id"
+                >
+                  {{ provider.name }}
+                </option>
+              </select>
               <p class="setting-description">
-                Remote model configuration coming soon. This will allow you to connect to external LLM APIs.
+                {{ currentProvider?.description }}
+              </p>
+            </div>
+
+            <!-- Model Selection -->
+            <div class="setting-group">
+              <label class="setting-label">Model</label>
+              <select
+                v-model="selectedRemoteModel"
+                class="model-select"
+              >
+                <option
+                  v-for="model in currentProviderModels"
+                  :key="model.id"
+                  :value="model.id"
+                >
+                  {{ model.name }}{{ model.pricing ? ` - ${model.pricing}` : '' }}
+                </option>
+              </select>
+              <p class="setting-description">
+                {{ selectedRemoteModelDescription }}
+              </p>
+            </div>
+
+            <!-- API Key -->
+            <div class="setting-group">
+              <label class="setting-label">API Key</label>
+              <div class="api-key-input">
+                <input
+                  v-model="apiKey"
+                  :type="apiKeyVisible ? 'text' : 'password'"
+                  class="text-input"
+                  placeholder="Enter your API key"
+                >
+                <button
+                  class="btn btn-sm role-secondary"
+                  type="button"
+                  @click="apiKeyVisible = !apiKeyVisible"
+                >
+                  {{ apiKeyVisible ? 'Hide' : 'Show' }}
+                </button>
+              </div>
+              <p class="setting-description">
+                Get your API key from the {{ currentProvider?.name }} dashboard.
               </p>
             </div>
           </template>
@@ -470,6 +765,80 @@ export default defineComponent({
   flex: 1;
   padding: 1.5rem;
   overflow: auto;
+}
+
+.active-mode-banner {
+  background: var(--primary-bg, rgba(59, 130, 246, 0.1));
+  border: 1px solid var(--primary, #3b82f6);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  .active-label {
+    font-weight: 600;
+    color: var(--primary, #3b82f6);
+  }
+
+  .active-value {
+    color: var(--body-text);
+  }
+}
+
+.model-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--input-border);
+}
+
+.model-tab {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--muted);
+  transition: all 0.2s;
+
+  &:hover {
+    color: var(--body-text);
+    background: var(--nav-active);
+  }
+
+  &.active {
+    color: var(--primary, #3b82f6);
+    border-bottom-color: var(--primary, #3b82f6);
+    font-weight: 500;
+  }
+}
+
+.activate-section {
+  margin-bottom: 1.5rem;
+}
+
+.activate-btn {
+  min-width: 200px;
+
+  &.is-active {
+    background: var(--success, #22c55e);
+    border-color: var(--success, #22c55e);
+    cursor: default;
+  }
+}
+
+.activation-error {
+  background: var(--error-bg, rgba(239, 68, 68, 0.1));
+  border: 1px solid var(--error, #ef4444);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  color: var(--error, #ef4444);
+  font-size: 0.9rem;
 }
 
 .tab-content {
@@ -554,6 +923,31 @@ export default defineComponent({
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+}
+
+.text-input {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--input-text);
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+}
+
+.api-key-input {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 500px;
+
+  .text-input {
+    flex: 1;
   }
 }
 

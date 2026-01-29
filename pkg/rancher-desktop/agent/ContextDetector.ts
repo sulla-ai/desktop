@@ -4,7 +4,7 @@
 
 import type { SensoryInput, ThreadContext } from './types';
 import { getMemoryPedia } from './services/MemoryPedia';
-import { getOllamaService } from './services/OllamaService';
+import { getLLMService } from './services/LLMServiceFactory';
 
 // Minimum similarity score to consider a thread match (0-1, lower = more similar in Chroma)
 const SIMILARITY_THRESHOLD = 0.7;
@@ -185,10 +185,10 @@ export class ContextDetector {
    */
   private async generateSummary(text: string): Promise<string> {
     try {
-      const ollama = getOllamaService();
-      const response = await ollama.generate(
+      const llm = getLLMService();
+      const response = await llm.generate(
         `Summarize this in 5 words or less: "${ text.substring(0, 200) }"`,
-        { timeout: 5000 },
+        { timeout: 30000 }, // 30s for remote APIs
       );
 
       if (response) {

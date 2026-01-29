@@ -110,7 +110,7 @@ import {
   getThread,
   getResponseHandler,
 } from '@pkg/agent';
-import { updateAgentConfig } from '@pkg/agent/services/ConfigService';
+import { updateAgentConfig, updateAgentConfigFull } from '@pkg/agent/services/ConfigService';
 
 const query = ref('');
 const response = ref('');
@@ -136,6 +136,9 @@ const modelName = ref('');
 const modelDownloadProgress = ref(0);
 const modelDownloadTotal = ref(0);
 const modelDownloadStatus = ref('');
+
+// Model mode (local vs remote)
+const modelMode = ref<'local' | 'remote'>('local');
 
 // Ollama memory error recovery
 const ollamaRestarting = ref(false);
@@ -331,18 +334,23 @@ const startReadinessCheck = () => {
       return;
     }
 
-    // Phase 3: Check for model and pull if needed
-    const targetModel = modelName.value || 'tinyllama:latest';
-    updateStartupStatus('model', `Checking for AI model (${targetModel})...`);
-    const hasModel = await checkOllamaModel(targetModel);
+    // Phase 3: Check for model and pull if needed (only for local mode)
+    if (modelMode.value === 'local') {
+      const targetModel = modelName.value || 'tinyllama:latest';
+      updateStartupStatus('model', `Checking for AI model (${targetModel})...`);
+      const hasModel = await checkOllamaModel(targetModel);
 
-    if (!hasModel) {
-      if (!modelDownloading.value) {
-        // Start the model download
-        updateStartupStatus('model', `Downloading ${targetModel}...`);
-        pullModelWithProgress(targetModel);
+      if (!hasModel) {
+        if (!modelDownloading.value) {
+          // Start the model download
+          updateStartupStatus('model', `Downloading ${targetModel}...`);
+          pullModelWithProgress(targetModel);
+        }
+        return;
       }
-      return;
+    } else {
+      // Remote mode - skip Ollama model check
+      updateStartupStatus('model', `Using remote model: ${modelName.value}`);
     }
 
     // All ready!
@@ -372,13 +380,43 @@ onMounted(async () => {
   ipcRenderer.on('k8s-progress', handleProgress);
 
   // Load settings and update agent config with selected model
-  const handleSettingsRead = (_event: unknown, settings: { experimental?: { sullaModel?: string } }) => {
-    if (settings.experimental?.sullaModel) {
-      modelName.value = settings.experimental.sullaModel;
-      updateAgentConfig(settings.experimental.sullaModel);
-      console.log(`[Agent] Model configured: ${settings.experimental.sullaModel}`);
+  const handleSettingsRead = (_event: unknown, settings: {
+    experimental?: {
+      sullaModel?: string;
+      modelMode?: 'local' | 'remote';
+      remoteProvider?: string;
+      remoteModel?: string;
+      remoteApiKey?: string;
+    };
+  }) => {
+    const exp = settings.experimental;
+
+    if (exp) {
+      // Update full config including remote settings
+      updateAgentConfigFull({
+        sullaModel:     exp.sullaModel,
+        modelMode:      exp.modelMode,
+        remoteProvider: exp.remoteProvider,
+        remoteModel:    exp.remoteModel,
+        remoteApiKey:   exp.remoteApiKey,
+      });
+
+      // Track model mode
+      modelMode.value = exp.modelMode || 'local';
+
+      // Update display model name based on mode
+      if (exp.modelMode === 'remote' && exp.remoteModel) {
+        modelName.value = exp.remoteModel;
+        console.log(`[Agent] Remote model configured: ${exp.remoteProvider}/${exp.remoteModel}`);
+      } else if (exp.sullaModel) {
+        modelName.value = exp.sullaModel;
+        console.log(`[Agent] Local model configured: ${exp.sullaModel}`);
+      } else {
+        modelName.value = 'tinyllama:latest';
+      }
     } else {
       modelName.value = 'tinyllama:latest';
+      modelMode.value = 'local';
     }
   };
   ipcRenderer.on('settings-read', handleSettingsRead);

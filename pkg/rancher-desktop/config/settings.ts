@@ -135,6 +135,14 @@ export const defaultSettings = {
     kubernetes:      { options: { spinkube: false } },
     /** Selected Ollama model for Sulla AI */
     sullaModel:      'tinyllama:latest',
+    /** Model mode: local (Ollama) or remote (API) */
+    modelMode:       'local' as 'local' | 'remote',
+    /** Remote API provider (grok, openai, anthropic, google) */
+    remoteProvider:  'grok',
+    /** Remote model ID */
+    remoteModel:     'grok-4-1-fast-reasoning',
+    /** Remote API key */
+    remoteApiKey:    '',
     virtualMachine:  {
       diskSize: '100GiB',
       mount:    {

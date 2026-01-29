@@ -1,9 +1,8 @@
 // MemoryGraph - LangGraph-style processing for MemoryPedia
 // Nodes: Planner → Extractor → Critic → Refiner → Consolidator
 
-import { ChatOllama } from '@langchain/ollama';
-import { HumanMessage } from '@langchain/core/messages';
-import { getOllamaModel, getOllamaBase } from './ConfigService';
+import type { ILLMService } from './ILLMService';
+import { getLLMService, getCurrentMode } from './LLMServiceFactory';
 
 // Processing state that flows through the graph
 export interface MemoryProcessingState {
@@ -88,23 +87,19 @@ interface NodeOutput {
 
 // Base class for memory graph nodes
 abstract class MemoryGraphNode {
-  protected llm: ChatOllama;
+  protected llmService: ILLMService;
   protected name: string;
 
   constructor(name: string) {
     this.name = name;
-    this.llm = new ChatOllama({
-      baseUrl: getOllamaBase(),
-      model:   getOllamaModel(),
-    });
+    this.llmService = getLLMService();
   }
 
   abstract execute(state: MemoryProcessingState): Promise<NodeOutput>;
 
   protected async promptJSON<T>(prompt: string): Promise<T | null> {
     try {
-      const response = await this.llm.invoke([new HumanMessage(prompt)]);
-      const content = typeof response.content === 'string' ? response.content : '';
+      const content = await this.llmService.generate(prompt) || '';
       const jsonMatch = content.match(/\{[\s\S]*\}/);
 
       if (!jsonMatch) {

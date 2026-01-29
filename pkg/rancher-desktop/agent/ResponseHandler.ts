@@ -3,7 +3,7 @@
 // Includes critique step for coherence refinement
 
 import type { AgentResponse } from './types';
-import { getOllamaService } from './services/OllamaService';
+import { getLLMService } from './services/LLMServiceFactory';
 
 export class ResponseHandler {
   /**
@@ -32,10 +32,10 @@ export class ResponseHandler {
     }
 
     try {
-      const ollama = getOllamaService();
-      const refined = await ollama.generate(
+      const llm = getLLMService();
+      const refined = await llm.generate(
         `Refine this response for clarity and coherence. Keep it concise. Only output the refined response, nothing else:\n\n${ response.content }`,
-        { timeout: 10000 },
+        { timeout: 30000 }, // 30s for remote APIs
       );
 
       if (refined && refined.length > 0) {

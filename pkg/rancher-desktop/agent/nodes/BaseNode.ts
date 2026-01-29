@@ -1,10 +1,9 @@
 // BaseNode - Abstract base class for all graph nodes
-// Uses LangChain's ChatOllama for LLM interactions
+// Uses LLMServiceFactory for LLM interactions (supports both local Ollama and remote APIs)
 
 import type { GraphNode, ThreadState, NodeResult } from '../types';
-import { ChatOllama } from '@langchain/ollama';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { getOllamaModel, getOllamaBase } from '../services/ConfigService';
+import type { ILLMService } from '../services/ILLMService';
+import { getLLMService, getCurrentMode } from '../services/LLMServiceFactory';
 import { getOllamaService } from '../services/OllamaService';
 
 export interface LLMOptions {
@@ -26,7 +25,7 @@ export abstract class BaseNode implements GraphNode {
   id: string;
   name: string;
   protected availableModel: string | null = null;
-  protected llm: ChatOllama | null = null;
+  protected llmService: ILLMService | null = null;
 
   constructor(id: string, name: string) {
     this.id = id;
@@ -37,117 +36,74 @@ export abstract class BaseNode implements GraphNode {
 
   async initialize(): Promise<void> {
     console.log(`[Agent:${this.name}] Initializing...`);
-    await this.detectModel();
-    console.log(`[Agent:${this.name}] Model: ${this.availableModel || 'none'}`);
 
-    if (this.availableModel) {
-      this.llm = new ChatOllama({
-        baseUrl:     getOllamaBase(),
-        model:       this.availableModel,
-        temperature: 0.7,
-      });
-      console.log(`[Agent:${this.name}] ChatOllama initialized`);
-    }
+    // Get the appropriate LLM service (local or remote)
+    this.llmService = getLLMService();
+    await this.llmService.initialize();
+
+    this.availableModel = this.llmService.getModel();
+    const mode = getCurrentMode();
+
+    console.log(`[Agent:${this.name}] Mode: ${mode}, Model: ${this.availableModel || 'none'}`);
   }
 
   async destroy(): Promise<void> {
-    this.llm = null;
+    this.llmService = null;
   }
 
   /**
-   * Detect available Ollama model - uses configured model from settings
-   * Will attempt to pull the model if not available
-   */
-  protected async detectModel(): Promise<string | null> {
-    const configuredModel = getOllamaModel();
-    const ollama = getOllamaService();
-
-    try {
-      await ollama.initialize();
-      const modelNames = ollama.getAvailableModels();
-
-      // Check if configured model is available
-      if (modelNames.includes(configuredModel)) {
-        this.availableModel = configuredModel;
-        console.log(`[Agent:${this.name}] Using configured model: ${configuredModel}`);
-
-        return this.availableModel;
-      }
-
-      // Model not found - try to pull it
-      console.log(`[Agent:${this.name}] Model ${configuredModel} not found, attempting to pull...`);
-      const pulled = await ollama.pullModel(configuredModel);
-
-      if (pulled) {
-        this.availableModel = configuredModel;
-
-        return this.availableModel;
-      }
-
-      // Fallback to first available model if pull failed
-      if (modelNames.length > 0) {
-        this.availableModel = modelNames[0];
-        console.log(`[Agent:${this.name}] Pull failed, using fallback: ${this.availableModel}`);
-
-        return this.availableModel;
-      }
-    } catch {
-      // Model detection failed
-    }
-
-    return null;
-  }
-
-  /**
-   * Pull a model from Ollama
+   * Pull a model from Ollama (only works for local mode)
    */
   protected async pullModel(modelName: string): Promise<boolean> {
+    if (getCurrentMode() !== 'local') {
+      console.warn(`[Agent:${this.name}] Cannot pull model in remote mode`);
+
+      return false;
+    }
+
     const ollama = getOllamaService();
 
     return ollama.pullModel(modelName);
   }
 
   /**
-   * Send a prompt to Ollama via LangChain ChatOllama
+   * Send a prompt to the LLM (works for both local and remote)
    */
   protected async prompt(prompt: string, options: LLMOptions = {}): Promise<LLMResponse | null> {
-    const model = options.model || this.availableModel;
+    if (!this.llmService) {
+      this.llmService = getLLMService();
+      await this.llmService.initialize();
+      this.availableModel = this.llmService.getModel();
+    }
 
-    if (!model) {
-      await this.detectModel();
-      if (!this.availableModel) {
-        console.warn(`[Agent:${this.name}] No model available for prompt`);
+    if (!this.llmService.isAvailable()) {
+      console.warn(`[Agent:${this.name}] LLM service not available`);
+
+      return null;
+    }
+
+    const model = this.availableModel || this.llmService.getModel();
+
+    console.log(`[Agent:${this.name}] Sending prompt (${prompt.length} chars) to ${model}`);
+
+    try {
+      const content = await this.llmService.generate(prompt, {
+        temperature: options.temperature ?? 0.7,
+        timeout:     options.timeout,
+      });
+
+      if (!content) {
+        console.warn(`[Agent:${this.name}] No response from LLM`);
 
         return null;
       }
-    }
-
-    console.log(`[Agent:${this.name}] Sending prompt (${prompt.length} chars) to ${model || this.availableModel}`);
-
-    try {
-      // Create or update LLM instance with options
-      const llm = new ChatOllama({
-        baseUrl:     getOllamaBase(),
-        model:       model || this.availableModel!,
-        temperature: options.temperature ?? 0.7,
-        numPredict:  options.maxTokens,
-        format:      options.format,
-      });
-
-      const response = await llm.invoke([new HumanMessage(prompt)]);
-
-      const content = typeof response.content === 'string'
-        ? response.content
-        : JSON.stringify(response.content);
 
       const result = {
         content,
-        model:        model || this.availableModel || '',
-        evalCount:    response.response_metadata?.eval_count as number | undefined,
-        evalDuration: response.response_metadata?.eval_duration as number | undefined,
+        model,
       };
 
-      console.log(`[Agent:${this.name}] Response received (${result.content.length} chars, ${result.evalCount || 0} tokens)`);
+      console.log(`[Agent:${this.name}] Response received (${result.content.length} chars)`);
 
       return result;
     } catch (err) {
