@@ -3,9 +3,7 @@
 
 import { ChatOllama } from '@langchain/ollama';
 import { HumanMessage } from '@langchain/core/messages';
-
-const OLLAMA_BASE = 'http://127.0.0.1:30114';
-const MODEL = 'tinyllama:latest';
+import { getOllamaModel, getOllamaBase } from './ConfigService';
 
 // Processing state that flows through the graph
 export interface MemoryProcessingState {
@@ -96,8 +94,8 @@ abstract class MemoryGraphNode {
   constructor(name: string) {
     this.name = name;
     this.llm = new ChatOllama({
-      baseUrl: OLLAMA_BASE,
-      model:   MODEL,
+      baseUrl: getOllamaBase(),
+      model:   getOllamaModel(),
     });
   }
 

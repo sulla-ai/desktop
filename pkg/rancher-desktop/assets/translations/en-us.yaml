@@ -4890,7 +4890,7 @@ troubleshooting:
         checkboxLabel: Keep cached Kubernetes images
         ok: Factory Reset
         cancel: Cancel
-  needHelp: 'Still having problems? Start a discussion in the <b>#rancher-desktop</b> channel on the <a href="https://slack.rancher.io/">Rancher Users Slack</a> or <a href="https://github.com/rancher-sandbox/rancher-desktop/issues">Report an Issue</a>.'
+  needHelp: 'Still having problems? Start a discussion in the <b>#sulla-desktop</b> channel on the <a href="https://github.com/sulla-ai/desktop/discussions">Rancher Users Slack</a> or <a href="https://github.com/rancher-sandbox/rancher-desktop/issues">Report an Issue</a>.'
 
 ##############################
 ### Diagnostics Page

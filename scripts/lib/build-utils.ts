@@ -130,7 +130,7 @@ export default {
       },
       entry:       { background: path.resolve(this.rootDir, 'background') },
       experiments: { outputModule: true },
-      externals:   [...Object.keys(this.packageMeta.dependencies)],
+      externals:   [...Object.keys(this.packageMeta.dependencies), 'pg-native'],
       devtool:     this.isDevelopment ? 'source-map' : false,
       resolve:     {
         alias:      { '@pkg': path.resolve(this.rootDir, 'pkg', 'rancher-desktop') },

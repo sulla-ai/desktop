@@ -3,63 +3,50 @@
     <h2 data-test="k8s-settings-header">
       Welcome to Sulla Desktop by Merchant Protocol
     </h2>
-    <rd-checkbox
-      label="Enable Kubernetes"
-      :value="hasVersions && settings.kubernetes.enabled"
-      :is-locked="kubernetesLocked"
-      :disabled="!hasVersions"
-      @update:value="handleDisableKubernetesCheckbox"
-    />
+    <p class="welcome-text">
+      Sulla Desktop provides a local AI assistant with Kubernetes-powered services
+      including local LLM models, persistent memory graph, and full integration with the client machine.
+    </p>
     <rd-fieldset
-      :legend-text="t('firstRun.kubernetesVersion.legend') + offlineCheck()"
+      v-if="hasSystemPreferences"
+      legend-text="Virtual Machine Resources"
+      legend-tooltip="Allocate CPU and memory for the AI services"
     >
-      <rd-select
-        v-model="settings.kubernetes.version"
-        :is-locked="kubernetesVersionLocked"
-        class="select-k8s-version"
-        @change="onChange"
-      >
-        <!--
-            - On macOS Chrome / Electron can't style the <option> elements.
-            - We do the best we can by instead using <optgroup> for a recommended section.
-            -->
-        <optgroup
-          v-if="recommendedVersions.length > 0"
-          label="Recommended Versions"
-        >
-          <option
-            v-for="item in recommendedVersions"
-            :key="item.version"
-            :value="item.version"
-            :selected="item.version === unwrappedDefaultVersion"
-          >
-            {{ versionName(item) }}
-          </option>
-        </optgroup>
-        <optgroup
-          v-if="nonRecommendedVersions.length > 0"
-          label="Other Versions"
-        >
-          <option
-            v-for="item in nonRecommendedVersions"
-            :key="item.version"
-            :value="item.version"
-            :selected="item.version === unwrappedDefaultVersion"
-          >
-            v{{ item.version }}
-          </option>
-        </optgroup>
-      </rd-select>
+      <system-preferences
+        :memory-in-g-b="settings.virtualMachine.memoryInGB"
+        :number-c-p-us="settings.virtualMachine.numberCPUs"
+        :avail-memory-in-g-b="availMemoryInGB"
+        :avail-num-c-p-us="availNumCPUs"
+        :reserved-memory-in-g-b="6"
+        :reserved-num-c-p-us="1"
+        :is-locked-memory="memoryLocked"
+        :is-locked-cpu="cpuLocked"
+        @update:memory="onMemoryChange"
+        @update:cpu="onCpuChange"
+      />
     </rd-fieldset>
     <rd-fieldset
-      :legend-text="t('containerEngine.label')"
-      :is-locked="engineSelectorLocked"
+      legend-text="AI Model"
+      legend-tooltip="Select the LLM model to use. Models are filtered based on your allocated resources."
     >
-      <engine-selector
-        :container-engine="settings.containerEngine.name"
-        :is-locked="engineSelectorLocked"
-        @change="onChangeEngine"
-      />
+      <select
+        v-model="selectedModel"
+        class="model-select"
+        @change="onModelChange"
+      >
+        <option
+          v-for="model in availableModels"
+          :key="model.name"
+          :value="model.name"
+          :disabled="!model.available"
+          :class="{ 'model-disabled': !model.available }"
+        >
+          {{ model.displayName }} ({{ model.size }}) {{ !model.available ? '- Requires more resources' : '' }}
+        </option>
+      </select>
+      <p class="model-description">
+        {{ selectedModelDescription }}
+      </p>
     </rd-fieldset>
     <rd-fieldset
       v-if="pathManagementRelevant"
@@ -81,7 +68,7 @@
         class="role-primary"
         @click="close"
       >
-        {{ t('firstRun.ok') }}
+        Get Started
       </button>
     </div>
   </div>
@@ -94,102 +81,151 @@ import _ from 'lodash';
 import { defineComponent } from 'vue';
 import { mapGetters } from 'vuex';
 
-import EngineSelector from '@pkg/components/EngineSelector.vue';
 import PathManagementSelector from '@pkg/components/PathManagementSelector.vue';
-import RdSelect from '@pkg/components/RdSelect.vue';
-import RdCheckbox from '@pkg/components/form/RdCheckbox.vue';
+import SystemPreferences from '@pkg/components/SystemPreferences.vue';
 import RdFieldset from '@pkg/components/form/RdFieldset.vue';
 import { defaultSettings } from '@pkg/config/settings';
-import type { ContainerEngine, Settings } from '@pkg/config/settings';
+import type { Settings } from '@pkg/config/settings';
 import { PathManagementStrategy } from '@pkg/integrations/pathManager';
 import { ipcRenderer } from '@pkg/utils/ipcRenderer';
 import { highestStableVersion, VersionEntry } from '@pkg/utils/kubeVersions';
 import { RecursivePartial } from '@pkg/utils/typeUtils';
 
+// Ollama models sorted by resource requirements (smallest to largest)
+const OLLAMA_MODELS = [
+  {
+    name: 'tinyllama:latest', displayName: 'TinyLlama', size: '637MB', minMemoryGB: 2, minCPUs: 2, description: 'Compact 1.1B model, fast responses, good for basic tasks',
+  },
+  {
+    name: 'phi3:mini', displayName: 'Phi-3 Mini', size: '2.2GB', minMemoryGB: 4, minCPUs: 2, description: 'Microsoft\'s efficient 3.8B model, great reasoning capabilities',
+  },
+  {
+    name: 'gemma:2b', displayName: 'Gemma 2B', size: '1.7GB', minMemoryGB: 4, minCPUs: 2, description: 'Google\'s lightweight model, good general performance',
+  },
+  {
+    name: 'llama3.2:1b', displayName: 'Llama 3.2 1B', size: '1.3GB', minMemoryGB: 4, minCPUs: 2, description: 'Meta\'s smallest Llama 3.2, efficient and capable',
+  },
+  {
+    name: 'llama3.2:3b', displayName: 'Llama 3.2 3B', size: '2.0GB', minMemoryGB: 4, minCPUs: 2, description: 'Meta\'s compact Llama 3.2, balanced performance',
+  },
+  {
+    name: 'mistral:7b', displayName: 'Mistral 7B', size: '4.1GB', minMemoryGB: 5, minCPUs: 2, description: 'Excellent 7B model, strong coding and reasoning',
+  },
+  {
+    name: 'llama3.1:8b', displayName: 'Llama 3.1 8B', size: '4.7GB', minMemoryGB: 6, minCPUs: 2, description: 'Meta\'s latest 8B model, excellent all-around performance',
+  },
+  {
+    name: 'gemma:7b', displayName: 'Gemma 7B', size: '5.0GB', minMemoryGB: 6, minCPUs: 2, description: 'Google\'s larger model, improved capabilities',
+  },
+  {
+    name: 'codellama:7b', displayName: 'Code Llama 7B', size: '3.8GB', minMemoryGB: 5, minCPUs: 2, description: 'Specialized for code generation and understanding',
+  },
+  {
+    name: 'llama3.1:70b', displayName: 'Llama 3.1 70B', size: '40GB', minMemoryGB: 48, minCPUs: 8, description: 'Meta\'s flagship model, state-of-the-art performance',
+  },
+  {
+    name: 'mixtral:8x7b', displayName: 'Mixtral 8x7B', size: '26GB', minMemoryGB: 32, minCPUs: 8, description: 'Mixture of experts, excellent quality and speed',
+  },
+  {
+    name: 'deepseek-coder:33b', displayName: 'DeepSeek Coder 33B', size: '19GB', minMemoryGB: 24, minCPUs: 6, description: 'Advanced coding model, excellent for development',
+  },
+];
+
 export default defineComponent({
   name:       'first-run-dialog',
   components: {
     RdFieldset,
-    RdCheckbox,
-    EngineSelector,
     PathManagementSelector,
-    RdSelect,
+    SystemPreferences,
   },
   layout: 'dialog',
   data() {
     return {
       settings:                     defaultSettings,
-      kubernetesLocked:             false,
-      kubernetesVersionLocked:      false,
-      engineSelectorLocked:         false,
       pathManagementSelectorLocked: false,
-      versions:                     [] as VersionEntry[],
-
-      // If cachedVersionsOnly is true, it means we're offline and showing only the versions in the cache,
-      // not all the versions listed in <cache>/rancher-desktop/k3s-versions.json
-      cachedVersionsOnly: false,
+      memoryLocked:                 false,
+      cpuLocked:                    false,
+      selectedModel:                'tinyllama:latest',
+      kubernetesVersion:            '',
     };
   },
   computed: {
     ...mapGetters('applicationSettings', { pathManagementStrategy: 'pathManagementStrategy' }),
-    /** The version that should be pre-selected as the default value. */
-    defaultVersion(): VersionEntry {
-      return highestStableVersion(this.recommendedVersions) ?? this.nonRecommendedVersions[0];
-    },
-    // This field is needed because the template-parser doesn't like `defaultVersion?.version.version`
-    unwrappedDefaultVersion(): string {
-      const wrappedSemver = this.defaultVersion;
-
-      return wrappedSemver ? wrappedSemver.version : '';
-    },
-    hasVersions(): boolean {
-      return this.versions.length > 0;
-    },
-    /** Versions that are the tip of a channel */
-    recommendedVersions(): VersionEntry[] {
-      return this.versions.filter(v => !!v.channels);
-    },
-    /** Versions that are not supported by a channel. */
-    nonRecommendedVersions(): VersionEntry[] {
-      return this.versions.filter(v => !v.channels);
-    },
     pathManagementRelevant(): boolean {
       return os.platform() === 'linux' || os.platform() === 'darwin';
     },
+    hasSystemPreferences(): boolean {
+      return !os.platform().startsWith('win');
+    },
+    availMemoryInGB(): number {
+      return Math.ceil(os.totalmem() / 2 ** 30);
+    },
+    availNumCPUs(): number {
+      return os.cpus().length;
+    },
+    allocatedMemoryGB(): number {
+      return this.settings.virtualMachine.memoryInGB;
+    },
+    allocatedCPUs(): number {
+      return this.settings.virtualMachine.numberCPUs;
+    },
+    // Ollama gets ~70% of VM memory and ~75% of CPUs (rest for K8s, other pods)
+    ollamaMemoryGB(): number {
+      return Math.floor(this.allocatedMemoryGB * 0.7);
+    },
+    ollamaCPUs(): number {
+      return Math.floor(this.allocatedCPUs * 0.75);
+    },
+    availableModels(): Array<{ name: string; displayName: string; size: string; available: boolean; description: string }> {
+      return OLLAMA_MODELS.map(model => ({
+        ...model,
+        // Filter based on what Ollama actually gets, not total VM resources
+        available: this.ollamaMemoryGB >= model.minMemoryGB && this.ollamaCPUs >= model.minCPUs,
+      }));
+    },
+    selectedModelDescription(): string {
+      const model = OLLAMA_MODELS.find(m => m.name === this.selectedModel);
+
+      return model?.description || '';
+    },
   },
   beforeMount() {
-    // Save default settings on closing window.
     window.addEventListener('beforeunload', this.close);
   },
   mounted() {
     ipcRenderer.on('settings-read', (event, settings) => {
       this.$data.settings = settings;
+      // Load saved model selection if available
+      if (settings.experimental?.sullaModel) {
+        this.$data.selectedModel = settings.experimental.sullaModel;
+      }
+      this.autoSelectBestModel();
     });
     ipcRenderer.send('settings-read');
-    ipcRenderer.on('k8s-versions', (event, versions, cachedVersionsOnly) => {
-      this.versions = versions;
-      this.cachedVersionsOnly = cachedVersionsOnly;
-      this.settings.kubernetes.version = this.unwrappedDefaultVersion;
-      if (!this.hasVersions) {
-        ipcRenderer.invoke('settings-write', { kubernetes: { enabled: false } });
+
+    // Get K8s versions and select the highest stable version
+    ipcRenderer.on('k8s-versions', (event, versions: VersionEntry[]) => {
+      const recommendedVersions = versions.filter((v: VersionEntry) => !!v.channels);
+      const bestVersion = highestStableVersion(recommendedVersions) ?? versions[0];
+
+      if (bestVersion) {
+        this.$data.kubernetesVersion = bestVersion.version;
+        console.log(`[FirstRun] Selected K8s version: ${bestVersion.version}`);
       }
-      // Manually send the ready event here, as we do not use the normal
-      // "dialog/populate" event.
+
+      // Send ready event after we have the K8s version
       ipcRenderer.send('dialog/ready');
     });
-    ipcRenderer.on('settings-update', (event, config) => {
-      this.settings.containerEngine.name = config.containerEngine.name;
-      this.settings.kubernetes.enabled = config.kubernetes.enabled;
-    });
     ipcRenderer.send('k8s-versions');
+
     if (this.pathManagementRelevant) {
       this.setPathManagementStrategy(PathManagementStrategy.RcFiles);
     }
+
     ipcRenderer.invoke('get-locked-fields').then((lockedFields) => {
-      this.$data.kubernetesLocked = _.get(lockedFields, 'kubernetes.enabled');
-      this.$data.kubernetesVersionLocked = _.get(lockedFields, 'kubernetes.version');
-      this.$data.engineSelectorLocked = _.get(lockedFields, 'containerEngine.name');
       this.$data.pathManagementSelectorLocked = _.get(lockedFields, 'application.pathManagementStrategy');
+      this.$data.memoryLocked = _.get(lockedFields, 'virtualMachine.memoryInGB');
+      this.$data.cpuLocked = _.get(lockedFields, 'virtualMachine.numberCPUs');
     });
   },
   beforeUnmount() {
@@ -203,43 +239,50 @@ export default defineComponent({
         console.log(`invoke settings-write failed: `, ex);
       }
     },
-    onChange() {
-      return this.commitChanges({
-        application: { pathManagementStrategy: this.pathManagementStrategy },
-        kubernetes:  {
-          version: this.settings.kubernetes.version,
-          enabled: this.settings.kubernetes.enabled && this.hasVersions,
-        },
-      });
-    },
     close() {
-      this.onChange();
+      this.commitChanges({
+        application:    { pathManagementStrategy: this.pathManagementStrategy },
+        virtualMachine: {
+          memoryInGB: this.settings.virtualMachine.memoryInGB,
+          numberCPUs: this.settings.virtualMachine.numberCPUs,
+        },
+        kubernetes:   {
+          enabled: true,
+          version: this.kubernetesVersion,
+        },
+        experimental: { sullaModel: this.selectedModel },
+      });
       window.close();
-    },
-    onChangeEngine(desiredEngine: ContainerEngine) {
-      return this.commitChanges({ containerEngine: { name: desiredEngine } });
-    },
-    handleDisableKubernetesCheckbox(value: boolean) {
-      return this.commitChanges({ kubernetes: { enabled: value } });
-    },
-    /**
-     * Get the display name of a given version.
-     * @param version The version to format.
-     */
-    versionName(version: VersionEntry) {
-      const names = (version.channels ?? []).filter(ch => !/^v?\d+/.test(ch));
-
-      if (names.length > 0) {
-        return `v${ version.version } (${ names.join(', ') })`;
-      }
-
-      return `v${ version.version }`;
     },
     setPathManagementStrategy(val: PathManagementStrategy) {
       this.$store.dispatch('applicationSettings/setPathManagementStrategy', val);
     },
-    offlineCheck() {
-      return this.cachedVersionsOnly ? ` ${ this.t('firstRun.kubernetesVersion.cachedOnly') }` : '';
+    onMemoryChange(value: number) {
+      this.settings.virtualMachine.memoryInGB = value;
+      this.autoSelectBestModel();
+    },
+    onCpuChange(value: number) {
+      this.settings.virtualMachine.numberCPUs = value;
+      this.autoSelectBestModel();
+    },
+    onModelChange() {
+      // Model selection is handled by v-model
+    },
+    autoSelectBestModel() {
+      // If current selection is no longer available, select the best available model
+      const currentModel = this.availableModels.find(m => m.name === this.selectedModel);
+
+      if (!currentModel?.available) {
+        // Find the best (largest) available model
+        const available = this.availableModels.filter(m => m.available);
+
+        if (available.length > 0) {
+          this.selectedModel = available[available.length - 1].name;
+        } else {
+          // Fallback to tinyllama if nothing is available
+          this.selectedModel = 'tinyllama:latest';
+        }
+      }
     },
   },
 });
@@ -254,13 +297,47 @@ export default defineComponent({
 <style lang="scss" scoped>
   .button-area {
     align-self: flex-end;
+    margin-top: 1.5rem;
   }
 
-  .select-k8s-version {
-    margin-top: 0.5rem;
+  .welcome-text {
+    color: var(--body-text);
+    margin-bottom: 1rem;
+    line-height: 1.5;
   }
 
   .first-run-container {
-    width: 26rem;
+    width: 30rem;
+  }
+
+  .model-select {
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--input-bg);
+    color: var(--input-text);
+    margin-top: 0.5rem;
+
+    option {
+      padding: 0.5rem;
+    }
+
+    option:disabled {
+      color: var(--disabled);
+      font-style: italic;
+    }
+  }
+
+  .model-description {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .model-disabled {
+    color: var(--disabled);
   }
 </style>

@@ -24,7 +24,12 @@ clean-hard:
     rm -rf ~/.lima
     rm -rf ~/Library/Application\ Support/rancher-desktop
     rm -rf ~/Library/Application\ Support/sulla-desktop
+    rm -rf ~/Library/Preferences/rancher-desktop
+    rm -rf ~/Library/Caches/rancher-desktop
     rm -rf ~/Library/Caches/lima
+    rm -rf ~/Library/Logs/rancher-desktop
+    rm -rf ~/.rd
+    rm -rf ~/.kube/config
     @echo "Cleanup complete. Run 'just build' for a fresh install."
 
 # Install dependencies and build the application for production

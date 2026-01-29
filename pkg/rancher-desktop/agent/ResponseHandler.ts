@@ -3,8 +3,7 @@
 // Includes critique step for coherence refinement
 
 import type { AgentResponse } from './types';
-
-const OLLAMA_BASE = 'http://127.0.0.1:30114';
+import { getOllamaModel, getOllamaBase } from './services/ConfigService';
 
 export class ResponseHandler {
   /**
@@ -33,11 +32,11 @@ export class ResponseHandler {
     }
 
     try {
-      const res = await fetch(`${ OLLAMA_BASE }/api/generate`, {
+      const res = await fetch(`${ getOllamaBase() }/api/generate`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          model:  'tinyllama',
+          model:  getOllamaModel(),
           prompt: `Refine this response for clarity and coherence. Keep it concise. Only output the refined response, nothing else:\n\n${ response.content }`,
           stream: false,
         }),

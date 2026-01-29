@@ -5,10 +5,9 @@
 import { ChatOllama } from '@langchain/ollama';
 import { HumanMessage } from '@langchain/core/messages';
 import { MemoryGraph, MemoryProcessingState } from './MemoryGraph';
+import { getOllamaModel, getOllamaBase } from './ConfigService';
 
 const CHROMA_BASE = 'http://127.0.0.1:30115';
-const OLLAMA_BASE = 'http://127.0.0.1:30114';
-const MODEL = 'tinyllama:latest';
 
 // Collection names
 const COLLECTIONS = {
@@ -67,13 +66,13 @@ export class MemoryPedia {
 
     console.log('[MemoryPedia] Initializing...');
 
-    // Initialize LLM
+    // Initialize LLM with configured model
     try {
       this.llm = new ChatOllama({
-        baseUrl: OLLAMA_BASE,
-        model:   MODEL,
+        baseUrl: getOllamaBase(),
+        model:   getOllamaModel(),
       });
-      console.log('[MemoryPedia] LLM initialized');
+      console.log(`[MemoryPedia] LLM initialized with model: ${getOllamaModel()}`);
     } catch (err) {
       console.warn('[MemoryPedia] LLM init failed:', err);
     }
@@ -659,6 +658,21 @@ Respond with the merged content only (no JSON, no explanation):`;
     }
 
     try {
+      // First check if collection has any documents
+      const countRes = await fetch(
+        `${CHROMA_BASE}/api/v2/tenants/default_tenant/databases/default_database/collections/${COLLECTIONS.SUMMARIES}/count`,
+        { signal: AbortSignal.timeout(3000) },
+      );
+
+      if (!countRes.ok) {
+        return [];
+      }
+      const count = await countRes.json();
+
+      if (count === 0) {
+        return [];
+      }
+
       const res = await fetch(
         `${CHROMA_BASE}/api/v2/tenants/default_tenant/databases/default_database/collections/${COLLECTIONS.SUMMARIES}/query`,
         {
@@ -704,6 +718,21 @@ Respond with the merged content only (no JSON, no explanation):`;
     }
 
     try {
+      // First check if collection has any documents
+      const countRes = await fetch(
+        `${CHROMA_BASE}/api/v2/tenants/default_tenant/databases/default_database/collections/${COLLECTIONS.PAGES}/count`,
+        { signal: AbortSignal.timeout(3000) },
+      );
+
+      if (!countRes.ok) {
+        return [];
+      }
+      const count = await countRes.json();
+
+      if (count === 0) {
+        return [];
+      }
+
       const res = await fetch(
         `${CHROMA_BASE}/api/v2/tenants/default_tenant/databases/default_database/collections/${COLLECTIONS.PAGES}/query`,
         {

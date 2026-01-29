@@ -13,8 +13,39 @@
         <p class="progress-text">
           {{ progressDescription || 'Initializing system...' }}
         </p>
+        
+        <!-- Model download progress -->
         <div
-          v-if="progressMax > 0"
+          v-if="modelDownloading"
+          class="model-download-info"
+        >
+          <p class="model-name">
+            📦 Downloading: <strong>{{ modelName }}</strong>
+          </p>
+          <p class="model-status">
+            {{ modelDownloadStatus }}
+          </p>
+          <div
+            v-if="modelDownloadTotal > 0"
+            class="progress-bar-container"
+          >
+            <div
+              class="progress-bar-fill model-progress"
+              :style="{ width: (modelDownloadProgress / modelDownloadTotal * 100) + '%' }"
+            />
+          </div>
+          <p
+            v-if="modelDownloadTotal > 0"
+            class="model-progress-text"
+          >
+            {{ Math.round(modelDownloadProgress / 1024 / 1024) }} MB / {{ Math.round(modelDownloadTotal / 1024 / 1024) }} MB
+            ({{ Math.round(modelDownloadProgress / modelDownloadTotal * 100) }}%)
+          </p>
+        </div>
+        
+        <!-- K8s progress bar -->
+        <div
+          v-else-if="progressMax > 0"
           class="progress-bar-container"
         >
           <div
@@ -79,6 +110,7 @@ import {
   getThread,
   getResponseHandler,
 } from '@pkg/agent';
+import { updateAgentConfig } from '@pkg/agent/services/ConfigService';
 
 const query = ref('');
 const response = ref('');
@@ -97,6 +129,13 @@ const progressCurrent = ref(0);
 const progressMax = ref(-1);
 const progressDescription = ref('');
 const startupPhase = ref('initializing');
+
+// Model download state
+const modelDownloading = ref(false);
+const modelName = ref('');
+const modelDownloadProgress = ref(0);
+const modelDownloadTotal = ref(0);
+const modelDownloadStatus = ref('');
 
 const progressPercent = computed(() => {
   if (progressMax.value <= 0) {
@@ -125,15 +164,23 @@ const checkOllamaConnectivity = async (): Promise<boolean> => {
   }
 };
 
-// Check if Ollama has a model ready
-const checkOllamaModel = async (): Promise<boolean> => {
+// Check if Ollama has the configured model ready
+const checkOllamaModel = async (targetModel: string): Promise<boolean> => {
   try {
     const res = await fetch(`${ OLLAMA_BASE }/api/tags`);
 
     if (res.ok) {
       const data = await res.json();
+      const modelNames = data.models?.map((m: { name: string }) => m.name) || [];
 
-      if (data.models && data.models.length > 0) {
+      // Check if the target model is available
+      if (modelNames.includes(targetModel)) {
+        return true;
+      }
+
+      // Also check without tag (e.g., 'mistral:7b' matches 'mistral:7b')
+      const baseModel = targetModel.split(':')[0];
+      if (modelNames.some((name: string) => name.startsWith(baseModel))) {
         return true;
       }
     }
@@ -142,6 +189,74 @@ const checkOllamaModel = async (): Promise<boolean> => {
   }
 
   return false;
+};
+
+// Pull model with streaming progress
+const pullModelWithProgress = async (targetModel: string): Promise<boolean> => {
+  modelDownloading.value = true;
+  modelName.value = targetModel;
+  modelDownloadStatus.value = 'Starting download...';
+  modelDownloadProgress.value = 0;
+  modelDownloadTotal.value = 0;
+
+  try {
+    const res = await fetch(`${ OLLAMA_BASE }/api/pull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: targetModel, stream: true }),
+    });
+
+    if (!res.ok || !res.body) {
+      modelDownloadStatus.value = 'Download failed';
+      modelDownloading.value = false;
+      return false;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const data = JSON.parse(line);
+          
+          if (data.status) {
+            modelDownloadStatus.value = data.status;
+          }
+          
+          if (data.total && data.completed !== undefined) {
+            modelDownloadTotal.value = data.total;
+            modelDownloadProgress.value = data.completed;
+          }
+          
+          if (data.status === 'success') {
+            modelDownloadStatus.value = 'Download complete!';
+            modelDownloading.value = false;
+            return true;
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+
+    modelDownloading.value = false;
+    return true;
+  } catch (err) {
+    console.error('[Agent] Model pull failed:', err);
+    modelDownloadStatus.value = 'Download failed';
+    modelDownloading.value = false;
+    return false;
+  }
 };
 
 // Poll for system readiness with detailed status updates
@@ -169,13 +284,17 @@ const startReadinessCheck = () => {
       return;
     }
 
-    // Phase 3: Check for model
-    updateStartupStatus('model', 'Checking for AI model...');
-    const hasModel = await checkOllamaModel();
+    // Phase 3: Check for model and pull if needed
+    const targetModel = modelName.value || 'tinyllama:latest';
+    updateStartupStatus('model', `Checking for AI model (${targetModel})...`);
+    const hasModel = await checkOllamaModel(targetModel);
 
     if (!hasModel) {
-      updateStartupStatus('model', 'Downloading AI model (this may take a few minutes)...');
-
+      if (!modelDownloading.value) {
+        // Start the model download
+        updateStartupStatus('model', `Downloading ${targetModel}...`);
+        pullModelWithProgress(targetModel);
+      }
       return;
     }
 
@@ -204,6 +323,18 @@ const handleProgress = (_event: unknown, progress: { current: number; max: numbe
 onMounted(async () => {
   // Listen for K8s progress events
   ipcRenderer.on('k8s-progress', handleProgress);
+
+  // Load settings and update agent config with selected model
+  ipcRenderer.on('settings-read', (_event: unknown, settings: { experimental?: { sullaModel?: string } }) => {
+    if (settings.experimental?.sullaModel) {
+      modelName.value = settings.experimental.sullaModel;
+      updateAgentConfig(settings.experimental.sullaModel);
+      console.log(`[Agent] Model configured: ${settings.experimental.sullaModel}`);
+    } else {
+      modelName.value = 'tinyllama:latest';
+    }
+  });
+  ipcRenderer.send('settings-read');
 
   // Get initial progress
   try {
@@ -448,5 +579,45 @@ input:focus {
 input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Model download progress styles */
+.model-download-info {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: rgba(79, 172, 254, 0.1);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(79, 172, 254, 0.3);
+}
+
+.model-name {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  color: #4facfe;
+}
+
+.model-name strong {
+  color: #00f2fe;
+}
+
+.model-status {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.75rem;
+}
+
+.model-download-info .progress-bar-container {
+  margin-bottom: 0.5rem;
+}
+
+.model-progress {
+  background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+}
+
+.model-progress-text {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  font-family: monospace;
 }
 </style>

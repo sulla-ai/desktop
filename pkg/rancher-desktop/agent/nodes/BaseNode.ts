@@ -4,8 +4,7 @@
 import type { GraphNode, ThreadState, NodeResult } from '../types';
 import { ChatOllama } from '@langchain/ollama';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-
-const OLLAMA_BASE = 'http://127.0.0.1:30114';
+import { getOllamaModel, getOllamaBase } from '../services/ConfigService';
 
 export interface LLMOptions {
   model?: string;
@@ -42,7 +41,7 @@ export abstract class BaseNode implements GraphNode {
 
     if (this.availableModel) {
       this.llm = new ChatOllama({
-        baseUrl:     OLLAMA_BASE,
+        baseUrl:     getOllamaBase(),
         model:       this.availableModel,
         temperature: 0.7,
       });
@@ -55,19 +54,43 @@ export abstract class BaseNode implements GraphNode {
   }
 
   /**
-   * Detect available Ollama model
+   * Detect available Ollama model - uses configured model from settings
+   * Will attempt to pull the model if not available
    */
   protected async detectModel(): Promise<string | null> {
+    const configuredModel = getOllamaModel();
+
     try {
-      const res = await fetch(`${ OLLAMA_BASE }/api/tags`, {
+      const res = await fetch(`${ getOllamaBase() }/api/tags`, {
         signal: AbortSignal.timeout(5000),
       });
 
       if (res.ok) {
         const data = await res.json();
+        const modelNames = data.models?.map((m: { name: string }) => m.name) || [];
 
+        // Check if configured model is available
+        if (modelNames.includes(configuredModel)) {
+          this.availableModel = configuredModel;
+          console.log(`[Agent:${this.name}] Using configured model: ${configuredModel}`);
+
+          return this.availableModel;
+        }
+
+        // Model not found - try to pull it
+        console.log(`[Agent:${this.name}] Model ${configuredModel} not found, attempting to pull...`);
+        const pulled = await this.pullModel(configuredModel);
+
+        if (pulled) {
+          this.availableModel = configuredModel;
+
+          return this.availableModel;
+        }
+
+        // Fallback to first available model if pull failed
         if (data.models && data.models.length > 0) {
           this.availableModel = data.models[0].name;
+          console.log(`[Agent:${this.name}] Pull failed, using fallback: ${this.availableModel}`);
 
           return this.availableModel;
         }
@@ -77,6 +100,35 @@ export abstract class BaseNode implements GraphNode {
     }
 
     return null;
+  }
+
+  /**
+   * Pull a model from Ollama
+   */
+  protected async pullModel(modelName: string): Promise<boolean> {
+    try {
+      console.log(`[Agent:${this.name}] Pulling model: ${modelName}...`);
+
+      const res = await fetch(`${ getOllamaBase() }/api/pull`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ name: modelName, stream: false }),
+        // Long timeout for model download
+        signal:  AbortSignal.timeout(600000), // 10 minutes
+      });
+
+      if (res.ok) {
+        console.log(`[Agent:${this.name}] Model ${modelName} pulled successfully`);
+
+        return true;
+      }
+
+      console.warn(`[Agent:${this.name}] Failed to pull model ${modelName}: ${res.status}`);
+    } catch (err) {
+      console.warn(`[Agent:${this.name}] Error pulling model ${modelName}:`, err);
+    }
+
+    return false;
   }
 
   /**
@@ -99,7 +151,7 @@ export abstract class BaseNode implements GraphNode {
     try {
       // Create or update LLM instance with options
       const llm = new ChatOllama({
-        baseUrl:     OLLAMA_BASE,
+        baseUrl:     getOllamaBase(),
         model:       model || this.availableModel!,
         temperature: options.temperature ?? 0.7,
         numPredict:  options.maxTokens,

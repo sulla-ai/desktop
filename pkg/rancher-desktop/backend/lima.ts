@@ -2093,9 +2093,47 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
     try {
       const deploymentPath = path.join(workdir, 'sulla-deployments.yaml');
 
+      // Get VM settings for dynamic resource allocation
+      const vmMemoryGB = this.cfg?.virtualMachine.memoryInGB || 4;
+      const vmCPUs = this.cfg?.virtualMachine.numberCPUs || 4;
+
+      // Allocate ~70% of VM memory to Ollama (leave room for K8s, other pods)
+      const ollamaMemoryGB = Math.max(2, Math.floor(vmMemoryGB * 0.7));
+      // Allocate ~75% of CPUs to Ollama
+      const ollamaCPUs = Math.max(1, Math.floor(vmCPUs * 0.75));
+
+      console.log(`Configuring Ollama pod: ${ollamaMemoryGB}Gi memory, ${ollamaCPUs} CPUs (VM: ${vmMemoryGB}GB, ${vmCPUs} CPUs)`);
+
+      // Clone deployments and inject dynamic resources into Ollama deployment
+      const deployments = (SULLA_DEPLOYMENTS as unknown[]).map((doc: unknown) => {
+        const deployment = doc as Record<string, unknown>;
+
+        if (deployment.kind === 'Deployment' && (deployment.metadata as Record<string, unknown>)?.name === 'ollama') {
+          const spec = deployment.spec as Record<string, unknown>;
+          const template = spec?.template as Record<string, unknown>;
+          const podSpec = template?.spec as Record<string, unknown>;
+          const containers = podSpec?.containers as Array<Record<string, unknown>>;
+
+          if (containers?.[0]) {
+            containers[0].resources = {
+              limits: {
+                memory: `${ollamaMemoryGB}Gi`,
+                cpu:    `${ollamaCPUs * 1000}m`,
+              },
+              requests: {
+                memory: `${Math.ceil(ollamaMemoryGB / 2)}Gi`,
+                cpu:    `${Math.ceil(ollamaCPUs * 500)}m`,
+              },
+            };
+          }
+        }
+
+        return deployment;
+      });
+
       // SULLA_DEPLOYMENTS is parsed as JS objects by webpack, convert back to YAML
       // Use quotingType to ensure strings like 'yes' are quoted to prevent boolean parsing
-      const yamlContent = (SULLA_DEPLOYMENTS as unknown[]).map(doc => yaml.stringify(doc, { defaultStringType: 'QUOTE_DOUBLE' })).join('---\n');
+      const yamlContent = deployments.map(doc => yaml.stringify(doc, { defaultStringType: 'QUOTE_DOUBLE' })).join('---\n');
 
       await fs.promises.writeFile(deploymentPath, yamlContent, 'utf-8');
       await this.lima('copy', deploymentPath, `${ MACHINE_NAME }:/tmp/sulla-deployments.yaml`);
@@ -2131,11 +2169,16 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
   }
 
   /**
-   * Pull the default Ollama model (tinyllama) for the Agent UI.
+   * Pull the configured Ollama model for the Agent UI.
    * This runs in the background after deployments are applied.
+   * Uses the model from experimental.sullaModel setting, defaults to tinyllama.
    */
   protected async pullOllamaModel(): Promise<void> {
-    const MODEL = 'tinyllama';
+    // Get model from settings, default to tinyllama if not set
+    const MODEL = (this.cfg as Record<string, unknown>)?.experimental &&
+      ((this.cfg as Record<string, unknown>).experimental as Record<string, unknown>)?.sullaModel
+      ? String(((this.cfg as Record<string, unknown>).experimental as Record<string, unknown>).sullaModel)
+      : 'tinyllama:latest';
 
     console.log(`Waiting for Ollama pod to be ready before pulling ${ MODEL }...`);
 

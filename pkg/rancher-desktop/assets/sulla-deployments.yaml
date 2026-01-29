@@ -115,29 +115,6 @@ spec:
       labels:
         app: ollama
     spec:
-      initContainers:
-      - name: pull-model
-        image: ollama/ollama:latest
-        imagePullPolicy: IfNotPresent
-        command: ["/bin/sh", "-c"]
-        args:
-        - |
-          ollama serve &
-          OLLAMA_PID=$!
-          echo "Waiting for Ollama to be ready..."
-          until ollama list > /dev/null 2>&1; do
-            echo "Ollama not ready yet, waiting..."
-            sleep 2
-          done
-          echo "Ollama is ready, pulling tinyllama model..."
-          ollama pull tinyllama
-          echo "Model pull complete, stopping Ollama..."
-          kill $OLLAMA_PID
-          wait $OLLAMA_PID 2>/dev/null || true
-          echo "Init container complete"
-        volumeMounts:
-        - mountPath: /root/.ollama
-          name: ollama-data
       containers:
       - name: ollama
         image: ollama/ollama:latest

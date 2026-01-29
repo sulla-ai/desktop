@@ -131,6 +131,7 @@ export default class SettingsValidator {
       experimental: {
         containerEngine: { webAssembly: { enabled: this.checkMulti(this.checkBoolean, this.checkWASMWithMobyStorage) } },
         kubernetes:      { options: { spinkube: this.checkMulti(this.checkBoolean, this.checkSpinkube) } },
+        sullaModel:      this.checkString,
         virtualMachine:  {
           diskSize: this.checkLima(this.checkByteUnits),
           mount:    {
