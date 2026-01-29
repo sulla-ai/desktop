@@ -11,6 +11,7 @@ import type {
   GraphNode,
 } from './types';
 import { Graph, createDefaultGraph } from './Graph';
+import { getPersistenceService } from './services/PersistenceService';
 
 const SHORT_TERM_MEMORY_SIZE = 5; // Recent 5 exchanges
 
@@ -104,6 +105,25 @@ export class ConversationThread {
       return;
     }
 
+    // Initialize persistence service
+    const persistence = getPersistenceService();
+
+    await persistence.initialize();
+
+    // Try to load existing conversation
+    const saved = await persistence.loadConversation(this.threadId);
+
+    if (saved && saved.length > 0) {
+      console.log(`[Agent:Thread:${this.threadId}] Restored ${saved.length} messages from PostgreSQL`);
+      this.state.messages = saved.map((m, i) => ({
+        id:        `msg_restored_${i}`,
+        role:      m.role as 'user' | 'assistant' | 'system',
+        content:   m.content,
+        timestamp: Date.now(),
+      }));
+      this.state.shortTermMemory = this.state.messages.slice(-SHORT_TERM_MEMORY_SIZE * 2);
+    }
+
     await this.graph.initialize();
     this.initialized = true;
   }
@@ -153,6 +173,9 @@ export class ConversationThread {
 
     this.addMessage(assistantMessage);
 
+    // Persist conversation (async, don't block)
+    this.persistConversation();
+
     // Build response
     const response: AgentResponse = {
       id:        generateResponseId(),
@@ -177,6 +200,21 @@ export class ConversationThread {
 
     // Update short-term memory (recent exchanges)
     this.state.shortTermMemory = this.state.messages.slice(-SHORT_TERM_MEMORY_SIZE * 2);
+  }
+
+  /**
+   * Persist conversation to PostgreSQL (fire and forget)
+   */
+  private persistConversation(): void {
+    const persistence = getPersistenceService();
+    const messages = this.state.messages.map(m => ({
+      role:    m.role,
+      content: m.content,
+    }));
+
+    persistence.storeConversation(this.threadId, messages).catch(err => {
+      console.warn(`[Agent:Thread:${this.threadId}] Persist failed:`, err);
+    });
   }
 
   /**

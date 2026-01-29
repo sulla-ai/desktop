@@ -255,10 +255,8 @@ const send = async () => {
     // 3. Get or create conversation thread (uses default graph with nodes)
     const thread = getThread(threadContext.threadId);
 
-    // Initialize if new thread
-    if (threadContext.isNew) {
-      await thread.initialize();
-    }
+    // Always initialize (idempotent - handles persistence setup)
+    await thread.initialize();
 
     // 4. Process through the graph: Memory → Planner → Executor → Critic
     const agentResponse = await thread.process(input);

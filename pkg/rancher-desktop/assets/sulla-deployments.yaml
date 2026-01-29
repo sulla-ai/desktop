@@ -26,6 +26,7 @@ spec:
       containers:
       - name: whisper
         image: onerahmet/openai-whisper-asr-webservice:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9000
         resources:
@@ -70,6 +71,7 @@ spec:
       containers:
       - name: coqui-tts
         image: synesthesiam/coqui-tts:latest
+        imagePullPolicy: IfNotPresent
         command: ["tts-server"]
         args: ["--port", "5002"]
         ports:
@@ -116,6 +118,7 @@ spec:
       initContainers:
       - name: pull-model
         image: ollama/ollama:latest
+        imagePullPolicy: IfNotPresent
         command: ["/bin/sh", "-c"]
         args:
         - |
@@ -138,6 +141,7 @@ spec:
       containers:
       - name: ollama
         image: ollama/ollama:latest
+        imagePullPolicy: IfNotPresent
         args: ["serve"]
         ports:
         - containerPort: 11434
@@ -192,6 +196,7 @@ spec:
       containers:
       - name: chroma
         image: chromadb/chroma:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
         env:
@@ -252,6 +257,7 @@ spec:
       containers:
       - name: postgres
         image: postgres:16-alpine
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5432
         env:
@@ -314,11 +320,12 @@ spec:
       containers:
       - name: redis
         image: redis:7-alpine
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 6379
         args:
         - "--appendonly"
-        - "yes"
+        - !!str yes
         - "--save"
         - "60"
         - "1"

@@ -1,7 +1,9 @@
 // BaseNode - Abstract base class for all graph nodes
-// Includes Ollama LLM helper methods for all nodes to use
+// Uses LangChain's ChatOllama for LLM interactions
 
 import type { GraphNode, ThreadState, NodeResult } from '../types';
+import { ChatOllama } from '@langchain/ollama';
+import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 
 const OLLAMA_BASE = 'http://127.0.0.1:30114';
 
@@ -24,6 +26,7 @@ export abstract class BaseNode implements GraphNode {
   id: string;
   name: string;
   protected availableModel: string | null = null;
+  protected llm: ChatOllama | null = null;
 
   constructor(id: string, name: string) {
     this.id = id;
@@ -36,10 +39,19 @@ export abstract class BaseNode implements GraphNode {
     console.log(`[Agent:${this.name}] Initializing...`);
     await this.detectModel();
     console.log(`[Agent:${this.name}] Model: ${this.availableModel || 'none'}`);
+
+    if (this.availableModel) {
+      this.llm = new ChatOllama({
+        baseUrl:     OLLAMA_BASE,
+        model:       this.availableModel,
+        temperature: 0.7,
+      });
+      console.log(`[Agent:${this.name}] ChatOllama initialized`);
+    }
   }
 
   async destroy(): Promise<void> {
-    // Override in subclass if needed
+    this.llm = null;
   }
 
   /**
@@ -68,7 +80,7 @@ export abstract class BaseNode implements GraphNode {
   }
 
   /**
-   * Send a prompt to Ollama and get a response
+   * Send a prompt to Ollama via LangChain ChatOllama
    */
   protected async prompt(prompt: string, options: LLMOptions = {}): Promise<LLMResponse | null> {
     const model = options.model || this.availableModel;
@@ -85,42 +97,26 @@ export abstract class BaseNode implements GraphNode {
     console.log(`[Agent:${this.name}] Sending prompt (${prompt.length} chars) to ${model || this.availableModel}`);
 
     try {
-      const body: Record<string, unknown> = {
-        model:  model || this.availableModel,
-        prompt,
-        stream: false,
-      };
-
-      if (options.format) {
-        body.format = options.format;
-      }
-
-      if (options.temperature !== undefined) {
-        body.options = { ...((body.options as object) || {}), temperature: options.temperature };
-      }
-
-      if (options.maxTokens !== undefined) {
-        body.options = { ...((body.options as object) || {}), num_predict: options.maxTokens };
-      }
-
-      const res = await fetch(`${ OLLAMA_BASE }/api/generate`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-        signal:  AbortSignal.timeout(options.timeout || 30000),
+      // Create or update LLM instance with options
+      const llm = new ChatOllama({
+        baseUrl:     OLLAMA_BASE,
+        model:       model || this.availableModel!,
+        temperature: options.temperature ?? 0.7,
+        numPredict:  options.maxTokens,
+        format:      options.format,
       });
 
-      if (!res.ok) {
-        return null;
-      }
+      const response = await llm.invoke([new HumanMessage(prompt)]);
 
-      const data = await res.json();
+      const content = typeof response.content === 'string'
+        ? response.content
+        : JSON.stringify(response.content);
 
       const result = {
-        content:      data.response || '',
-        model:        data.model || model || this.availableModel || '',
-        evalCount:    data.eval_count,
-        evalDuration: data.eval_duration,
+        content,
+        model:        model || this.availableModel || '',
+        evalCount:    response.response_metadata?.eval_count as number | undefined,
+        evalDuration: response.response_metadata?.eval_duration as number | undefined,
       };
 
       console.log(`[Agent:${this.name}] Response received (${result.content.length} chars, ${result.evalCount || 0} tokens)`);

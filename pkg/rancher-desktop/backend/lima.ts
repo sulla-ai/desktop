@@ -2016,7 +2016,8 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
       const deploymentPath = path.join(workdir, 'sulla-deployments.yaml');
 
       // SULLA_DEPLOYMENTS is parsed as JS objects by webpack, convert back to YAML
-      const yamlContent = (SULLA_DEPLOYMENTS as unknown[]).map(doc => yaml.stringify(doc)).join('---\n');
+      // Use quotingType to ensure strings like 'yes' are quoted to prevent boolean parsing
+      const yamlContent = (SULLA_DEPLOYMENTS as unknown[]).map(doc => yaml.stringify(doc, { defaultStringType: 'QUOTE_DOUBLE' })).join('---\n');
 
       await fs.promises.writeFile(deploymentPath, yamlContent, 'utf-8');
       await this.lima('copy', deploymentPath, `${ MACHINE_NAME }:/tmp/sulla-deployments.yaml`);

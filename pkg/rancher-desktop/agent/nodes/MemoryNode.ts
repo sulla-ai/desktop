@@ -80,7 +80,7 @@ export class MemoryNode extends BaseNode {
    */
   private async refreshCollections(): Promise<void> {
     try {
-      const res = await fetch(`${ CHROMA_BASE }/api/v1/collections`, {
+      const res = await fetch(`${ CHROMA_BASE }/api/v2/tenants/default_tenant/databases/default_database/collections`, {
         signal: AbortSignal.timeout(2000),
       });
 
@@ -179,7 +179,7 @@ If no memory search is needed (simple greeting, etc), respond with:
         queryBody.where = plan.whereClause;
       }
 
-      const res = await fetch(`${ CHROMA_BASE }/api/v1/collections/${ plan.collection }/query`, {
+      const res = await fetch(`${ CHROMA_BASE }/api/v2/tenants/default_tenant/databases/default_database/collections/${ plan.collection }/query`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(queryBody),
