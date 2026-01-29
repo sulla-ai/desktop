@@ -1,43 +1,148 @@
 // ContextDetector - Fast heuristic/LLM for thread selection
 // Prefrontal analog: classifies topic, matches to existing thread or creates new
+// Integrates with MemoryPedia for semantic search of past conversations
 
 import type { SensoryInput, ThreadContext } from './types';
+import { getMemoryPedia } from './services/MemoryPedia';
 
 const OLLAMA_BASE = 'http://127.0.0.1:30114';
 
+// Minimum similarity score to consider a thread match (0-1, lower = more similar in Chroma)
+const SIMILARITY_THRESHOLD = 0.7;
+
 export class ContextDetector {
   private threadSummaries: Map<string, string> = new Map();
+  private initialized = false;
+
+  /**
+   * Initialize by loading existing thread summaries from MemoryPedia
+   */
+  async initialize(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+
+    console.log('[ContextDetector] Initializing...');
+
+    // Load existing summaries from MemoryPedia/Chroma
+    try {
+      const memoryPedia = getMemoryPedia();
+
+      await memoryPedia.initialize();
+
+      // Search for all summaries (empty query returns recent)
+      const summaries = await memoryPedia.searchSummaries('', 100);
+
+      for (const s of summaries) {
+        this.threadSummaries.set(s.threadId, s.summary);
+      }
+
+      console.log(`[ContextDetector] Loaded ${summaries.length} thread summaries from MemoryPedia`);
+    } catch (err) {
+      console.warn('[ContextDetector] Failed to load summaries:', err);
+    }
+
+    this.initialized = true;
+  }
 
   /**
    * Detect context from sensory input
    * Returns thread ID (existing or new) + summary
    */
   async detect(input: SensoryInput): Promise<ThreadContext> {
-    const text = input.data;
-
-    // If no existing threads, create new
-    if (this.threadSummaries.size === 0) {
-      return this.createNewThread(text);
+    // Ensure initialized
+    if (!this.initialized) {
+      await this.initialize();
     }
 
-    // Fast heuristic: try to match existing thread
-    const match = await this.findMatchingThread(text);
+    const text = input.data;
 
-    if (match) {
-      return match;
+    // Try semantic search via MemoryPedia first
+    const semanticMatch = await this.findSemanticMatch(text);
+
+    if (semanticMatch) {
+      console.log(`[ContextDetector] Semantic match found: ${semanticMatch.threadId} (score: ${semanticMatch.confidence.toFixed(2)})`);
+
+      return semanticMatch;
+    }
+
+    // Fallback to local keyword matching
+    if (this.threadSummaries.size > 0) {
+      const keywordMatch = await this.findKeywordMatch(text);
+
+      if (keywordMatch) {
+        console.log(`[ContextDetector] Keyword match found: ${keywordMatch.threadId}`);
+
+        return keywordMatch;
+      }
     }
 
     // No match found, create new thread
+    console.log('[ContextDetector] No match, creating new thread');
+
     return this.createNewThread(text);
   }
 
   /**
-   * Find matching thread using simple heuristic
-   * In production, this would use embedding similarity
+   * Find matching thread using semantic search via MemoryPedia/Chroma
    */
-  private async findMatchingThread(text: string): Promise<ThreadContext | null> {
-    // Simple keyword matching for now
-    // TODO: Replace with embedding similarity via Chroma
+  private async findSemanticMatch(text: string): Promise<ThreadContext | null> {
+    try {
+      const memoryPedia = getMemoryPedia();
+
+      // Search conversation summaries
+      const summaries = await memoryPedia.searchSummaries(text, 3);
+
+      if (summaries.length > 0) {
+        const best = summaries[0];
+        // Chroma returns distance (lower = more similar), convert to confidence
+        const confidence = 1 - Math.min(best.score, 1);
+
+        if (confidence >= SIMILARITY_THRESHOLD) {
+          // Update local cache
+          this.threadSummaries.set(best.threadId, best.summary);
+
+          return {
+            threadId:   best.threadId,
+            isNew:      false,
+            summary:    best.summary,
+            confidence,
+          };
+        }
+      }
+
+      // Also search MemoryPedia pages for context
+      const pages = await memoryPedia.searchPages(text, 3);
+
+      if (pages.length > 0) {
+        // Get related threads from the best matching page
+        const page = await memoryPedia.getPageById(pages[0].pageId);
+
+        if (page && page.relatedThreads.length > 0) {
+          const relatedThreadId = page.relatedThreads[page.relatedThreads.length - 1]; // Most recent
+          const relatedSummary = this.threadSummaries.get(relatedThreadId);
+
+          if (relatedSummary) {
+            return {
+              threadId:   relatedThreadId,
+              isNew:      false,
+              summary:    relatedSummary,
+              confidence: 0.6, // Lower confidence for page-based match
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[ContextDetector] Semantic search failed:', err);
+    }
+
+    return null;
+  }
+
+  /**
+   * Find matching thread using keyword heuristic (fallback)
+   */
+  private async findKeywordMatch(text: string): Promise<ThreadContext | null> {
     const textLower = text.toLowerCase();
 
     for (const [threadId, summary] of this.threadSummaries) {

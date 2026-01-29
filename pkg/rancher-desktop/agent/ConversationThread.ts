@@ -12,6 +12,7 @@ import type {
 } from './types';
 import { Graph, createDefaultGraph } from './Graph';
 import { getPersistenceService } from './services/PersistenceService';
+import { getMemoryPedia } from './services/MemoryPedia';
 
 const SHORT_TERM_MEMORY_SIZE = 5; // Recent 5 exchanges
 
@@ -110,6 +111,13 @@ export class ConversationThread {
 
     await persistence.initialize();
 
+    // Initialize MemoryPedia (async, don't block)
+    const memoryPedia = getMemoryPedia();
+
+    memoryPedia.initialize().catch(err => {
+      console.warn(`[Agent:Thread:${this.threadId}] MemoryPedia init failed:`, err);
+    });
+
     // Try to load existing conversation
     const saved = await persistence.loadConversation(this.threadId);
 
@@ -203,18 +211,23 @@ export class ConversationThread {
   }
 
   /**
-   * Persist conversation to PostgreSQL (fire and forget)
+   * Persist conversation to PostgreSQL and queue for MemoryPedia processing
    */
   private persistConversation(): void {
     const persistence = getPersistenceService();
+    const memoryPedia = getMemoryPedia();
     const messages = this.state.messages.map(m => ({
       role:    m.role,
       content: m.content,
     }));
 
+    // Store to PostgreSQL
     persistence.storeConversation(this.threadId, messages).catch(err => {
       console.warn(`[Agent:Thread:${this.threadId}] Persist failed:`, err);
     });
+
+    // Queue for MemoryPedia processing (summarization + entity extraction)
+    memoryPedia.queueConversation(this.threadId, messages);
   }
 
   /**
