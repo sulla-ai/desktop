@@ -139,3 +139,56 @@ spec:
     targetPort: 5002
     nodePort: 30091
   type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: sulla
+  labels:
+    app: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+      - name: ollama
+        image: ollama/ollama:latest
+        args: ["serve"]
+        ports:
+        - containerPort: 11434
+        volumeMounts:
+        - mountPath: /root/.ollama
+          name: ollama-data
+        resources:
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: ollama-data
+        hostPath:
+          path: /var/lib/sulla/ollama
+          type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: sulla
+spec:
+  selector:
+    app: ollama
+  ports:
+  - port: 11434
+    targetPort: 11434
+    nodePort: 30114
+  type: NodePort

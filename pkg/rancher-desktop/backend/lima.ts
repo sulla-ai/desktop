@@ -2032,6 +2032,9 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
 
           console.log('Sulla pods/services:\n', status);
 
+          // Pull the Ollama model in the background (don't block startup)
+          this.pullOllamaModel().catch(err => console.warn('Failed to pull Ollama model:', err));
+
           return;
         } catch (err) {
           console.warn(`Sulla deployment attempt ${ attempt } failed:`, err);
@@ -2045,6 +2048,53 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
       console.error('Failed to apply Sulla deployments:', err);
     } finally {
       await fs.promises.rm(workdir, { recursive: true, force: true });
+    }
+  }
+
+  /**
+   * Pull the default Ollama model (tinyllama) for the Agent UI.
+   * This runs in the background after deployments are applied.
+   */
+  protected async pullOllamaModel(): Promise<void> {
+    const MODEL = 'tinyllama';
+
+    console.log(`Waiting for Ollama pod to be ready before pulling ${ MODEL }...`);
+
+    // Wait for Ollama pod to be ready (up to 5 minutes)
+    for (let attempt = 1; attempt <= 30; attempt++) {
+      try {
+        const podStatus = await this.execCommand(
+          { root: true, capture: true },
+          'k3s', 'kubectl', 'get', 'pod', '-n', 'sulla', '-l', 'app=ollama', '-o', 'jsonpath={.items[0].status.phase}',
+        );
+
+        if (podStatus.trim() === 'Running') {
+          console.log('Ollama pod is running, pulling model...');
+          break;
+        }
+        console.log(`Ollama pod status: ${ podStatus.trim() }, waiting... (attempt ${ attempt }/30)`);
+      } catch {
+        console.log(`Waiting for Ollama pod... (attempt ${ attempt }/30)`);
+      }
+
+      if (attempt === 30) {
+        console.warn('Ollama pod did not become ready in time, skipping model pull');
+
+        return;
+      }
+      await new Promise(r => setTimeout(r, 10000));
+    }
+
+    // Pull the model
+    try {
+      console.log(`Pulling Ollama model: ${ MODEL } (this may take several minutes)...`);
+      await this.execCommand(
+        { root: true },
+        'k3s', 'kubectl', 'exec', '-n', 'sulla', 'deploy/ollama', '--', 'ollama', 'pull', MODEL,
+      );
+      console.log(`Ollama model ${ MODEL } pulled successfully`);
+    } catch (err) {
+      console.error(`Failed to pull Ollama model ${ MODEL }:`, err);
     }
   }
 

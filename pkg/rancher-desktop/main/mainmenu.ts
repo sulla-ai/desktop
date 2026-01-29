@@ -1,11 +1,23 @@
+import path from 'path';
+
 import Electron, { Menu, MenuItem, MenuItemConstructorOptions, shell } from 'electron';
 
+import { VMBackend } from '@pkg/backend/backend';
+import { State } from '@pkg/backend/k8s';
+import { Settings } from '@pkg/config/settings';
+import mainEvents from '@pkg/main/mainEvents';
+import paths from '@pkg/utils/paths';
 import { getVersion, parseDocsVersion } from '@pkg/utils/version';
 import { openDockerDashboard, openMain } from '@pkg/window';
 import { openDashboard } from '@pkg/window/dashboard';
 import { openPreferences } from '@pkg/window/preferences';
 
 const baseUrl = `https://docs.rancherdesktop.io`;
+
+// State for dynamic menu updates
+let kubernetesState: State = State.STOPPED;
+let networkStatus = 'checking';
+let containerEngine = 'moby';
 
 async function versionedDocsUrl() {
   const version = await getVersion();
@@ -15,6 +27,29 @@ async function versionedDocsUrl() {
 }
 
 export default function buildApplicationMenu(): void {
+  const menuItems: MenuItem[] = getApplicationMenu();
+  const menu = Menu.buildFromTemplate(menuItems);
+
+  Menu.setApplicationMenu(menu);
+
+  // Set up event listeners for dynamic menu updates
+  mainEvents.on('k8s-check-state', (mgr: VMBackend) => {
+    kubernetesState = mgr.state;
+    rebuildMenu();
+  });
+
+  mainEvents.on('settings-update', (cfg: Settings) => {
+    containerEngine = cfg.containerEngine.name;
+    rebuildMenu();
+  });
+
+  mainEvents.on('update-network-status', (connected: boolean) => {
+    networkStatus = connected ? 'online' : 'offline';
+    rebuildMenu();
+  });
+}
+
+function rebuildMenu(): void {
   const menuItems: MenuItem[] = getApplicationMenu();
   const menu = Menu.buildFromTemplate(menuItems);
 
@@ -35,6 +70,23 @@ function getApplicationMenu(): MenuItem[] {
 }
 
 function getNeuralNetworkMenu(): MenuItem {
+  const k8sLabels: Record<State, string> = {
+    [State.STOPPED]:  'Kubernetes is stopped',
+    [State.STARTING]: 'Kubernetes is starting',
+    [State.STARTED]:  'Kubernetes is running',
+    [State.STOPPING]: 'Kubernetes is shutting down',
+    [State.ERROR]:    'Kubernetes has encountered an error',
+    [State.DISABLED]: 'Kubernetes is disabled',
+  };
+
+  const k8sIcon = (kubernetesState === State.STARTED || kubernetesState === State.DISABLED)
+    ? path.join(paths.resources, 'icons', 'kubernetes-icon-color.png')
+    : path.join(paths.resources, 'icons', 'kubernetes-icon-black.png');
+
+  const containerEngineLabel = containerEngine === 'containerd'
+    ? 'containerd'
+    : `dockerd (${ containerEngine })`;
+
   return new MenuItem({
     label:   'Neural Network',
     submenu: [
@@ -49,23 +101,25 @@ function getNeuralNetworkMenu(): MenuItem {
       { type: 'separator' },
       {
         id:      'k8s-state',
-        label:   'Kubernetes is starting',
+        label:   k8sLabels[kubernetesState] || 'Kubernetes status unknown',
         enabled: false,
+        icon:    k8sIcon,
       },
       {
         id:      'network-status',
-        label:   'Network status: checking',
+        label:   `Network status: ${ networkStatus }`,
         enabled: false,
       },
       {
         id:      'container-engine',
-        label:   'dockerd (moby)',
+        label:   containerEngineLabel,
         enabled: false,
       },
       { type: 'separator' },
       {
-        label: 'Cluster Dashboard',
-        click: openDashboard,
+        label:   'Cluster Dashboard',
+        click:   openDashboard,
+        enabled: kubernetesState === State.STARTED,
       },
       {
         id:      'k8s-contexts',

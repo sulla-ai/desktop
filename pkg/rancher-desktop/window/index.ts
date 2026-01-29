@@ -135,6 +135,7 @@ export function openMain() {
         devTools:         !app.isPackaged,
         nodeIntegration:  true,
         contextIsolation: false,
+        webSecurity:      false, // Allow fetch to localhost services (Ollama)
       },
     });
 
