@@ -139,3 +139,16 @@ pg-messages thread_id="":
     resources/darwin/lima/bin/limactl shell 0 -- \
     sudo k3s kubectl exec -n sulla deploy/postgres -- \
     psql -U sulla -c "SELECT jsonb_pretty(messages) FROM conversations WHERE thread_id = '{{thread_id}}';"
+
+# Login to Docker Hub inside the VM (bypasses rate limiting for image pulls)
+docker-login:
+    @echo "Logging into Docker Hub inside the VM..."
+    @echo "This will store credentials in the VM and bypass Docker Hub rate limits."
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    limactl shell 0 -- docker login
+
+# Check Docker login status inside the VM
+docker-status:
+    @echo "Checking Docker login status..."
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    limactl shell 0 -- docker info 2>/dev/null | grep -E "Username|Registry" || echo "Not logged in"
