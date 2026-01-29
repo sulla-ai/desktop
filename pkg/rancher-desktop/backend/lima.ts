@@ -2006,10 +2006,88 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
   }
 
   /**
+   * Configure k3s to use Docker Hub credentials if available on the host.
+   * This helps avoid Docker Hub rate limiting for image pulls.
+   */
+  protected async configureDockerCredentials(): Promise<void> {
+    const dockerConfigPath = path.join(os.homedir(), '.docker', 'config.json');
+
+    try {
+      const configExists = await fs.promises.access(dockerConfigPath).then(() => true).catch(() => false);
+
+      if (!configExists) {
+        console.log('[Sulla] No Docker credentials found, using unauthenticated pulls');
+
+        return;
+      }
+
+      const dockerConfig = JSON.parse(await fs.promises.readFile(dockerConfigPath, 'utf-8'));
+
+      // Check if there are any auths configured
+      if (!dockerConfig.auths || Object.keys(dockerConfig.auths).length === 0) {
+        console.log('[Sulla] Docker config exists but no credentials stored');
+
+        return;
+      }
+
+      // Build k3s registries.yaml with Docker Hub credentials
+      const registriesConfig: Record<string, unknown> = { mirrors: {}, configs: {} };
+
+      // Check for Docker Hub credentials (can be under multiple keys)
+      const dockerHubKeys = ['https://index.docker.io/v1/', 'docker.io', 'registry-1.docker.io'];
+
+      for (const key of dockerHubKeys) {
+        if (dockerConfig.auths[key]) {
+          const auth = dockerConfig.auths[key];
+
+          // Docker stores credentials as base64 encoded "username:password"
+          if (auth.auth) {
+            const decoded = Buffer.from(auth.auth, 'base64').toString('utf-8');
+            const [username, password] = decoded.split(':');
+
+            (registriesConfig.configs as Record<string, unknown>)['docker.io'] = {
+              auth: { username, password },
+            };
+            console.log('[Sulla] Found Docker Hub credentials, configuring k3s registry auth');
+            break;
+          }
+        }
+      }
+
+      if (Object.keys(registriesConfig.configs as object).length === 0) {
+        console.log('[Sulla] No usable Docker Hub credentials found');
+
+        return;
+      }
+
+      // Write registries.yaml to k3s config directory
+      const registriesYaml = yaml.stringify(registriesConfig);
+      const workdir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'sulla-registry-'));
+
+      try {
+        const registriesPath = path.join(workdir, 'registries.yaml');
+
+        await fs.promises.writeFile(registriesPath, registriesYaml, 'utf-8');
+        await this.lima('copy', registriesPath, `${ MACHINE_NAME }:/tmp/registries.yaml`);
+        await this.execCommand({ root: true }, 'mkdir', '-p', '/etc/rancher/k3s');
+        await this.execCommand({ root: true }, 'mv', '/tmp/registries.yaml', '/etc/rancher/k3s/registries.yaml');
+        console.log('[Sulla] Docker Hub credentials configured for k3s');
+      } finally {
+        await fs.promises.rm(workdir, { recursive: true, force: true });
+      }
+    } catch (err) {
+      console.warn('[Sulla] Failed to configure Docker credentials:', err);
+    }
+  }
+
+  /**
    * Apply Sulla Desktop default Kubernetes deployments.
    * This runs after K8s is ready and deploys the sulla namespace and test services.
    */
   protected async applySullaDeployments(): Promise<void> {
+    // Configure Docker credentials before deploying (helps with rate limits)
+    await this.configureDockerCredentials();
+
     const workdir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'sulla-deploy-'));
 
     try {
