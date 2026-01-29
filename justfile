@@ -4,9 +4,16 @@
 default:
     @just --list
 
-# Clean all caches and generated files for a fresh install
-cleanup:
-    @echo "Cleaning up for fresh install..."
+# Clean build artifacts only (preserves VM and cached images)
+clean:
+    @echo "Cleaning build artifacts..."
+    rm -rf dist
+    rm -rf resources/darwin/_output
+    @echo "Clean complete."
+
+# Clean all caches and generated files for a fresh install (WIPES VM AND IMAGES)
+clean-hard:
+    @echo "Cleaning up for fresh install (this will wipe VM and cached images)..."
     rm -rf node_modules
     rm -rf .yarn/cache
     rm -rf .yarn/install-state.gz
@@ -26,7 +33,11 @@ build:
     yarn run postinstall
     yarn build
 
-rebuild: cleanup build
+# Rebuild without wiping VM (preserves cached images)
+rebuild: clean build
+
+# Full rebuild - wipes everything including VM and cached images
+rebuild-hard: clean-hard build
 
 # Start the development server (runs in foreground)
 start:
@@ -82,3 +93,28 @@ pods:
     LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
     resources/darwin/lima/bin/limactl shell 0 -- \
     sudo k3s kubectl get pods -n sulla
+
+# Port-forward PostgreSQL to localhost:5432 for external access (e.g., pgAdmin, DBeaver)
+# Connection: host=localhost, port=5432, user=sulla, password=sulla_dev_password, database=sulla
+postgres:
+    @echo "Port-forwarding PostgreSQL to localhost:5432..."
+    @echo "Connect with: host=localhost, port=5432, user=sulla, password=sulla_dev_password, database=sulla"
+    @echo "Press Ctrl+C to stop"
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    resources/darwin/lima/bin/limactl shell 0 -- \
+    sudo k3s kubectl port-forward -n sulla svc/postgres 5432:5432 --address=0.0.0.0
+
+# Port-forward Redis to localhost:6379 for external access
+redis:
+    @echo "Port-forwarding Redis to localhost:6379..."
+    @echo "Press Ctrl+C to stop"
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    resources/darwin/lima/bin/limactl shell 0 -- \
+    sudo k3s kubectl port-forward -n sulla svc/redis 6379:6379 --address=0.0.0.0
+
+# Query PostgreSQL conversations table
+pg-conversations:
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    resources/darwin/lima/bin/limactl shell 0 -- \
+    sudo k3s kubectl exec -n sulla deploy/postgres -- \
+    psql -U sulla -c "SELECT thread_id, jsonb_array_length(messages) as msg_count, updated_at FROM conversations ORDER BY updated_at DESC LIMIT 10;"
