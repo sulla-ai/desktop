@@ -73,12 +73,21 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 
 import { ipcRenderer } from '@pkg/utils/ipcRenderer';
+import { getAgentApplication, getSensory, getResponse, OllamaPlugin, DateTimePlugin } from '@pkg/agent';
 
 const query = ref('');
 const response = ref('');
 const loading = ref(false);
 const error = ref('');
-const availableModel = ref('');
+
+// Initialize agent application
+const agent = getAgentApplication();
+const sensory = getSensory();
+const responseHandler = getResponse();
+
+// Register plugins (order determines execution sequence)
+agent.registerPlugin(new DateTimePlugin());  // order: 25 - modifies prompt
+agent.registerPlugin(new OllamaPlugin());    // order: 50 - calls LLM
 
 // System readiness state
 const systemReady = ref(false);
@@ -123,8 +132,6 @@ const checkOllamaModel = async (): Promise<boolean> => {
       const data = await res.json();
 
       if (data.models && data.models.length > 0) {
-        availableModel.value = data.models[0].name;
-
         return true;
       }
     }
@@ -167,8 +174,9 @@ const startReadinessCheck = () => {
         return;
       }
 
-      // All ready!
+      // All ready! Initialize agent application
       updateStartupStatus('ready', 'System ready!');
+      await agent.initialize();
       systemReady.value = true;
       if (readinessInterval) {
         clearInterval(readinessInterval);
@@ -216,6 +224,8 @@ onMounted(async () => {
   const hasModel = await checkOllamaModel();
 
   if (hasModel) {
+    // Initialize agent application when system is ready
+    await agent.initialize();
     systemReady.value = true;
   } else {
     startReadinessCheck();
@@ -239,42 +249,17 @@ const send = async () => {
   error.value = '';
 
   try {
-    // Get available model if not already detected
-    if (!availableModel.value) {
-      const tagsRes = await fetch(`${ OLLAMA_BASE }/api/tags`);
+    // Use the agent application to process the input
+    const agentResponse = await sensory.processText(query.value);
 
-      if (tagsRes.ok) {
-        const tagsData = await tagsRes.json();
+    // Handle response
+    if (responseHandler.hasErrors(agentResponse)) {
+      const errors = responseHandler.getErrors(agentResponse);
 
-        if (tagsData.models && tagsData.models.length > 0) {
-          availableModel.value = tagsData.models[0].name;
-        } else {
-          throw new Error('No models available. Ollama is still downloading the model.');
-        }
-      } else {
-        throw new Error('Cannot connect to Ollama. Make sure Kubernetes is running.');
-      }
+      throw new Error(errors.join('; '));
     }
 
-    const res = await fetch(`${ OLLAMA_BASE }/api/generate`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        model:  availableModel.value,
-        prompt: query.value,
-        stream: false,
-      }),
-    });
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-
-      throw new Error(errData.error || `HTTP ${ res.status }: ${ res.statusText }`);
-    }
-
-    const data = await res.json();
-
-    response.value = data.response || 'No response from model';
+    response.value = responseHandler.formatText(agentResponse) || 'No response from model';
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
 
