@@ -2,6 +2,7 @@
 
 import type { ThreadState, NodeResult } from '../types';
 import { BaseNode } from './BaseNode';
+import { getPlanService, type TodoStatus } from '../services/PlanService';
 
 export type CriticDecision = 'approve' | 'revise' | 'reject';
 
@@ -14,7 +15,16 @@ export class CriticNode extends BaseNode {
 
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
     console.log(`[Agent:Critic] Executing...`);
-    const response = state.metadata.response as string | undefined;
+    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
+    const activePlanId = (state.metadata.activePlanId !== undefined && state.metadata.activePlanId !== null && Number.isFinite(Number(state.metadata.activePlanId)))
+      ? Number(state.metadata.activePlanId)
+      : null;
+    const activeTodo = (state.metadata.activeTodo && typeof state.metadata.activeTodo === 'object')
+      ? (state.metadata.activeTodo as any)
+      : null;
+    const todoExecution = (state.metadata.todoExecution && typeof state.metadata.todoExecution === 'object')
+      ? (state.metadata.todoExecution as any)
+      : null;
 
     const requestedRevision = state.metadata.requestPlanRevision as { reason?: string } | boolean | undefined;
     if (requestedRevision) {
@@ -22,18 +32,41 @@ export class CriticNode extends BaseNode {
         ? String((requestedRevision as any).reason || 'Executor requested plan revision')
         : 'Executor requested plan revision';
 
+      // Critic owns status transitions: mark current todo blocked in DB (if we have one)
+      if (activeTodo && Number.isFinite(Number(activeTodo.id))) {
+        try {
+          const planService = getPlanService();
+          await planService.initialize();
+          const todoId = Number(activeTodo.id);
+          const title = typeof activeTodo.title === 'string' ? activeTodo.title : '';
+          await planService.updateTodoStatus({
+            todoId,
+            status: 'blocked',
+            eventType: 'todo_status',
+            eventData: { status: 'blocked', reason },
+          });
+          emit?.({
+            type:     'progress',
+            threadId: state.threadId,
+            data:     { phase: 'todo_status', planId: activePlanId, todoId, title, status: 'blocked' },
+          });
+        } catch {
+          // best effort
+        }
+      }
+
       state.metadata.criticDecision = 'revise';
       state.metadata.criticReason = reason;
       state.metadata.revisionFeedback = reason;
       state.metadata.revisionCount = ((state.metadata.revisionCount as number) || 0) + 1;
       console.log(`[Agent:Critic] Forcing revision due to executor request: ${reason}`);
+
+      emit?.({
+        type:     'progress',
+        threadId: state.threadId,
+        data:     { phase: 'critic_decision', decision: 'revise', reason },
+      });
       return { state, next: 'planner' };
-    }
-
-    if (!response) {
-      console.log(`[Agent:Critic] No response to critique, ending`);
-
-      return { state, next: 'end' };
     }
 
     const revisionCount = (state.metadata.revisionCount as number) || 0;
@@ -43,104 +76,117 @@ export class CriticNode extends BaseNode {
       state.metadata.criticDecision = 'approve';
       state.metadata.criticReason = 'Max revisions reached';
 
+      emit?.({
+        type:     'progress',
+        threadId: state.threadId,
+        data:     { phase: 'critic_decision', decision: 'approve', reason: 'Max revisions reached' },
+      });
+
       return { state, next: 'continue' };
     }
 
-    const decision = await this.evaluate(state, response);
-    console.log(`[Agent:Critic] Decision: ${decision.decision} - ${decision.reason}`);
+    // If there is no active plan/todo context, allow the graph to continue.
+    if (!activePlanId || !activeTodo) {
+      state.metadata.criticDecision = 'approve';
+      state.metadata.criticReason = 'No active plan/todo to critique';
 
-    state.metadata.criticDecision = decision.decision;
-    state.metadata.criticReason = decision.reason;
+      emit?.({
+        type:     'progress',
+        threadId: state.threadId,
+        data:     { phase: 'critic_decision', decision: 'approve', reason: 'No active plan/todo to critique' },
+      });
 
-    if (decision.decision === 'approve') {
       return { state, next: 'continue' };
     }
 
-    if (decision.decision === 'revise') {
-      state.metadata.revisionCount = revisionCount + 1;
-      state.metadata.revisionFeedback = decision.reason;
-      console.log(`[Agent:Critic] Requesting revision ${revisionCount + 1}/${this.maxRevisions}`);
+    const todoId = Number(activeTodo.id);
+    const todoTitle = typeof activeTodo.title === 'string' ? activeTodo.title : '';
+    const execStatus = todoExecution && typeof todoExecution.status === 'string' ? String(todoExecution.status) : '';
+    const execSummary = todoExecution && typeof todoExecution.summary === 'string' ? String(todoExecution.summary) : '';
+    const toolResults = state.metadata.toolResults as Record<string, any> | undefined;
 
-      return { state, next: 'planner' };
-    }
+    const anyToolFailed = !!toolResults && Object.values(toolResults).some((r: any) => r && r.success === false);
 
-    console.error(`[Agent:Critic] Response rejected: ${decision.reason}`);
-    state.metadata.error = `Response rejected: ${ decision.reason }`;
-
-    return { state, next: 'end' };
-  }
-
-  private async evaluate(
-    state: ThreadState,
-    response: string,
-  ): Promise<{ decision: CriticDecision; reason: string }> {
-    // Get the original query
-    const lastUserMessage = state.messages.filter(m => m.role === 'user').pop();
-    const query = lastUserMessage?.content || '';
-
-    // Simple heuristic checks first
-    if (response.length < 10) {
-      return { decision: 'revise', reason: 'Response too short' };
-    }
-
-    if (response.toLowerCase().includes('i cannot') && response.length < 50) {
-      return { decision: 'revise', reason: 'Response appears to be a refusal without explanation' };
-    }
-
-    // Check for obvious errors
-    if (response.includes('error') && response.includes('undefined')) {
-      return { decision: 'revise', reason: 'Response contains error indicators' };
-    }
-
-    // For more sophisticated critique, use LLM
-    // But keep it fast - only do this if we have concerns
-    const needsDeepReview = this.needsDeepReview(query, response);
-
-    if (needsDeepReview) {
-      return this.llmEvaluate(query, response);
-    }
-
-    // Default: approve
-    return { decision: 'approve', reason: 'Response passes basic checks' };
-  }
-
-  private needsDeepReview(query: string, response: string): boolean {
-    // Trigger deep review for certain types of queries
-    const criticalKeywords = ['important', 'critical', 'must', 'accurate', 'correct', 'exact'];
-    const queryLower = query.toLowerCase();
-
-    return criticalKeywords.some(kw => queryLower.includes(kw));
-  }
-
-  private async llmEvaluate(
-    query: string,
-    response: string,
-  ): Promise<{ decision: CriticDecision; reason: string }> {
-    const promptText = `You are a response quality critic. Evaluate if this response adequately answers the query.
-
-Query: "${ query.substring(0, 200) }"
-Response: "${ response.substring(0, 500) }"
-
-Reply with exactly one word: APPROVE, REVISE, or REJECT`;
-
-    const result = await this.prompt(promptText);
-
-    if (result) {
-      const verdict = result.content.toUpperCase().trim();
-
-      if (verdict.includes('APPROVE')) {
-        return { decision: 'approve', reason: 'LLM approved' };
+    // Approve when the todo is marked done.
+    if (execStatus === 'done') {
+      // Critic owns status transitions: persist done to DB.
+      try {
+        const planService = getPlanService();
+        await planService.initialize();
+        await planService.updateTodoStatus({
+          todoId,
+          status: 'done',
+          eventType: 'todo_completed',
+          eventData: { status: 'done' },
+        });
+        emit?.({
+          type:     'progress',
+          threadId: state.threadId,
+          data:     { phase: 'todo_status', planId: activePlanId, todoId, title: todoTitle, status: 'done' },
+        });
+      } catch {
+        // best effort
       }
 
-      if (verdict.includes('REVISE')) {
-        return { decision: 'revise', reason: 'LLM suggests revision' };
-      }
+      state.metadata.criticDecision = 'approve';
+      state.metadata.criticReason = `Todo complete: ${todoTitle || String(todoId)}`;
 
-      if (verdict.includes('REJECT')) {
-        return { decision: 'reject', reason: 'LLM rejected response' };
-      }
+      emit?.({
+        type:     'progress',
+        threadId: state.threadId,
+        data:     { phase: 'critic_decision', decision: 'approve', reason: state.metadata.criticReason },
+      });
+
+      return { state, next: 'continue' };
     }
 
-    return { decision: 'approve', reason: 'Default approval (LLM unavailable)' };
+    // Otherwise, request a plan revision to address the todo failure/incompleteness.
+    const reasonParts: string[] = [];
+    reasonParts.push(`Todo not complete: ${todoTitle || String(todoId)}`);
+    if (execStatus) {
+      reasonParts.push(`status=${execStatus}`);
+    }
+    if (anyToolFailed) {
+      reasonParts.push('one or more tool calls failed');
+    }
+    if (execSummary) {
+      reasonParts.push(execSummary);
+    }
+
+    const reason = reasonParts.join(' | ');
+
+    // Critic owns status transitions: persist blocked to DB.
+    try {
+      const planService = getPlanService();
+      await planService.initialize();
+      await planService.updateTodoStatus({
+        todoId,
+        status: 'blocked',
+        eventType: 'todo_status',
+        eventData: { status: 'blocked', reason },
+      });
+      emit?.({
+        type:     'progress',
+        threadId: state.threadId,
+        data:     { phase: 'todo_status', planId: activePlanId, todoId, title: todoTitle, status: 'blocked' },
+      });
+    } catch {
+      // best effort
+    }
+
+    state.metadata.criticDecision = 'revise';
+    state.metadata.criticReason = reason;
+    state.metadata.revisionFeedback = reason;
+    state.metadata.requestPlanRevision = { reason };
+    state.metadata.revisionCount = revisionCount + 1;
+    console.log(`[Agent:Critic] Requesting plan revision ${revisionCount + 1}/${this.maxRevisions}: ${reason}`);
+
+    emit?.({
+      type:     'progress',
+      threadId: state.threadId,
+      data:     { phase: 'critic_decision', decision: 'revise', reason },
+    });
+
+    return { state, next: 'planner' };
   }
 }

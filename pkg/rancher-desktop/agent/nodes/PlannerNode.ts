@@ -64,6 +64,7 @@ export class PlannerNode extends BaseNode {
 
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
     console.log(`[Agent:Planner] Executing...`);
+    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
     const lastUserMessage = state.messages.filter(m => m.role === 'user').pop();
 
     if (!lastUserMessage) {
@@ -125,38 +126,97 @@ export class PlannerNode extends BaseNode {
 
           console.log(`[Agent:Planner] Persisting plan to Postgres: thread=${state.threadId}, todos=${todos.length}, priorPlanId=${priorPlanId || 'none'}`);
 
+          const data = {
+            intent: plan.intent,
+            goal: plan.goal,
+            context: plan.context,
+            responseGuidance: plan.responseGuidance,
+          };
+
           if (priorPlanId) {
-            await planService.updatePlanStatus(priorPlanId, 'abandoned');
-            await planService.addPlanEvent(priorPlanId, 'superseded', {
-              reason: revisionReason || 'Plan revised',
+            const revised = await planService.revisePlan({
+              planId: priorPlanId,
+              data,
+              todos,
+              eventData: {
+                reason: revisionReason || 'Plan revised',
+              },
             });
-          }
 
-          const created = await planService.createPlan({
-            threadId: state.threadId,
-            data: {
-              intent: plan.intent,
-              goal: plan.goal,
-              context: plan.context,
-              responseGuidance: plan.responseGuidance,
-            },
-            todos,
-            eventData: priorPlanId
-              ? { revisedFromPlanId: priorPlanId, reason: revisionReason || 'Plan revised' }
-              : {},
-          });
+            console.log(`[Agent:Planner] Plan revision result: ${revised ? `planId=${revised.planId} revision=${revised.revision}` : 'FAILED'}`);
 
-          console.log(`[Agent:Planner] Plan persistence result: ${created?.planId ? `planId=${created.planId}` : 'FAILED'}`);
+            if (revised) {
+              await awareness.update({ active_plan_ids: [String(revised.planId)] });
+              state.metadata.activePlanId = revised.planId;
 
-          if (created?.planId) {
-            await awareness.update({ active_plan_ids: [String(created.planId)] });
-            state.metadata.activePlanId = created.planId;
+              emit?.({
+                type:     'progress',
+                threadId: state.threadId,
+                data:     { phase: 'plan_revised', planId: revised.planId, revision: revised.revision, goal: plan.goal },
+              });
 
-            console.log(`[Agent:Planner] Awareness updated: active_plan_ids=[${created.planId}]`);
+              for (const deletedId of revised.todosDeleted) {
+                emit?.({
+                  type:     'progress',
+                  threadId: state.threadId,
+                  data:     { phase: 'todo_deleted', planId: revised.planId, todoId: deletedId },
+                });
+              }
 
-            // Clear revision request flags for the next executor cycle.
-            delete (state.metadata as any).requestPlanRevision;
-            delete (state.metadata as any).revisionFeedback;
+              for (const t of revised.todosCreated) {
+                emit?.({
+                  type:     'progress',
+                  threadId: state.threadId,
+                  data:     { phase: 'todo_created', planId: revised.planId, todoId: t.todoId, title: t.title, orderIndex: t.orderIndex, status: t.status },
+                });
+              }
+
+              for (const t of revised.todosUpdated) {
+                emit?.({
+                  type:     'progress',
+                  threadId: state.threadId,
+                  data:     { phase: 'todo_updated', planId: revised.planId, todoId: t.todoId, title: t.title, orderIndex: t.orderIndex, status: t.status },
+                });
+              }
+
+              // Clear revision request flags for the next executor cycle.
+              delete (state.metadata as any).requestPlanRevision;
+              delete (state.metadata as any).revisionFeedback;
+            }
+          } else {
+            const created = await planService.createPlan({
+              threadId: state.threadId,
+              data,
+              todos,
+              eventData: {},
+            });
+
+            console.log(`[Agent:Planner] Plan creation result: ${created?.planId ? `planId=${created.planId}` : 'FAILED'}`);
+
+            if (created?.planId) {
+              await awareness.update({ active_plan_ids: [String(created.planId)] });
+              state.metadata.activePlanId = created.planId;
+
+              emit?.({
+                type:     'progress',
+                threadId: state.threadId,
+                data:     { phase: 'plan_created', planId: created.planId, revision: 1, goal: plan.goal },
+              });
+
+              for (const t of created.todos) {
+                emit?.({
+                  type:     'progress',
+                  threadId: state.threadId,
+                  data:     { phase: 'todo_created', planId: created.planId, todoId: t.todoId, title: t.title, orderIndex: t.orderIndex, status: 'pending' },
+                });
+              }
+
+              console.log(`[Agent:Planner] Awareness updated: active_plan_ids=[${created.planId}]`);
+
+              // Clear revision request flags for the next executor cycle.
+              delete (state.metadata as any).requestPlanRevision;
+              delete (state.metadata as any).revisionFeedback;
+            }
           }
         } catch (err) {
           console.warn('[Agent:Planner] Failed to persist plan:', err);

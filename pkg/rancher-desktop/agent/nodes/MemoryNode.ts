@@ -5,10 +5,12 @@ import { BaseNode } from './BaseNode';
 import { getChromaService } from '../services/ChromaService';
 
 interface SearchPlan {
-  searchQuery: string;
+  needsMemory: boolean;
+  searchQueries: string[];
   collection: string;
   whereClause?: Record<string, unknown>;
   reasoning: string;
+  candidateLimit?: number;
 }
 
 export class MemoryNode extends BaseNode {
@@ -27,6 +29,7 @@ export class MemoryNode extends BaseNode {
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
     console.log(`[Agent:Memory] Executing...`);
     const lastUserMessage = state.messages.filter(m => m.role === 'user').pop();
+    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
 
     if (!lastUserMessage) {
       console.log(`[Agent:Memory] No user message, skipping`);
@@ -52,20 +55,44 @@ export class MemoryNode extends BaseNode {
         return { state, next: 'continue' };
       }
 
+      if (!searchPlan.needsMemory || searchPlan.searchQueries.length === 0) {
+        console.log(`[Agent:Memory] Memory not needed: ${searchPlan.reasoning}`);
+        return { state, next: 'continue' };
+      }
+
       console.log(`[Agent:Memory] Search plan: ${searchPlan.reasoning}`);
       state.metadata.memorySearchPlan = searchPlan;
 
-      // Query Chroma with the planned search
-      const memories = await this.queryChroma(searchPlan);
+      emit?.({
+        type:     'progress',
+        threadId: state.threadId,
+        data:     { phase: 'memory_plan', needsMemory: true, queries: searchPlan.searchQueries, collection: searchPlan.collection },
+      });
 
-      if (memories.length > 0) {
-        console.log(`[Agent:Memory] Found ${memories.length} memories`);
-        state.metadata.retrievedMemories = memories;
-        state.metadata.memoryContext = memories
+      // Query Chroma with the planned search (pull a larger candidate set)
+      const candidateLimit = Number.isFinite(Number(searchPlan.candidateLimit)) ? Number(searchPlan.candidateLimit) : 18;
+      const candidates = await this.queryChroma(searchPlan, candidateLimit);
+
+      if (candidates.length === 0) {
+        console.log(`[Agent:Memory] No memories found`);
+        return { state, next: 'continue' };
+      }
+
+      const selected = await this.filterMemories(lastUserMessage.content, candidates);
+
+      if (selected.length > 0) {
+        console.log(`[Agent:Memory] Selected ${selected.length}/${candidates.length} memories`);
+        state.metadata.retrievedMemories = selected;
+        state.metadata.memories = selected;
+        state.metadata.memoryContext = selected
           .map((m, i) => `[Memory ${ i + 1 }]: ${ m }`)
           .join('\n');
-      } else {
-        console.log(`[Agent:Memory] No memories found`);
+
+        emit?.({
+          type:     'progress',
+          threadId: state.threadId,
+          data:     { phase: 'memory_selected', count: selected.length, candidates: candidates.length },
+        });
       }
     } catch (err) {
       console.error('[Agent:Memory] Retrieval failed:', err);
@@ -84,7 +111,10 @@ export class MemoryNode extends BaseNode {
       ? `Available collections: ${ collections.join(', ') }`
       : 'No collections available';
 
-    const prompt = `You are a memory retrieval planner. Given a user query, determine what to search for in the vector database.
+    const prompt = `You are a memory recall controller.
+
+Decide whether the user request needs additional context from long-term memory.
+If memory is needed, produce 1-6 short, specific search queries.
 
 ${ collectionsInfo }
 
@@ -92,21 +122,22 @@ Current user query: "${ userQuery }"
 
 Respond in JSON format only:
 {
-  "searchQuery": "the semantic search query to find relevant memories",
+  "needsMemory": boolean,
+  "searchQueries": string[],
   "collection": "which collection to search (use one from available, or 'conversations' as default)",
   "whereClause": { "optional": "metadata filters" },
+  "candidateLimit": number,
   "reasoning": "brief explanation of search strategy"
 }
-
-If no memory search is needed (simple greeting, etc), respond with:
-{ "skip": true, "reasoning": "why no search needed" }`;
+`;
 
     // Use BaseNode's promptJSON helper
     const parsed = await this.promptJSON<{
-      skip?: boolean;
-      searchQuery?: string;
+      needsMemory?: boolean;
+      searchQueries?: unknown;
       collection?: string;
       whereClause?: Record<string, unknown>;
+      candidateLimit?: number;
       reasoning?: string;
     }>(prompt);
 
@@ -114,9 +145,10 @@ If no memory search is needed (simple greeting, etc), respond with:
       return this.fallbackSearchPlan(userQuery);
     }
 
-    if (parsed.skip) {
-      return null;
-    }
+    const needsMemory = !!parsed.needsMemory;
+    const searchQueries = Array.isArray(parsed.searchQueries)
+      ? (parsed.searchQueries as unknown[]).map(String).map(s => s.trim()).filter(Boolean)
+      : [];
 
     // Validate collection exists
     let collection = parsed.collection || 'conversations';
@@ -126,10 +158,12 @@ If no memory search is needed (simple greeting, etc), respond with:
     }
 
     return {
-      searchQuery:  parsed.searchQuery || userQuery,
+      needsMemory,
+      searchQueries,
       collection,
-      whereClause:  parsed.whereClause,
-      reasoning:    parsed.reasoning || 'LLM planned search',
+      whereClause: parsed.whereClause,
+      candidateLimit: parsed.candidateLimit,
+      reasoning: parsed.reasoning || 'LLM planned search',
     };
   }
 
@@ -140,31 +174,81 @@ If no memory search is needed (simple greeting, etc), respond with:
     const collections = this.chroma.getCollectionNames();
 
     return {
-      searchQuery: userQuery,
+      needsMemory: true,
+      searchQueries: [userQuery],
       collection:  collections[0] || 'conversations',
       reasoning:   'Fallback: direct query search',
+      candidateLimit: 12,
     };
   }
 
   /**
    * Query Chroma with the search plan
    */
-  private async queryChroma(plan: SearchPlan, limit = 5): Promise<string[]> {
+  private async queryChroma(plan: SearchPlan, limit = 18): Promise<string[]> {
     try {
-      const data = await this.chroma.query(
-        plan.collection,
-        [plan.searchQuery],
-        limit,
-        plan.whereClause,
-      );
+      const out: string[] = [];
+      const queries = plan.searchQueries.length > 0 ? plan.searchQueries : [];
 
-      if (!data) {
-        return [];
+      for (const q of queries) {
+        const data = await this.chroma.query(
+          plan.collection,
+          [q],
+          Math.max(1, Math.floor(limit / Math.max(1, queries.length))),
+          plan.whereClause,
+        );
+
+        const docs = data?.documents?.[0] || [];
+        for (const d of docs) {
+          if (d && !out.includes(d)) {
+            out.push(d);
+          }
+        }
       }
 
-      return data.documents?.[0] || [];
+      return out.slice(0, limit);
     } catch {
       return [];
     }
+  }
+
+  private async filterMemories(userQuery: string, candidates: string[]): Promise<string[]> {
+    const capped = candidates.slice(0, 24);
+    const prompt = `You are selecting relevant memories for a user request.
+
+User request:
+"${userQuery}"
+
+Candidate memories (each item is a standalone snippet):
+${capped.map((m, i) => `${i + 1}. ${m}`).join('\n')}
+
+Return JSON only:
+{
+  "selected": number[],
+  "reasoning": "brief"
+}
+
+Rules:
+- Select ONLY items that are clearly relevant.
+- It's valid to select none.
+- Prefer fewer, higher-signal items.`;
+
+    const parsed = await this.promptJSON<{ selected?: unknown; reasoning?: string }>(prompt);
+    if (!parsed || !Array.isArray(parsed.selected)) {
+      return capped.slice(0, 10);
+    }
+
+    const selectedIdx = (parsed.selected as unknown[])
+      .map(n => Number(n))
+      .filter(n => Number.isFinite(n) && n >= 1 && n <= capped.length);
+
+    const out: string[] = [];
+    for (const idx of selectedIdx) {
+      const m = capped[idx - 1];
+      if (m && !out.includes(m)) {
+        out.push(m);
+      }
+    }
+    return out;
   }
 }

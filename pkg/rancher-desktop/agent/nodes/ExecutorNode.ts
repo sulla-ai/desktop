@@ -11,6 +11,18 @@ export class ExecutorNode extends BaseNode {
     super('executor', 'Executor');
   }
 
+  private async emitChat(state: ThreadState, content: string): Promise<void> {
+    const text = String(content || '').trim();
+    if (!text) {
+      return;
+    }
+    try {
+      await this.executeSingleToolAction(state, 'emit_chat_message', { content: text });
+    } catch {
+      // best effort
+    }
+  }
+
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
     console.log(`[Agent:Executor] Executing...`);
     const executed = await this.executeNextTodoFromActivePlan(state);
@@ -41,6 +53,8 @@ export class ExecutorNode extends BaseNode {
       state.metadata.planHasRemainingTodos = false;
       return false;
     }
+
+    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
 
     const planService = getPlanService();
     await planService.initialize();
@@ -86,42 +100,50 @@ export class ExecutorNode extends BaseNode {
       eventData: { status: 'in_progress' },
     });
 
+    emit?.({
+      type:     'progress',
+      threadId: state.threadId,
+      data:     { phase: 'todo_status', planId, todoId: nextTodo.id, title: nextTodo.title, status: 'in_progress' },
+    });
+
+    await this.emitChat(state, `Working on: ${nextTodo.title}`);
+
     const decision = await this.planSingleTodoStep(state, nextTodo);
     if (!decision) {
-      await planService.updateTodoStatus({
-        todoId: nextTodo.id,
-        status: 'blocked',
-        eventType: 'todo_status',
-        eventData: { status: 'blocked', reason: 'No execution decision produced' },
-      });
+      await this.emitChat(state, 'I could not determine a safe next action for this todo. Requesting a plan revision.');
       state.metadata.todoExecution = { todoId: nextTodo.id, status: 'blocked' };
       state.metadata.requestPlanRevision = { reason: 'Todo blocked: no execution decision produced' };
       return true;
     }
 
+    if (!decision.action || decision.action === 'none') {
+      await this.emitChat(state, decision.summary ? `No tool action selected. ${decision.summary}` : 'No tool action selected for this todo.');
+    } else {
+      await this.emitChat(state, `Planned action: ${decision.action}`);
+    }
+
     let toolResult: ToolResult | null = null;
     if (decision.action && decision.action !== 'none') {
+      await this.emitChat(state, `Running tool: ${decision.action}`);
       toolResult = await this.executeSingleToolAction(state, decision.action, decision.args);
       state.metadata.toolResults = toolResult ? { [decision.action]: toolResult } : undefined;
 
       if (toolResult && !toolResult.success) {
+        await this.emitChat(state, `Tool failed (${decision.action}): ${toolResult.error || 'unknown error'}. Requesting plan revision.`);
         state.metadata.requestPlanRevision = { reason: `Tool failed (${decision.action}): ${toolResult.error || 'unknown error'}` };
+      } else if (toolResult) {
+        await this.emitChat(state, `Tool succeeded (${decision.action}).`);
       }
     }
 
     const markDone = decision.markDone || (toolResult ? toolResult.success : false);
     const nextStatus: TodoStatus = markDone ? 'done' : 'in_progress';
 
-    await planService.updateTodoStatus({
-      todoId: nextTodo.id,
-      status: nextStatus,
-      eventType: markDone ? 'todo_completed' : 'todo_progress',
-      eventData: {
-        action: decision.action || null,
-        toolSuccess: toolResult ? toolResult.success : null,
-        summary: decision.summary || '',
-      },
-    });
+    if (markDone) {
+      await this.emitChat(state, decision.summary ? `Todo complete. ${decision.summary}` : 'Todo complete.');
+    } else if (decision.summary) {
+      await this.emitChat(state, decision.summary);
+    }
 
     try {
       const refreshed = await planService.getPlan(planId);
@@ -209,6 +231,10 @@ ${JSON.stringify({ id: todo.id, title: todo.title, description: todo.description
 Constraints:
 - You may execute AT MOST ONE tool action.
 - If you cannot make progress without more info, set action="none" and markDone=false.
+
+Communication:
+- If you want to explain what you're doing or surface a problem to the user during execution, you may choose action="emit_chat_message" with args={"content":"..."}.
+- Only choose emit_chat_message when you have nothing else to do safely or you need to narrate/clarify; it counts as your one tool action.
 
 ${categoryIndex}
 
@@ -302,21 +328,37 @@ Return JSON only:
     registerDefaultTools();
     const registry = getToolRegistry();
 
+    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
+
     const tool = registry.get(action);
     if (!tool) {
       return { toolName: action, success: false, error: `Unknown tool action: ${action}` };
     }
 
+    emit?.({
+      type:     'progress',
+      threadId: state.threadId,
+      data:     { phase: 'tool_call', toolName: action, args: args || {} },
+    });
+
     const memorySearchQueries = Array.isArray(state.metadata?.plan && (state.metadata.plan as any)?.fullPlan?.context?.memorySearchQueries)
       ? ((state.metadata.plan as any).fullPlan.context.memorySearchQueries as unknown[]).map(String)
       : [];
 
-    return tool.execute(state, {
+    const result = await tool.execute(state, {
       threadId: state.threadId,
       plannedAction: action,
       memorySearchQueries,
       args,
     });
+
+    emit?.({
+      type:     'progress',
+      threadId: state.threadId,
+      data:     { phase: 'tool_result', toolName: action, success: result.success, error: result.error || null },
+    });
+
+    return result;
   }
 
   private async executePlannedTools(
@@ -393,7 +435,13 @@ ${JSON.stringify(activeTodo)}
 Execution result:
 ${JSON.stringify(todoExecution || {})}
 
-Now write the next user-facing update. Keep it concise and specific about what was done and what remains.`;
+Now write the next user-facing update. Keep it concise and specific about what was done and what remains.
+
+Output requirements:
+- Output plain text only.
+- Do NOT output JSON.
+- Do NOT wrap the response in an object.
+- Do NOT include code fences.`;
     }
 
     if (state.metadata.memoryContext) {

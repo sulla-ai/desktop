@@ -1,0 +1,38 @@
+import type { ThreadState, ToolResult } from '../types';
+import type { ToolContext } from './BaseTool';
+import { BaseTool } from './BaseTool';
+
+export class EmitChatMessageTool extends BaseTool {
+  readonly name = 'emit_chat_message';
+  readonly category = 'agent';
+
+  getPlanningInstructions(): string {
+    return [
+      'Emit Chat Message (emit_chat_message)',
+      '- Purpose: Emit a user-visible chat bubble during plan execution to explain what you\'re doing.',
+      '- args:',
+      '  - content (string): The message to show to the user.',
+      '  - role (string, optional): "assistant" | "system". Defaults to "assistant".',
+      '  - kind (string, optional): Optional UI kind tag. Defaults to "progress".',
+    ].join('\n');
+  }
+
+  async execute(state: ThreadState, context: ToolContext): Promise<ToolResult> {
+    const args = (context.args && typeof context.args === 'object') ? context.args : {};
+    const content = typeof (args as any).content === 'string' ? String((args as any).content) : '';
+    const role = typeof (args as any).role === 'string' ? String((args as any).role) : 'assistant';
+    const kind = typeof (args as any).kind === 'string' ? String((args as any).kind) : 'progress';
+
+    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
+
+    if (content.trim()) {
+      emit?.({
+        type:     'progress',
+        threadId: state.threadId,
+        data:     { phase: 'chat_message', content, role, kind },
+      });
+    }
+
+    return { toolName: this.name, success: true, result: { emitted: !!content.trim() } };
+  }
+}

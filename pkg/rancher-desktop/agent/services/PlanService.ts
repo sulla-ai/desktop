@@ -111,7 +111,7 @@ export class PlanService {
     data: Record<string, unknown>;
     todos: Array<{ title: string; description: string; orderIndex: number; categoryHints?: string[] }>;
     eventData?: Record<string, unknown>;
-  }): Promise<{ planId: number } | null> {
+  }): Promise<{ planId: number; todos: Array<{ todoId: number; title: string; orderIndex: number }> } | null> {
     await this.initialize();
 
     const client = new pg.Client({ connectionString: POSTGRES_URL });
@@ -129,12 +129,18 @@ export class PlanService {
 
       const planId = Number(planRes.rows[0].id);
 
+      const createdTodos: Array<{ todoId: number; title: string; orderIndex: number }> = [];
+
       for (const todo of params.todos) {
-        await client.query(
+        const todoRes = await client.query(
           `INSERT INTO agent_plan_todos (plan_id, status, order_index, title, description, category_hints, updated_at)
-           VALUES ($1, 'pending', $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
+           VALUES ($1, 'pending', $2, $3, $4, $5, CURRENT_TIMESTAMP)
+           RETURNING id`,
           [planId, todo.orderIndex, todo.title, todo.description, JSON.stringify(todo.categoryHints || [])],
         );
+
+        const todoId = Number(todoRes.rows[0].id);
+        createdTodos.push({ todoId, title: todo.title, orderIndex: todo.orderIndex });
 
         console.log(`[PlanService] createPlan inserted todo: planId=${planId} orderIndex=${todo.orderIndex} title=${JSON.stringify(todo.title)}`);
       }
@@ -148,10 +154,116 @@ export class PlanService {
       );
 
       await client.query('COMMIT');
-      return { planId };
+      return { planId, todos: createdTodos };
     } catch (err) {
       await client.query('ROLLBACK');
       console.warn('[PlanService] createPlan failed:', err);
+      return null;
+    } finally {
+      await client.end();
+    }
+  }
+
+  async revisePlan(params: {
+    planId: number;
+    data: Record<string, unknown>;
+    todos: Array<{ title: string; description: string; orderIndex: number; categoryHints?: string[] }>;
+    eventData?: Record<string, unknown>;
+  }): Promise<{ planId: number; revision: number; todosCreated: Array<{ todoId: number; title: string; orderIndex: number; status: TodoStatus }>; todosUpdated: Array<{ todoId: number; title: string; orderIndex: number; status: TodoStatus }>; todosDeleted: number[] } | null> {
+    await this.initialize();
+
+    const client = new pg.Client({ connectionString: POSTGRES_URL });
+    await client.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const priorTodosRes = await client.query(
+        `SELECT id, status, order_index, title
+         FROM agent_plan_todos
+         WHERE plan_id = $1`,
+        [params.planId],
+      );
+      const priorTodos: Array<{ id: number; status: TodoStatus; orderIndex: number; title: string }> = priorTodosRes.rows.map((r: any) => ({
+        id: Number(r.id),
+        status: r.status as TodoStatus,
+        orderIndex: Number(r.order_index),
+        title: String(r.title),
+      }));
+
+      // Match rule for status/ID preservation: same order_index + same title.
+      const matchKey = (orderIndex: number, title: string) => `${orderIndex}::${title}`;
+      const priorByKey = new Map<string, { id: number; status: TodoStatus; orderIndex: number; title: string }>();
+      for (const t of priorTodos) {
+        priorByKey.set(matchKey(t.orderIndex, t.title), t);
+      }
+
+      const updateRes = await client.query(
+        `UPDATE agent_plans
+         SET revision = revision + 1, data = $2, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1
+         RETURNING revision`,
+        [params.planId, JSON.stringify(params.data)],
+      );
+
+      if (updateRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+
+      const revision = Number(updateRes.rows[0].revision);
+
+      const usedPriorIds = new Set<number>();
+      const todosCreated: Array<{ todoId: number; title: string; orderIndex: number; status: TodoStatus }> = [];
+      const todosUpdated: Array<{ todoId: number; title: string; orderIndex: number; status: TodoStatus }> = [];
+
+      for (const todo of params.todos) {
+        const key = matchKey(todo.orderIndex, todo.title);
+        const match = priorByKey.get(key);
+
+        if (match) {
+          usedPriorIds.add(match.id);
+          await client.query(
+            `UPDATE agent_plan_todos
+             SET order_index = $2, title = $3, description = $4, category_hints = $5, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $1`,
+            [match.id, todo.orderIndex, todo.title, todo.description, JSON.stringify(todo.categoryHints || [])],
+          );
+          todosUpdated.push({ todoId: match.id, title: todo.title, orderIndex: todo.orderIndex, status: match.status });
+          continue;
+        }
+
+        const todoRes = await client.query(
+          `INSERT INTO agent_plan_todos (plan_id, status, order_index, title, description, category_hints, updated_at)
+           VALUES ($1, 'pending', $2, $3, $4, $5, CURRENT_TIMESTAMP)
+           RETURNING id, status`,
+          [params.planId, todo.orderIndex, todo.title, todo.description, JSON.stringify(todo.categoryHints || [])],
+        );
+        const todoId = Number(todoRes.rows[0].id);
+        const status = todoRes.rows[0].status as TodoStatus;
+        todosCreated.push({ todoId, title: todo.title, orderIndex: todo.orderIndex, status });
+      }
+
+      const todosDeleted = priorTodos.filter(t => !usedPriorIds.has(t.id)).map(t => t.id);
+      if (todosDeleted.length > 0) {
+        await client.query(
+          `DELETE FROM agent_plan_todos
+           WHERE id = ANY($1::int[])`,
+          [todosDeleted],
+        );
+      }
+
+      await client.query(
+        `INSERT INTO agent_plan_events (plan_id, type, data)
+         VALUES ($1, 'revised', $2)`,
+        [params.planId, JSON.stringify(params.eventData || {})],
+      );
+
+      await client.query('COMMIT');
+      return { planId: params.planId, revision, todosCreated, todosUpdated, todosDeleted };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.warn('[PlanService] revisePlan failed:', err);
       return null;
     } finally {
       await client.end();

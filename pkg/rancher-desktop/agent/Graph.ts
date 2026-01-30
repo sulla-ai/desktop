@@ -2,10 +2,12 @@
 
 import type { GraphNode, GraphEdge, ThreadState, NodeResult } from './types';
 
+type AgentRuntimeEmitter = (event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void;
+
 export class Graph {
   private nodes: Map<string, GraphNode> = new Map();
   private edges: Map<string, GraphEdge[]> = new Map();
-  private entryPoint: string = '';
+  private entryPoint: string | null = null;
   private endPoints: Set<string> = new Set();
   private initialized = false;
 
@@ -80,7 +82,7 @@ export class Graph {
   /**
    * Execute the graph with given state
    */
-  async execute(initialState: ThreadState, maxIterations = 10): Promise<ThreadState> {
+  async execute(initialState: ThreadState, maxIterations = 1_000_000): Promise<ThreadState> {
     if (!this.entryPoint) {
       throw new Error('No entry point set');
     }
@@ -101,10 +103,24 @@ export class Graph {
         throw new Error(`Node not found: ${ currentNodeId }`);
       }
 
+      const emit = (state.metadata.__emitAgentEvent as AgentRuntimeEmitter | undefined);
+      emit?.({
+        type:     'progress',
+        threadId: state.threadId,
+        data:     { phase: 'node_start', nodeId: currentNodeId, nodeName: node.name },
+      });
+
       console.log(`[Agent:Graph] Executing node: ${node.name} (${currentNodeId})`);
       const result = await node.execute(state);
 
       state = result.state;
+
+      const emitAfter = (state.metadata.__emitAgentEvent as AgentRuntimeEmitter | undefined);
+      emitAfter?.({
+        type:     'progress',
+        threadId: state.threadId,
+        data:     { phase: 'node_end', nodeId: currentNodeId, nodeName: node.name, next: result.next },
+      });
 
       const nextNodeId = this.resolveNext(currentNodeId, result.next, state);
       console.log(`[Agent:Graph] Node ${node.name} returned: ${result.next} → next: ${nextNodeId}`);
@@ -149,7 +165,7 @@ export class Graph {
 
     // If result is 'loop', go back to entry point
     if (result === 'loop') {
-      return this.entryPoint;
+      return this.entryPoint as string;
     }
 
     // Otherwise, follow edges

@@ -163,6 +163,10 @@ export class ConversationThread {
     console.log(`[Agent:Thread:${this.threadId}] Starting graph execution...`);
     this.emit({ type: 'progress', threadId: this.threadId, data: { phase: 'graph_execution' } });
 
+    this.state.metadata.__emitAgentEvent = (event: Omit<AgentEvent, 'timestamp'>) => {
+      this.emit(event);
+    };
+
     try {
       this.state = await this.graph.execute(this.state);
       console.log(`[Agent:Thread:${this.threadId}] Graph execution complete`);
@@ -201,6 +205,8 @@ export class ConversationThread {
     };
 
     this.emit({ type: 'complete', threadId: this.threadId, data: response });
+
+    delete (this.state.metadata as any).__emitAgentEvent;
 
     return response;
   }

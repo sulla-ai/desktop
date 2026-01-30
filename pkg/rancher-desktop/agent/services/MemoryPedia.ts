@@ -6,6 +6,8 @@ import { MemoryGraph, MemoryProcessingState } from './MemoryGraph';
 import { getChromaService } from './ChromaService';
 import type { ILLMService } from './ILLMService';
 import { getLLMService, getCurrentMode } from './LLMServiceFactory';
+import fs from 'fs';
+import path from 'path';
 
 // Collection names
 const COLLECTIONS = {
@@ -57,6 +59,91 @@ export class MemoryPedia {
   private isProcessing = false;
   private chroma = getChromaService();
 
+  private async getSeedMarkdownFiles(dir: string): Promise<string[]> {
+    const out: string[] = [];
+    try {
+      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+      for (const e of entries) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          out.push(...await this.getSeedMarkdownFiles(p));
+        } else if (e.isFile() && e.name.toLowerCase().endsWith('.md')) {
+          out.push(p);
+        }
+      }
+    } catch {
+      return [];
+    }
+    return out;
+  }
+
+  private async seedPagesFromFolder(): Promise<void> {
+    if (!this.chroma.isAvailable()) {
+      return;
+    }
+
+    const seedDir = path.join(__dirname, '..', 'seed_pedia');
+    const files = await this.getSeedMarkdownFiles(seedDir);
+    if (files.length === 0) {
+      return;
+    }
+
+    for (const filePath of files) {
+      let content = '';
+      try {
+        content = await fs.promises.readFile(filePath, 'utf-8');
+      } catch {
+        continue;
+      }
+
+      const pageId = path.basename(filePath, path.extname(filePath));
+      if (!pageId) {
+        continue;
+      }
+
+      const existing = await this.getPage(pageId);
+      const relatedThreads = existing
+        ? [...new Set([...existing.relatedThreads, 'seed'])]
+        : ['seed'];
+
+      const success = await this.chroma.upsert(
+        COLLECTIONS.PAGES,
+        [pageId],
+        [content],
+        [{
+          title:          pageId,
+          pageType:       'seed',
+          relatedThreads: relatedThreads.join(','),
+          lastUpdated:    Date.now(),
+        }],
+      );
+
+      if (!success) {
+        console.warn(`[MemoryPedia] Failed to seed page: ${pageId}`);
+      }
+    }
+  }
+
+  private sanitizeMemoryPediaInput(text: string): string {
+    if (!text) {
+      return '';
+    }
+
+    // Remove agent-recalled memory context blocks if they get embedded into assistant content.
+    // This prevents a feedback loop where recalled memory causes MemoryPedia to update unrelated pages.
+    let out = text;
+
+    // Strip sections that start with "Relevant context from memory:" (as produced by BaseNode.buildContextualPrompt)
+    out = out.replace(/\n?Relevant context from memory:\n[\s\S]*?(?=\n\s*Recent conversation:|\n\s*$)/gi, '\n');
+
+    // Strip lines like "[Memory 1]: ..."
+    out = out.replace(/^\s*\[Memory\s+\d+\]:.*$/gim, '');
+
+    // Collapse excessive blank lines after removals
+    out = out.replace(/\n{3,}/g, '\n\n').trim();
+    return out;
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) {
       return;
@@ -86,6 +173,8 @@ export class MemoryPedia {
     for (const collName of Object.values(COLLECTIONS)) {
       await this.chroma.ensureCollection(collName);
     }
+
+    await this.seedPagesFromFolder();
 
     this.initialized = true;
     console.log(`[MemoryPedia] Initialized (Chroma: ${this.chroma.isAvailable()})`);
@@ -140,9 +229,17 @@ export class MemoryPedia {
   ): Promise<void> {
     console.log(`[MemoryPedia] Processing thread: ${threadId}`);
 
-    // Format conversation for LLM
+    // Format conversation for LLM.
+    // IMPORTANT: Only feed user prompts + assistant outputs into the memory graph.
+    // Do NOT feed recalled-memory snippets back into MemoryPedia, or it will self-reinforce.
     const conversationText = messages
-      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant'))
+      .map((m) => {
+        const roleLabel = m.role === 'user' ? 'User' : 'Assistant';
+        const sanitized = this.sanitizeMemoryPediaInput(String(m.content || ''));
+        return sanitized ? `${roleLabel}: ${sanitized}` : '';
+      })
+      .filter(Boolean)
       .join('\n');
 
     // Use MemoryGraph for LangGraph-style processing

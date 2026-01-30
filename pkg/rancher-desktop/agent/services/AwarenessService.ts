@@ -126,7 +126,7 @@ export class AwarenessService {
 
   private readFirstAwarenessPrompt(): string {
     try {
-      const p = path.join(__dirname, '..', 'prompts', 'first_awareness.txt');
+      const p = path.join(__dirname, '..', 'prompts', 'soul.md');
       const content = fs.readFileSync(p, 'utf-8');
 
       return content.trim();

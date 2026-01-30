@@ -30,6 +30,8 @@ export class MemorySearchTool extends BaseTool {
     const chroma = getChromaService();
     const results: string[] = [];
 
+    const limit = Number.isFinite(Number(context.args?.limit)) ? Number(context.args?.limit) : 12;
+
     const queries = (context.memorySearchQueries && context.memorySearchQueries.length > 0)
       ? context.memorySearchQueries
       : [state.messages.filter(m => m.role === 'user').pop()?.content || ''];
@@ -72,7 +74,7 @@ export class MemorySearchTool extends BaseTool {
         }
       }
 
-      const top = results.slice(0, 5);
+      const top = results.slice(0, Math.max(0, Math.min(50, limit)));
 
       if (top.length > 0) {
         state.metadata.retrievedMemories = top;
@@ -84,7 +86,7 @@ export class MemorySearchTool extends BaseTool {
       return {
         toolName: this.name,
         success:  true,
-        result:   { queries, count: top.length },
+        result:   { queries, count: top.length, limit },
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
