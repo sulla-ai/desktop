@@ -109,7 +109,7 @@ Response: "${ response.substring(0, 500) }"
 
 Reply with exactly one word: APPROVE, REVISE, or REJECT`;
 
-    const result = await this.prompt(promptText, { timeout: 5000 });
+    const result = await this.prompt(promptText);
 
     if (result) {
       const verdict = result.content.toUpperCase().trim();

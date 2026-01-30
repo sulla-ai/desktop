@@ -108,7 +108,7 @@ If no memory search is needed (simple greeting, etc), respond with:
       collection?: string;
       whereClause?: Record<string, unknown>;
       reasoning?: string;
-    }>(prompt, { timeout: 10000 });
+    }>(prompt);
 
     if (!parsed) {
       return this.fallbackSearchPlan(userQuery);

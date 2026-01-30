@@ -15,8 +15,9 @@ let currentConfig: LLMConfig | null = null;
 export function updateLLMConfig(config: LLMConfig): void {
   currentConfig = config;
 
-  // If remote mode, configure the remote service
-  if (config.mode === 'remote' && config.remoteApiKey) {
+  // Always apply remote service configuration knobs when in remote mode.
+  // Availability is still determined by whether an API key is present.
+  if (config.mode === 'remote') {
     const remoteService = getRemoteModelService();
 
     remoteService.configure({
@@ -27,7 +28,6 @@ export function updateLLMConfig(config: LLMConfig): void {
       model:  config.remoteModel,
     });
 
-    // Set retry count if provided
     if (config.remoteRetryCount !== undefined) {
       remoteService.setRetryCount(config.remoteRetryCount);
     }

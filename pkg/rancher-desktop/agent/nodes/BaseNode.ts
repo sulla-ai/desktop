@@ -8,10 +8,8 @@ import { getOllamaService } from '../services/OllamaService';
 
 export interface LLMOptions {
   model?: string;
-  temperature?: number;
   maxTokens?: number;
   format?: 'json' | undefined;
-  timeout?: number;
 }
 
 export interface LLMResponse {
@@ -69,7 +67,7 @@ export abstract class BaseNode implements GraphNode {
   /**
    * Send a prompt to the LLM (works for both local and remote)
    */
-  protected async prompt(prompt: string, options: LLMOptions = {}): Promise<LLMResponse | null> {
+  protected async prompt(prompt: string): Promise<LLMResponse | null> {
     if (!this.llmService) {
       this.llmService = getLLMService();
       await this.llmService.initialize();
@@ -87,10 +85,7 @@ export abstract class BaseNode implements GraphNode {
     console.log(`[Agent:${this.name}] Sending prompt (${prompt.length} chars) to ${model}`);
 
     try {
-      const content = await this.llmService.generate(prompt, {
-        temperature: options.temperature ?? 0.7,
-        timeout:     options.timeout,
-      });
+      const content = await this.llmService.generate(prompt);
 
       if (!content) {
         console.warn(`[Agent:${this.name}] No response from LLM`);
@@ -116,8 +111,8 @@ export abstract class BaseNode implements GraphNode {
   /**
    * Send a prompt and parse JSON response
    */
-  protected async promptJSON<T = unknown>(prompt: string, options: LLMOptions = {}): Promise<T | null> {
-    const response = await this.prompt(prompt, { ...options, format: 'json' });
+  protected async promptJSON<T = unknown>(prompt: string): Promise<T | null> {
+    const response = await this.prompt(prompt);
 
     if (!response) {
       return null;

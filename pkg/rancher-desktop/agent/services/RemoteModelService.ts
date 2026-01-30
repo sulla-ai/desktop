@@ -1,7 +1,7 @@
 // RemoteModelService - Handles remote LLM API calls (Grok, OpenAI, Anthropic, Google)
 // Implements ILLMService for interchangeable use with OllamaService
 
-import type { ILLMService, ChatMessage, GenerateOptions, ChatOptions, RemoteProviderConfig } from './ILLMService';
+import type { ILLMService, ChatMessage, RemoteProviderConfig } from './ILLMService';
 
 // Provider-specific API configurations
 const PROVIDER_CONFIGS: Record<string, { baseUrl: string; chatEndpoint: string; authHeader: string }> = {
@@ -110,15 +110,11 @@ class RemoteModelServiceClass implements ILLMService {
   /**
    * Generate completion (converts to chat format for API compatibility)
    */
-  async generate(prompt: string, options: GenerateOptions = {}): Promise<string | null> {
+  async generate(prompt: string): Promise<string | null> {
     const messages: ChatMessage[] = [];
-
-    if (options.system) {
-      messages.push({ role: 'system', content: options.system });
-    }
     messages.push({ role: 'user', content: prompt });
 
-    return this.chat(messages, options);
+    return this.chat(messages);
   }
 
   /**
@@ -144,7 +140,7 @@ class RemoteModelServiceClass implements ILLMService {
    * Chat completion - main method
    * Retries on failure, then falls back to local Ollama
    */
-  async chat(messages: ChatMessage[], options: ChatOptions = {}): Promise<string | null> {
+  async chat(messages: ChatMessage[]): Promise<string | null> {
     if (!this.config || !this.config.apiKey) {
       console.warn('[RemoteModelService] Not configured');
 
@@ -157,7 +153,7 @@ class RemoteModelServiceClass implements ILLMService {
       return null;
     }
 
-    const { timeout = this.defaultTimeoutMs, temperature } = options;
+    const timeout = this.defaultTimeoutMs;
     let lastError: unknown = null;
 
     // Retry loop
@@ -172,12 +168,12 @@ class RemoteModelServiceClass implements ILLMService {
         // Route to provider-specific handler
         switch (this.config.id) {
           case 'anthropic':
-            return await this.chatAnthropic(messages, temperature, timeout);
+            return await this.chatAnthropic(messages, timeout);
           case 'google':
-            return await this.chatGoogle(messages, temperature, timeout);
+            return await this.chatGoogle(messages, timeout);
           default:
             // OpenAI-compatible (Grok, OpenAI)
-            return await this.chatOpenAI(messages, temperature, timeout);
+            return await this.chatOpenAI(messages, timeout);
         }
       } catch (err) {
         lastError = err;
@@ -199,7 +195,7 @@ class RemoteModelServiceClass implements ILLMService {
 
         await ollama.initialize();
         if (ollama.isAvailable()) {
-          return await ollama.chat(messages, options);
+          return await ollama.chat(messages);
         }
       } catch (fallbackErr) {
         console.error('[RemoteModelService] Fallback to Ollama also failed:', fallbackErr);
@@ -214,7 +210,6 @@ class RemoteModelServiceClass implements ILLMService {
    */
   private async chatOpenAI(
     messages: ChatMessage[],
-    temperature?: number,
     timeout = 60000,
   ): Promise<string | null> {
     const providerConfig = this.getProviderConfig()!;
@@ -224,10 +219,6 @@ class RemoteModelServiceClass implements ILLMService {
       model:    this.config!.model,
       messages: messages.map(m => ({ role: m.role, content: m.content })),
     };
-
-    if (temperature !== undefined) {
-      body.temperature = temperature;
-    }
 
     const res = await fetch(url, {
       method:  'POST',
@@ -257,7 +248,6 @@ class RemoteModelServiceClass implements ILLMService {
    */
   private async chatAnthropic(
     messages: ChatMessage[],
-    temperature?: number,
     timeout = 60000,
   ): Promise<string | null> {
     const url = 'https://api.anthropic.com/v1/messages';
@@ -274,10 +264,6 @@ class RemoteModelServiceClass implements ILLMService {
 
     if (systemMessage) {
       body.system = systemMessage.content;
-    }
-
-    if (temperature !== undefined) {
-      body.temperature = temperature;
     }
 
     const res = await fetch(url, {
@@ -309,7 +295,6 @@ class RemoteModelServiceClass implements ILLMService {
    */
   private async chatGoogle(
     messages: ChatMessage[],
-    temperature?: number,
     timeout = 60000,
   ): Promise<string | null> {
     const model = this.config!.model;
@@ -329,10 +314,6 @@ class RemoteModelServiceClass implements ILLMService {
 
     if (systemInstruction) {
       body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
-    }
-
-    if (temperature !== undefined) {
-      body.generationConfig = { temperature };
     }
 
     const res = await fetch(url, {
@@ -358,8 +339,8 @@ class RemoteModelServiceClass implements ILLMService {
   /**
    * Generate and parse JSON response
    */
-  async generateJSON<T>(prompt: string, options: GenerateOptions = {}): Promise<T | null> {
-    const response = await this.generate(prompt, options);
+  async generateJSON<T>(prompt: string): Promise<T | null> {
+    const response = await this.generate(prompt);
 
     if (!response) {
       return null;

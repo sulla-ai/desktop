@@ -35,7 +35,6 @@ export class ResponseHandler {
       const llm = getLLMService();
       const refined = await llm.generate(
         `Refine this response for clarity and coherence. Keep it concise. Only output the refined response, nothing else:\n\n${ response.content }`,
-        { timeout: 30000 }, // 30s for remote APIs
       );
 
       if (refined && refined.length > 0) {

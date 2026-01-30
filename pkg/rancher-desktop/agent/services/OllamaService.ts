@@ -3,7 +3,7 @@
 // Implements ILLMService for interchangeable use with RemoteModelService
 
 import { getOllamaModel, getOllamaBase } from './ConfigService';
-import type { ILLMService, ChatMessage, GenerateOptions, ChatOptions } from './ILLMService';
+import type { ILLMService, ChatMessage } from './ILLMService';
 
 interface GenerateResponse {
   response: string;
@@ -125,33 +125,19 @@ class OllamaServiceClass implements ILLMService {
   /**
    * Generate a completion (non-chat)
    */
-  async generate(prompt: string, options: GenerateOptions = {}): Promise<string | null> {
-    const {
-      stream = false,
-      timeout = 30000,
-      temperature,
-      system,
-    } = options;
-
+  async generate(prompt: string): Promise<string | null> {
     try {
       const body: Record<string, unknown> = {
         model:  this.getModel(),
         prompt,
-        stream,
+        stream: false,
       };
-
-      if (temperature !== undefined) {
-        body.options = { temperature };
-      }
-      if (system) {
-        body.system = system;
-      }
 
       const res = await fetch(`${this.getBaseUrl()}/api/generate`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
-        signal:  AbortSignal.timeout(timeout),
+        signal:  AbortSignal.timeout(30000),
       });
 
       if (res.ok) {
@@ -169,29 +155,19 @@ class OllamaServiceClass implements ILLMService {
   /**
    * Chat completion
    */
-  async chat(messages: ChatMessage[], options: ChatOptions = {}): Promise<string | null> {
-    const {
-      stream = false,
-      timeout = 60000,
-      temperature,
-    } = options;
-
+  async chat(messages: ChatMessage[]): Promise<string | null> {
     try {
       const body: Record<string, unknown> = {
         model: this.getModel(),
         messages,
-        stream,
+        stream: false,
       };
-
-      if (temperature !== undefined) {
-        body.options = { temperature };
-      }
 
       const res = await fetch(`${this.getBaseUrl()}/api/chat`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
-        signal:  AbortSignal.timeout(timeout),
+        signal:  AbortSignal.timeout(60000),
       });
 
       if (res.ok) {
@@ -209,8 +185,8 @@ class OllamaServiceClass implements ILLMService {
   /**
    * Generate and parse JSON response
    */
-  async generateJSON<T>(prompt: string, options: GenerateOptions = {}): Promise<T | null> {
-    const response = await this.generate(prompt, options);
+  async generateJSON<T>(prompt: string): Promise<T | null> {
+    const response = await this.generate(prompt);
 
     if (!response) {
       return null;

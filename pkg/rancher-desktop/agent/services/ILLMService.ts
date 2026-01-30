@@ -6,19 +6,6 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface GenerateOptions {
-  stream?: boolean;
-  timeout?: number;
-  temperature?: number;
-  system?: string;
-}
-
-export interface ChatOptions {
-  stream?: boolean;
-  timeout?: number;
-  temperature?: number;
-}
-
 /**
  * ILLMService - Common interface for LLM services
  * Implemented by OllamaService (local) and RemoteModelService (API)
@@ -42,17 +29,17 @@ export interface ILLMService {
   /**
    * Generate a completion from a prompt
    */
-  generate(prompt: string, options?: GenerateOptions): Promise<string | null>;
+  generate(prompt: string): Promise<string | null>;
 
   /**
    * Chat completion with message history
    */
-  chat(messages: ChatMessage[], options?: ChatOptions): Promise<string | null>;
+  chat(messages: ChatMessage[]): Promise<string | null>;
 
   /**
    * Generate and parse JSON response
    */
-  generateJSON<T>(prompt: string, options?: GenerateOptions): Promise<T | null>;
+  generateJSON<T>(prompt: string): Promise<T | null>;
 
   /**
    * Health check

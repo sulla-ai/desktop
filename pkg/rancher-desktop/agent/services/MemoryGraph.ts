@@ -4,6 +4,15 @@
 import type { ILLMService } from './ILLMService';
 import { getLLMService, getCurrentMode } from './LLMServiceFactory';
 
+// Thresholds for what gets stored in long-term memory (ChromaDB)
+const MEMORY_THRESHOLDS = {
+  MIN_CONFIDENCE: 0.7,        // Entity must have >= 70% confidence
+  MIN_VERIFIABILITY: 0.6,     // Entity must be >= 60% verifiable
+  MIN_IMPORTANCE: 0.5,        // Entity must be >= 50% important
+  MIN_OVERALL_SCORE: 50,      // Critic score must be >= 50
+  MIN_SUMMARY_QUALITY: 'needs_improvement' as const, // At least this quality
+};
+
 // Processing state that flows through the graph
 export interface MemoryProcessingState {
   threadId: string;
@@ -26,6 +35,10 @@ export interface MemoryProcessingState {
       type: string;
       description: string;
       confidence: number;
+      verifiable: boolean;      // Can this be verified as factual?
+      verifiabilityScore: number; // 0.0-1.0 how verifiable
+      importance: number;       // 0.0-1.0 how important to remember
+      source: 'stated' | 'inferred' | 'assumed'; // Where did this come from?
     }>;
   } | null;
   
@@ -52,6 +65,10 @@ export interface MemoryProcessingState {
       type: string;
       description: string;
       confidence: number;
+      verifiable: boolean;
+      verifiabilityScore: number;
+      importance: number;
+      source: 'stated' | 'inferred' | 'assumed';
     }>;
   } | null;
   
@@ -184,6 +201,8 @@ class ExtractorNode extends MemoryGraphNode {
       : '';
 
     const prompt = `Extract a summary and entities from this conversation.
+IMPORTANT: Only extract entities that are VERIFIABLE FACTS explicitly stated in the conversation.
+Do NOT extract opinions, assumptions, or inferred information unless clearly marked.
 
 ${entityTypesHint}
 ${focusHint}
@@ -200,16 +219,36 @@ Respond in JSON:
       "name": "Entity Name",
       "type": "appropriate_type (project, person, technology, concept, workflow, configuration, api, database, infrastructure, file, command, error, solution, preference, etc.)",
       "description": "What this is and why it matters",
-      "confidence": 0.0-1.0 (how confident you are this should be remembered)
+      "confidence": 0.0-1.0 (how confident this is correct),
+      "verifiable": true/false (is this a verifiable fact from the conversation?),
+      "verifiabilityScore": 0.0-1.0 (how verifiable is this? 1.0 = explicitly stated, 0.5 = strongly implied, 0.0 = assumed),
+      "importance": 0.0-1.0 (how important is this to remember long-term?),
+      "source": "stated" | "inferred" | "assumed" (where did this information come from?)
     }
   ]
-}`;
+}
+
+Only include entities where:
+- verifiable = true AND verifiabilityScore >= 0.6
+- importance >= 0.5
+- confidence >= 0.7
+Skip trivial or unverifiable information.`;
 
     const extraction = await this.promptJSON<MemoryProcessingState['extraction']>(prompt);
 
     if (extraction) {
+      // Filter entities based on thresholds
+      const originalCount = extraction.entities.length;
+
+      extraction.entities = extraction.entities.filter(e =>
+        e.verifiable === true &&
+        e.verifiabilityScore >= MEMORY_THRESHOLDS.MIN_VERIFIABILITY &&
+        e.importance >= MEMORY_THRESHOLDS.MIN_IMPORTANCE &&
+        e.confidence >= MEMORY_THRESHOLDS.MIN_CONFIDENCE,
+      );
+
       state.extraction = extraction;
-      this.log(`Extracted: ${extraction.entities.length} entities, ${extraction.topics.length} topics`);
+      this.log(`Extracted: ${extraction.entities.length} entities passed filters (${originalCount - extraction.entities.length} filtered out), ${extraction.topics.length} topics`);
     } else {
       state.extraction = {
         summary:  'Conversation processed but extraction failed.',
@@ -308,6 +347,7 @@ class RefinerNode extends MemoryGraphNode {
     }
 
     const prompt = `Improve this memory extraction based on the critique.
+IMPORTANT: Only include VERIFIABLE FACTS explicitly stated in the conversation.
 
 Original conversation:
 ${state.conversationText}
@@ -331,7 +371,11 @@ Provide an improved extraction in JSON:
       "name": "Entity Name",
       "type": "appropriate_type",
       "description": "improved description",
-      "confidence": 0.0-1.0
+      "confidence": 0.0-1.0,
+      "verifiable": true/false,
+      "verifiabilityScore": 0.0-1.0,
+      "importance": 0.0-1.0,
+      "source": "stated" | "inferred" | "assumed"
     }
   ]
 }`;
@@ -339,10 +383,20 @@ Provide an improved extraction in JSON:
     const refined = await this.promptJSON<MemoryProcessingState['refinedExtraction']>(prompt);
 
     if (refined) {
+      // Filter refined entities based on thresholds
+      const originalCount = refined.entities.length;
+
+      refined.entities = refined.entities.filter(e =>
+        e.verifiable === true &&
+        e.verifiabilityScore >= MEMORY_THRESHOLDS.MIN_VERIFIABILITY &&
+        e.importance >= MEMORY_THRESHOLDS.MIN_IMPORTANCE &&
+        e.confidence >= MEMORY_THRESHOLDS.MIN_CONFIDENCE,
+      );
+
       state.refinedExtraction = refined;
       // Replace extraction with refined version for next iteration
       state.extraction = refined;
-      this.log(`Refined: ${refined.entities.length} entities`);
+      this.log(`Refined: ${refined.entities.length} entities passed filters (${originalCount - refined.entities.length} filtered out)`);
     }
 
     // Go back to critic for another evaluation

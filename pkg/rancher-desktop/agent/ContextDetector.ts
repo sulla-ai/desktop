@@ -188,7 +188,6 @@ export class ContextDetector {
       const llm = getLLMService();
       const response = await llm.generate(
         `Summarize this in 5 words or less: "${ text.substring(0, 200) }"`,
-        { timeout: 30000 }, // 30s for remote APIs
       );
 
       if (response) {

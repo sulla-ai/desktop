@@ -167,24 +167,54 @@ export class MemoryPedia {
 
   /**
    * Store results from MemoryGraph processing
+   * Only stores if quality thresholds are met
    */
   private async storeGraphResults(result: MemoryProcessingState): Promise<void> {
     const extraction = result.refinedExtraction || result.extraction;
 
     if (!extraction) {
+      console.log(`[MemoryPedia] No extraction to store for ${result.threadId}`);
+
       return;
     }
 
-    // Store summary
-    const summary: ConversationSummary = {
-      threadId:  result.threadId,
-      summary:   extraction.summary,
-      topics:    extraction.topics,
-      entities:  extraction.entities.map(e => e.name),
-      timestamp: Date.now(),
-    };
+    // Check if Critic score meets threshold (skip storage if too low)
+    const MIN_OVERALL_SCORE = 50;
+    const MIN_SUMMARY_QUALITY = ['good', 'needs_improvement']; // 'poor' is rejected
 
-    await this.storeSummary(summary);
+    if (result.critique) {
+      if (result.critique.overallScore < MIN_OVERALL_SCORE) {
+        console.log(`[MemoryPedia] Skipping storage - Critic score too low: ${result.critique.overallScore} < ${MIN_OVERALL_SCORE}`);
+
+        return;
+      }
+      if (!MIN_SUMMARY_QUALITY.includes(result.critique.summaryQuality)) {
+        console.log(`[MemoryPedia] Skipping storage - Summary quality too poor: ${result.critique.summaryQuality}`);
+
+        return;
+      }
+    }
+
+    // Check if there's anything worth storing
+    if (extraction.entities.length === 0 && extraction.summary.length < 20) {
+      console.log(`[MemoryPedia] Skipping storage - No entities and summary too short`);
+
+      return;
+    }
+
+    // Store summary (only if meaningful)
+    if (extraction.summary && extraction.summary.length >= 20) {
+      const summary: ConversationSummary = {
+        threadId:  result.threadId,
+        summary:   extraction.summary,
+        topics:    extraction.topics,
+        entities:  extraction.entities.map(e => e.name),
+        timestamp: Date.now(),
+      };
+
+      await this.storeSummary(summary);
+      console.log(`[MemoryPedia] Stored summary for ${result.threadId}`);
+    }
 
     // Store entities from consolidation (or extraction if consolidation failed)
     if (result.consolidation) {

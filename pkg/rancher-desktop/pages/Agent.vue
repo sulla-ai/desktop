@@ -387,6 +387,8 @@ onMounted(async () => {
       remoteProvider?: string;
       remoteModel?: string;
       remoteApiKey?: string;
+      remoteRetryCount?: number;
+      remoteTimeoutSeconds?: number;
     };
   }) => {
     const exp = settings.experimental;
@@ -399,6 +401,8 @@ onMounted(async () => {
         remoteProvider: exp.remoteProvider,
         remoteModel:    exp.remoteModel,
         remoteApiKey:   exp.remoteApiKey,
+        remoteRetryCount: exp.remoteRetryCount,
+        remoteTimeoutSeconds: exp.remoteTimeoutSeconds,
       });
 
       // Track model mode
@@ -427,6 +431,10 @@ onMounted(async () => {
     ipcRenderer.send('settings-read');
   });
 
+  ipcRenderer.on('settings-update', () => {
+    ipcRenderer.send('settings-read');
+  });
+
   // Get initial progress
   try {
     const progress = await ipcRenderer.invoke('k8s-progress');
@@ -452,6 +460,7 @@ onMounted(async () => {
 onUnmounted(() => {
   ipcRenderer.removeListener('k8s-progress', handleProgress);
   ipcRenderer.removeAllListeners('preferences/changed');
+  ipcRenderer.removeAllListeners('settings-update');
   ipcRenderer.removeAllListeners('settings-read');
   if (readinessInterval) {
     clearInterval(readinessInterval);
