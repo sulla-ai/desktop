@@ -444,6 +444,8 @@ If nothing notable to extract, respond: { "entities": [], "topics": [] }`;
 
     if (success) {
       console.log(`[MemoryPedia] Stored summary for: ${summary.threadId}`);
+    } else {
+      console.warn(`[MemoryPedia] Failed to store summary for: ${summary.threadId}`);
     }
   }
 
@@ -517,6 +519,8 @@ If nothing notable to extract, respond: { "entities": [], "topics": [] }`;
 
     if (success) {
       console.log(`[MemoryPedia] Created page: ${page.title}`);
+    } else {
+      console.warn(`[MemoryPedia] Failed to create page: ${page.title}`);
     }
   }
 

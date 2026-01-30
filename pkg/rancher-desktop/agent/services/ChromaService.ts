@@ -27,6 +27,25 @@ class ChromaServiceClass {
   private initialized = false;
   private available = false;
 
+  private simpleEmbed(text: string, dim = 64): number[] {
+    const vec = new Array(dim).fill(0);
+
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      const idx = (code + i) % dim;
+      vec[idx] += 1;
+    }
+
+    // L2 normalize
+    let sumSq = 0;
+    for (const v of vec) {
+      sumSq += v * v;
+    }
+    const norm = Math.sqrt(sumSq) || 1;
+
+    return vec.map(v => v / norm);
+  }
+
   /**
    * Initialize the service and cache collection IDs
    */
@@ -196,14 +215,38 @@ class ChromaServiceClass {
     }
 
     try {
+      if (ids.length !== documents.length || ids.length !== metadatas.length) {
+        console.warn(
+          `[ChromaService] Add payload length mismatch for ${collectionName}: ids=${ids.length}, documents=${documents.length}, metadatas=${metadatas.length}`,
+        );
+
+        return false;
+      }
+
+      const embeddings = documents.map(d => this.simpleEmbed(d));
+
       const res = await fetch(`${API_PREFIX}/collections/${collId}/add`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ ids, documents, metadatas }),
+        body:    JSON.stringify({ ids, documents, metadatas, embeddings }),
         signal:  AbortSignal.timeout(5000),
       });
 
-      return res.ok;
+      if (!res.ok) {
+        let errorText = '';
+
+        try {
+          errorText = await res.text();
+        } catch {
+          // ignore
+        }
+
+        console.warn(`[ChromaService] Add failed (${res.status}) for ${collectionName}:`, errorText);
+
+        return false;
+      }
+
+      return true;
     } catch (err) {
       console.warn(`[ChromaService] Add failed:`, err);
 
@@ -280,9 +323,10 @@ class ChromaServiceClass {
     }
 
     try {
+      const queryEmbeddings = queryTexts.map(t => this.simpleEmbed(t));
       const body: Record<string, unknown> = {
-        query_texts: queryTexts,
-        n_results:   nResults,
+        query_embeddings: queryEmbeddings,
+        n_results:        nResults,
       };
 
       if (whereClause && Object.keys(whereClause).length > 0) {
