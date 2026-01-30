@@ -196,8 +196,11 @@ export class Graph {
 export function createDefaultGraph(): Graph {
   // Import nodes dynamically to avoid circular deps
   const { MemoryNode, PlannerNode, ExecutorNode, CriticNode } = require('./nodes');
+  const { registerDefaultTools } = require('./tools');
 
   const graph = new Graph();
+
+  registerDefaultTools();
 
   // Add nodes
   graph.addNode(new MemoryNode());

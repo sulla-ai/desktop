@@ -6,6 +6,7 @@ import type { ThreadState, NodeResult } from '../types';
 import { BaseNode } from './BaseNode';
 import { getChromaService } from '../services/ChromaService';
 import { getMemoryPedia } from '../services/MemoryPedia';
+import { getToolRegistry, registerDefaultTools } from '../tools';
 
 // Plan structure for conversation handling
 interface ConversationPlan {
@@ -74,27 +75,6 @@ export class PlannerNode extends BaseNode {
       console.log(`  Requires tools: ${plan.requiresTools}`);
       console.log(`  Needs memory recall: ${plan.context?.needsMemoryRecall || false}`);
       console.log(`  Response format: ${plan.responseGuidance.format}, tone: ${plan.responseGuidance.tone}`);
-
-      const shouldRecallMemory = Boolean(plan.context?.needsMemoryRecall) || mentionsMemory;
-      const memoryQueries = (plan.context?.memorySearchQueries && plan.context.memorySearchQueries.length > 0)
-        ? plan.context.memorySearchQueries
-        : (mentionsMemory ? [lastUserMessage.content] : []);
-
-      // If plan needs memory recall (or user explicitly asked about memory), search ChromaDB now
-      if (shouldRecallMemory && memoryQueries.length > 0) {
-        console.log(`[Agent:Planner] Searching memory for: ${memoryQueries.join(', ')}`);
-        const memoryResults = await this.searchMemory(memoryQueries);
-
-        if (memoryResults.length > 0) {
-          console.log(`[Agent:Planner] Found ${memoryResults.length} relevant memories`);
-          state.metadata.retrievedMemories = memoryResults;
-          state.metadata.memoryContext = memoryResults
-            .map((m: string, i: number) => `[Memory ${i + 1}]: ${m}`)
-            .join('\n');
-        } else {
-          console.log(`[Agent:Planner] No relevant memories found`);
-        }
-      }
 
       // Store the full plan in metadata
       state.metadata.plan = {
@@ -213,6 +193,9 @@ export class PlannerNode extends BaseNode {
       return null;
     }
 
+    registerDefaultTools();
+    const toolsBlock = getToolRegistry().getPlanningInstructionsBlock();
+
     const prompt = `You are a planning assistant. Analyze this user request and create an execution plan.
 
 User message: "${userMessage}"
@@ -223,29 +206,12 @@ IMPORTANT: You have access to a long-term memory system (ChromaDB) that stores:
 - Past conversation summaries
 - Entity pages (people, projects, technologies, concepts, etc.)
 
-Available tools:
-1) memory_search (ChromaDB/MemoryPedia)
-   - Purpose: Recall relevant long-term memory (past conversation summaries and entity pages).
-   - Input: One or more short, specific search queries (entity names, project names, error strings, feature names).
-   - Output: Relevant memory snippets will be provided to the assistant as additional context.
-   - Use when:
-     - User asks about what you "remember" or prior discussions.
-     - User references MemoryPedia, Chroma, long-term memory, or an entity/topic that may already exist.
-     - User asks follow-ups like "how did we do X last time" or "what was the previous decision".
-
-2) count_memory_articles (ChromaDB/MemoryPedia)
-   - Purpose: Count how many memory items exist in long-term memory.
-   - Output: Counts for conversation summaries and memorypedia pages (and a total).
-   - Use when:
-     - User asks: "how many articles/memories/pages are stored" or any question requiring counts.
-   - Planning guidance:
-     - Set requiresTools=true
-     - Include a step with action "count_memory_articles" before generating the final response.
+${toolsBlock}
 
 If the user is asking about something that might have been discussed before, or references a topic/entity that could be in memory, you MUST:
 - Set context.needsMemoryRecall=true
 - Provide context.memorySearchQueries with 1-5 specific queries
-- Include a step with action "recall_memory" before generating the final response.
+- Include a step with action "memory_search" before generating the final response.
 
 Create a plan in JSON format:
 {

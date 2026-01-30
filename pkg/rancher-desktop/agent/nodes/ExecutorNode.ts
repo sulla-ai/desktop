@@ -1,9 +1,8 @@
 // ExecutorNode - Executes the plan (LLM calls, tool execution)
 
-import type { ThreadState, NodeResult } from '../types';
+import type { ThreadState, NodeResult, ToolResult } from '../types';
 import { BaseNode } from './BaseNode';
-import { getChromaService } from '../services/ChromaService';
-import { getMemoryPedia } from '../services/MemoryPedia';
+import { getToolRegistry, registerDefaultTools } from '../tools';
 
 export class ExecutorNode extends BaseNode {
   constructor() {
@@ -53,120 +52,33 @@ export class ExecutorNode extends BaseNode {
       ? plan.fullPlan.steps.map(s => s.action)
       : (plan.steps || []);
 
-    const toolResults: Record<string, unknown> = {};
+    registerDefaultTools();
+    const registry = getToolRegistry();
+    const toolResults: Record<string, ToolResult> = {};
+    const memorySearchQueries = plan.fullPlan?.context?.memorySearchQueries || [];
 
     for (const action of actions) {
-      if (action === 'recall_memory' || action === 'memory_search') {
-        const queries = plan.fullPlan?.context?.memorySearchQueries || [];
-        const memories = await this.searchMemory(queries, state);
-
-        toolResults.recall_memory = {
-          queries,
-          count:   memories.length,
-        };
-
-        if (memories.length > 0) {
-          state.metadata.retrievedMemories = memories;
-          state.metadata.memoryContext = memories
-            .map((m: string, i: number) => `[Memory ${i + 1}]: ${m}`)
-            .join('\n');
-        }
+      if (action === 'generate_response') {
+        continue;
       }
 
-      if (action === 'count_memory_articles' || action === 'count_memory' || action === 'count_memorypedia') {
-        const counts = await this.countMemoryArticles();
-        toolResults.count_memory_articles = counts;
-        state.metadata.memoryArticleCounts = counts;
-        state.metadata.memoryContext = state.metadata.memoryContext
-          ? `${state.metadata.memoryContext as string}\n\n${counts.summary}`
-          : counts.summary;
+      const tool = registry.get(action);
+      if (!tool) {
+        console.warn(`[Agent:Executor] Unknown tool action: ${action}`);
+        continue;
       }
+
+      const result = await tool.execute(state, {
+        threadId: state.threadId,
+        plannedAction: action,
+        memorySearchQueries,
+      });
+
+      toolResults[action] = result;
     }
 
     if (Object.keys(toolResults).length > 0) {
       state.metadata.toolResults = toolResults;
-    }
-  }
-
-  private async countMemoryArticles(): Promise<{ summaries: number; pages: number; total: number; summary: string }> {
-    const chroma = getChromaService();
-
-    try {
-      try {
-        await getMemoryPedia().initialize();
-      } catch {
-        // continue
-      }
-
-      await chroma.initialize();
-      await chroma.refreshCollections();
-
-      const summaries = await chroma.count('conversation_summaries');
-      const pages = await chroma.count('memorypedia_pages');
-      const total = summaries + pages;
-      const summary = `Memory counts (ChromaDB): conversation_summaries=${summaries}, memorypedia_pages=${pages}, total=${total}`;
-
-      return { summaries, pages, total, summary };
-    } catch (err) {
-      console.error('[Agent:Executor] countMemoryArticles failed:', err);
-
-      return {
-        summaries: 0,
-        pages:     0,
-        total:     0,
-        summary:   'Memory counts unavailable (ChromaDB error).',
-      };
-    }
-  }
-
-  private async searchMemory(queries: string[], state: ThreadState): Promise<string[]> {
-    const chroma = getChromaService();
-    const results: string[] = [];
-    const effectiveQueries = (queries && queries.length > 0)
-      ? queries
-      : [state.messages.filter(m => m.role === 'user').pop()?.content || ''];
-
-    try {
-      try {
-        await getMemoryPedia().initialize();
-      } catch {
-        // continue
-      }
-
-      const ok = await chroma.initialize();
-      if (!ok || !chroma.isAvailable()) {
-        return [];
-      }
-      await chroma.refreshCollections();
-
-      for (const query of effectiveQueries) {
-        if (!query) {
-          continue;
-        }
-        const summaryResults = await chroma.query('conversation_summaries', [query], 3);
-        if (summaryResults?.documents?.[0]) {
-          for (const doc of summaryResults.documents[0]) {
-            if (doc && !results.includes(doc)) {
-              results.push(doc);
-            }
-          }
-        }
-
-        const pageResults = await chroma.query('memorypedia_pages', [query], 3);
-        if (pageResults?.documents?.[0]) {
-          for (const doc of pageResults.documents[0]) {
-            if (doc && !results.includes(doc)) {
-              results.push(doc);
-            }
-          }
-        }
-      }
-
-      return results.slice(0, 5);
-    } catch (err) {
-      console.error('[Agent:Executor] searchMemory failed:', err);
-
-      return [];
     }
   }
 
