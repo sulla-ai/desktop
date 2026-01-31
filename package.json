@@ -61,7 +61,7 @@
     "@langchain/ollama": "^1.2.1",
     "@napi-rs/xattr": "^1.0.3",
     "@preact/signals": "^2.6.2",
-    "@rancher/components": "0.3.0-alpha.1",
+    "@rancher/components": "0.3.0-alpha.4",
     "@schedule-x/calendar": "^4.1.0",
     "@schedule-x/drag-and-drop": "^3.7.3",
     "@schedule-x/events-service": "^4.1.0",
