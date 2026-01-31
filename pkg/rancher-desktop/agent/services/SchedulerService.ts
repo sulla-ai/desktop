@@ -79,7 +79,9 @@ export class SchedulerService {
     }
 
     const job = schedule.scheduleJob(startTime, async () => {
-      console.log(`[SchedulerService] Triggering event: ${event.id} - ${event.title}`);
+      console.log(`[SchedulerService] ⏰ CRON JOB FIRED for event: ${event.id} - "${event.title}"`);
+      console.log(`[SchedulerService]   Scheduled time: ${startTime.toISOString()}`);
+      console.log(`[SchedulerService]   Actual fire time: ${new Date().toISOString()}`);
       await this.triggerEvent(event);
       this.scheduledJobs.delete(event.id);
     });
@@ -105,29 +107,37 @@ export class SchedulerService {
 
   private async triggerEvent(event: CalendarEvent): Promise<void> {
     try {
+      console.log(`[SchedulerService] 📤 Sending event to SensoryInput: ${event.id} - "${event.title}"`);
+      
       const sensory = getSensory();
       const contextDetector = getContextDetector();
 
       // Create a calendar-triggered sensory input
       const prompt = this.buildEventPrompt(event);
+      console.log(`[SchedulerService]   Built prompt (${prompt.length} chars)`);
+      
       const input = sensory.createCalendarInput(prompt, {
         eventId: event.id,
         eventTitle: event.title,
       });
+      console.log(`[SchedulerService]   Created SensoryInput: type=${input.type}`);
 
       // Detect context (will use scheduler thread)
       const threadContext = await contextDetector.detect(input, SCHEDULER_THREAD_ID);
+      console.log(`[SchedulerService]   Context detected: threadId=${threadContext.threadId}`);
 
       // Get or create the scheduler thread
       const thread = getThread(threadContext.threadId);
       await thread.initialize();
+      console.log(`[SchedulerService]   Thread initialized, processing input...`);
 
       // Process the event notification
       const response = await thread.process(input);
 
-      console.log(`[SchedulerService] Event processed: ${event.id} - Response: ${response.content.substring(0, 100)}...`);
+      console.log(`[SchedulerService] ✅ Event processed successfully: ${event.id}`);
+      console.log(`[SchedulerService]   Response (first 200 chars): ${response.content.substring(0, 200)}...`);
     } catch (err) {
-      console.error(`[SchedulerService] Failed to trigger event ${event.id}:`, err);
+      console.error(`[SchedulerService] ❌ Failed to trigger event ${event.id}:`, err);
     }
   }
 
