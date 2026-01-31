@@ -325,7 +325,7 @@ portForwarding:
   sortableTables:
     noRows: There are no port forwarding entries to show
 general:
-  title: Welcome to Sulla Desktop by Merchant Protocol
+  title: Welcome to Sulla Desktop by Jonathon Byrdziak
   description: Sulla Desktop provides Kubernetes and image management through the use of a desktop application.
 about:
   title: About
