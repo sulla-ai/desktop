@@ -22,6 +22,13 @@
               >
                 Calendar
               </router-link>
+              <router-link
+                to="/Skills"
+                class="text-sm font-semibold"
+                :class="route.path === '/Skills' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
+              >
+                Skills
+              </router-link>
           </nav>
 
           <div class="flex items-center gap-2">
