@@ -191,11 +191,21 @@ export class PlanService {
         title: String(r.title),
       }));
 
-      // Match rule for status/ID preservation: same order_index + same title.
-      const matchKey = (orderIndex: number, title: string) => `${orderIndex}::${title}`;
+      // Match rule for status/ID preservation:
+      // 1) Prefer matching by exact title (stable across revisions)
+      // 2) Fallback to order_index + title when titles are duplicated
+      const normalizeTitle = (title: string) => String(title || '').trim();
+      const matchKey = (orderIndex: number, title: string) => `${orderIndex}::${normalizeTitle(title)}`;
+
       const priorByKey = new Map<string, { id: number; status: TodoStatus; orderIndex: number; title: string }>();
+      const priorByTitle = new Map<string, Array<{ id: number; status: TodoStatus; orderIndex: number; title: string }>>();
+
       for (const t of priorTodos) {
         priorByKey.set(matchKey(t.orderIndex, t.title), t);
+        const key = normalizeTitle(t.title);
+        const list = priorByTitle.get(key) || [];
+        list.push(t);
+        priorByTitle.set(key, list);
       }
 
       const updateRes = await client.query(
@@ -218,8 +228,12 @@ export class PlanService {
       const todosUpdated: Array<{ todoId: number; title: string; orderIndex: number; status: TodoStatus }> = [];
 
       for (const todo of params.todos) {
+        const titleKey = normalizeTitle(todo.title);
         const key = matchKey(todo.orderIndex, todo.title);
-        const match = priorByKey.get(key);
+        const byTitle = (priorByTitle.get(titleKey) || []).filter(t => !usedPriorIds.has(t.id));
+        const match = byTitle.length === 1
+          ? byTitle[0]
+          : (priorByKey.get(key) && !usedPriorIds.has(priorByKey.get(key)!.id) ? priorByKey.get(key)! : undefined);
 
         if (match) {
           usedPriorIds.add(match.id);
@@ -244,7 +258,10 @@ export class PlanService {
         todosCreated.push({ todoId, title: todo.title, orderIndex: todo.orderIndex, status });
       }
 
-      const todosDeleted = priorTodos.filter(t => !usedPriorIds.has(t.id)).map(t => t.id);
+      // Never delete completed todos; final-critic revisions are allowed to add new todos without resetting history.
+      const todosDeleted = priorTodos
+        .filter(t => !usedPriorIds.has(t.id) && t.status !== 'done')
+        .map(t => t.id);
       if (todosDeleted.length > 0) {
         await client.query(
           `DELETE FROM agent_plan_todos

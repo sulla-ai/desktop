@@ -33,6 +33,7 @@ import { HostFindFilesTool } from './HostFindFilesTool';
 import { HostGrepTool } from './HostGrepTool';
 import { HostRunCommandTool } from './HostRunCommandTool';
 import { EmitChatMessageTool } from './EmitChatMessageTool';
+import { EmitChatImageTool } from './EmitChatImageTool';
 
 let registered = false;
 
@@ -76,6 +77,7 @@ export function registerDefaultTools(): void {
   registry.register(new HostGrepTool());
   registry.register(new HostRunCommandTool());
   registry.register(new EmitChatMessageTool());
+  registry.register(new EmitChatImageTool());
   registered = true;
 }
 

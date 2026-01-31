@@ -211,7 +211,7 @@ export class Graph {
  */
 export function createDefaultGraph(): Graph {
   // Import nodes dynamically to avoid circular deps
-  const { MemoryNode, PlannerNode, ExecutorNode, CriticNode } = require('./nodes');
+  const { MemoryNode, PlannerNode, ExecutorNode, CriticNode, FinalCriticNode } = require('./nodes');
   const { registerDefaultTools } = require('./tools');
 
   const graph = new Graph();
@@ -223,13 +223,14 @@ export function createDefaultGraph(): Graph {
   graph.addNode(new PlannerNode());
   graph.addNode(new ExecutorNode());
   graph.addNode(new CriticNode());
+  graph.addNode(new FinalCriticNode());
 
   // Add edges: Memory → Planner → Executor → Critic
   graph.addEdge('memory_recall', 'planner');
   graph.addEdge('planner', 'executor');
   graph.addEdge('executor', 'critic');
 
-  // Conditional edge from Critic: loop back to Planner or END
+  // Conditional edge from Critic: loop back to Planner, continue executing todos, or run final critic
   graph.addConditionalEdge('critic', (state: ThreadState) => {
     const decision = state.metadata.criticDecision;
 
@@ -241,12 +242,19 @@ export function createDefaultGraph(): Graph {
       return 'executor';
     }
 
+    return 'final_critic';
+  });
+
+  graph.addConditionalEdge('final_critic', (state: ThreadState) => {
+    if (state.metadata.finalCriticDecision === 'revise') {
+      return 'planner';
+    }
     return 'end';
   });
 
   // Set entry and end points
   graph.setEntryPoint('memory_recall');
-  graph.setEndPoints('critic');
+  graph.setEndPoints('final_critic');
 
   return graph;
 }

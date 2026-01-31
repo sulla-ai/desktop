@@ -77,11 +77,18 @@ export class PlannerNode extends BaseNode {
     const conversationContext = this.buildConversationContext(state);
     console.log(`[Agent:Planner] Context: ${state.messages.length} messages, thread: ${state.threadId}`);
 
+    const suggestedTodos = Array.isArray((state.metadata as any).finalCriticSuggestedTodos)
+      ? (state.metadata as any).finalCriticSuggestedTodos
+      : null;
+    const suggestionBlock = (suggestedTodos && suggestedTodos.length > 0)
+      ? `\nSuggested todos from final critic:\n${JSON.stringify(suggestedTodos)}`
+      : '';
+
     const revisionReason = String(
       (state.metadata.requestPlanRevision && (state.metadata.requestPlanRevision as any).reason)
       || state.metadata.revisionFeedback
       || '',
-    ).trim();
+    ).trim() + suggestionBlock;
 
     const awareness = getAwarenessService();
     await awareness.initialize();
@@ -351,11 +358,28 @@ export class PlannerNode extends BaseNode {
       includeCategories: ['memory'],
     });
 
+    const revisionReason = String(
+      (state.metadata.requestPlanRevision && (state.metadata.requestPlanRevision as any).reason)
+      || state.metadata.revisionFeedback
+      || '',
+    ).trim();
+
+    const existingPlan = (state.metadata.plan && typeof state.metadata.plan === 'object')
+      ? (state.metadata.plan as any).fullPlan
+      : null;
+    const existingTodos = Array.isArray(existingPlan?.todos) ? existingPlan.todos : null;
+
+    const revisionContextBlock = revisionReason
+      ? `\n\nPlan revision context:\n${revisionReason}\n\nExisting plan todos (do not reset completed work; append new todos when needed):\n${JSON.stringify(existingTodos || [], null, 2)}`
+      : '';
+
     const prompt = `You are an advanced planning agent for complex tasks. Analyze the user request and generate a high-level execution plan.
 
 User message: "${userMessage}"
 
 ${context ? `Context:\n${context}\n` : ''}
+
+${revisionContextBlock}
 
 Long-term memory access: Use tool:memory_search for past summaries, entities (people, projects, tech, concepts).
 
@@ -369,6 +393,7 @@ Guidelines:
 - Output high-level steps as TODOs (focus on objectives, not specific tool calls—defer tool selection to execution phase).
 - For tool/capability discovery: Prioritize summarizing categories, suggest read-only tests for safety.
 - Detect if plan unnecessary (simple queries): Set planNeeded false.
+- If revising an existing plan (revision context provided): keep prior todos stable and only append/adjust minimally. Do not reset completed work.
 - Incorporate dependencies, parallelism where possible.
 - Optimize for efficiency: Minimize steps, maximize reuse of memory/external data.
 

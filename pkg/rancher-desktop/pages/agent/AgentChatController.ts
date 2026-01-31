@@ -11,6 +11,20 @@ export type ChatMessage = {
   role: 'user' | 'assistant' | 'error' | 'system';
   content: string;
   kind?: 'text' | 'tool' | 'planner' | 'critic' | 'progress';
+  image?: {
+    dataUrl: string;
+    alt?: string;
+    contentType?: string;
+    path?: string;
+  };
+  toolCard?: {
+    toolRunId: string;
+    toolName: string;
+    status: 'running' | 'success' | 'failed';
+    args?: Record<string, unknown>;
+    result?: unknown;
+    error?: string | null;
+  };
 };
 
 export class AgentChatController {
@@ -25,6 +39,8 @@ export class AgentChatController {
 
   private readonly pendingPrompts: string[] = [];
   private drainingQueue = false;
+
+  private readonly toolCardsByRunId = new Map<string, string>();
 
   private autoScrollEnabled = true;
   private scrollListenerAttached = false;
@@ -94,6 +110,38 @@ export class AgentChatController {
       return;
     }
 
+    if (phase === 'chat_image') {
+      const role = String(event.data.role || 'assistant');
+      const dataUrl = typeof event.data.dataUrl === 'string' ? String(event.data.dataUrl) : '';
+      const alt = typeof event.data.alt === 'string' ? String(event.data.alt) : '';
+      const contentType = typeof event.data.contentType === 'string' ? String(event.data.contentType) : '';
+      const filePath = typeof event.data.path === 'string' ? String(event.data.path) : '';
+
+      if (!dataUrl.trim()) {
+        return;
+      }
+
+      if (role === 'assistant') {
+        this.messages.value.push({
+          id: `${Date.now()}_chat_image`,
+          role: 'assistant',
+          content: '',
+          image: { dataUrl, alt, contentType, path: filePath },
+        });
+      } else {
+        const kind = (typeof event.data.kind === 'string' ? (event.data.kind as any) : 'progress');
+        this.messages.value.push({
+          id: `${Date.now()}_chat_image`,
+          role: 'system',
+          kind,
+          content: '',
+          image: { dataUrl, alt, contentType, path: filePath },
+        });
+      }
+      this.maybeAutoScroll();
+      return;
+    }
+
     if (phase === 'todo_created') {
       const planId = Number(event.data.planId);
       const todoId = Number(event.data.todoId);
@@ -155,24 +203,77 @@ export class AgentChatController {
 
     if (phase === 'tool_call') {
       const toolName = String(event.data.toolName || 'tool');
-      if (toolName === 'emit_chat_message') {
+      if (toolName === 'emit_chat_message' || toolName === 'emit_chat_image') {
         return;
       }
-      const args = event.data.args && typeof event.data.args === 'object' ? JSON.stringify(event.data.args) : '{}';
-      this.messages.value.push({ id: `${Date.now()}_tool_call`, role: 'system', kind: 'tool', content: `Tool call: ${toolName}\n${args}` });
+      const toolRunId = String(event.data.toolRunId || `${Date.now()}_${toolName}`);
+      const args = (event.data.args && typeof event.data.args === 'object') ? (event.data.args as Record<string, unknown>) : {};
+      const id = `tool_${toolRunId}`;
+      this.toolCardsByRunId.set(toolRunId, id);
+
+      this.messages.value.push({
+        id,
+        role: 'system',
+        kind: 'tool',
+        content: '',
+        toolCard: {
+          toolRunId,
+          toolName,
+          status: 'running',
+          args,
+        },
+      });
       this.maybeAutoScroll();
       return;
     }
 
     if (phase === 'tool_result') {
       const toolName = String(event.data.toolName || 'tool');
-      if (toolName === 'emit_chat_message') {
+      if (toolName === 'emit_chat_message' || toolName === 'emit_chat_image') {
         return;
       }
+      const toolRunId = String(event.data.toolRunId || '');
       const success = !!event.data.success;
-      const error = event.data.error ? String(event.data.error) : '';
-      const line = success ? 'Result: success' : `Result: failed${error ? ` (${error})` : ''}`;
-      this.messages.value.push({ id: `${Date.now()}_tool_result`, role: 'system', kind: 'tool', content: `Tool result: ${toolName}\n${line}` });
+      const error = event.data.error ? String(event.data.error) : null;
+      const result = (event.data && 'result' in event.data) ? event.data.result : undefined;
+
+      const existingId = toolRunId ? this.toolCardsByRunId.get(toolRunId) : undefined;
+      if (existingId) {
+        const idx = this.messages.value.findIndex(m => m.id === existingId);
+        if (idx >= 0) {
+          const prior = this.messages.value[idx];
+          this.messages.value[idx] = {
+            ...prior,
+            kind: 'tool',
+            content: '',
+            toolCard: {
+              toolRunId,
+              toolName,
+              status: success ? 'success' : 'failed',
+              args: prior.toolCard?.args,
+              result,
+              error,
+            },
+          };
+          this.maybeAutoScroll();
+          return;
+        }
+      }
+
+      const id = `tool_${toolRunId || `${Date.now()}_${toolName}`}`;
+      this.messages.value.push({
+        id,
+        role: 'system',
+        kind: 'tool',
+        content: '',
+        toolCard: {
+          toolRunId: toolRunId || id,
+          toolName,
+          status: success ? 'success' : 'failed',
+          result,
+          error,
+        },
+      });
       this.maybeAutoScroll();
       return;
     }

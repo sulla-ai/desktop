@@ -32,6 +32,25 @@ export class CriticNode extends BaseNode {
         ? String((requestedRevision as any).reason || 'Executor requested plan revision')
         : 'Executor requested plan revision';
 
+      // Attach full todo state to the revision feedback so the planner has authoritative context.
+      try {
+        if (activePlanId) {
+          const planService = getPlanService();
+          await planService.initialize();
+          const loaded = await planService.getPlan(activePlanId);
+          if (loaded) {
+            const todos = loaded.todos.map(t => ({ id: t.id, title: t.title, status: t.status, orderIndex: t.orderIndex }));
+            state.metadata.revisionFeedback = `${reason}\n\nCurrent todos (all statuses):\n${JSON.stringify(todos, null, 2)}`;
+          } else {
+            state.metadata.revisionFeedback = reason;
+          }
+        } else {
+          state.metadata.revisionFeedback = reason;
+        }
+      } catch {
+        state.metadata.revisionFeedback = reason;
+      }
+
       // Critic owns status transitions: mark current todo blocked in DB (if we have one)
       if (activeTodo && Number.isFinite(Number(activeTodo.id))) {
         try {
@@ -57,7 +76,6 @@ export class CriticNode extends BaseNode {
 
       state.metadata.criticDecision = 'revise';
       state.metadata.criticReason = reason;
-      state.metadata.revisionFeedback = reason;
       state.metadata.revisionCount = ((state.metadata.revisionCount as number) || 0) + 1;
       console.log(`[Agent:Critic] Forcing revision due to executor request: ${reason}`);
 

@@ -186,7 +186,53 @@
                     ? 'bg-amber-500/10 border-amber-500/20 text-[#0d0d0d] dark:bg-amber-500/10 dark:border-amber-400/20 dark:text-neutral-50'
                     : 'bg-black/3 border-black/10 text-neutral-900 dark:bg-white/5 dark:border-white/10 dark:text-neutral-100'"
             >
-              <div v-if="m.kind === 'tool'" class="whitespace-pre-wrap">{{ m.content }}</div>
+              <div v-if="m.image" class="space-y-2">
+                <img
+                  :src="m.image.dataUrl"
+                  :alt="m.image.alt || ''"
+                  class="block h-auto max-w-full rounded-xl border border-black/10 dark:border-white/10"
+                >
+                <div v-if="m.image.alt" class="text-[11px] text-[#0d0d0d]/60 dark:text-white/60">
+                  {{ m.image.alt }}
+                </div>
+              </div>
+              <div v-if="m.kind === 'tool' && m.toolCard" class="space-y-2">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="min-w-0 flex items-center gap-2">
+                    <span
+                      class="h-2.5 w-2.5 shrink-0 rounded-full"
+                      :class="m.toolCard.status === 'running'
+                        ? 'bg-amber-500'
+                        : m.toolCard.status === 'success'
+                          ? 'bg-emerald-500'
+                          : 'bg-red-500'"
+                    />
+                    <div class="min-w-0 truncate font-semibold">{{ m.toolCard.toolName }}</div>
+                  </div>
+                  <div class="shrink-0 text-[11px] text-[#0d0d0d]/60 dark:text-white/60">
+                    {{ m.toolCard.status }}
+                  </div>
+                </div>
+
+                <details class="rounded-xl border border-black/10 bg-white/50 px-3 py-2 dark:border-white/10 dark:bg-neutral-950/40">
+                  <summary class="cursor-pointer select-none text-[11px] font-semibold text-[#0d0d0d]/70 dark:text-white/70">Details</summary>
+                  <div class="mt-2 space-y-2">
+                    <div v-if="m.toolCard.args" class="space-y-1">
+                      <div class="text-[11px] font-semibold text-[#0d0d0d]/60 dark:text-white/60">Args</div>
+                      <pre class="whitespace-pre-wrap rounded-lg bg-black/5 px-2 py-1 text-[11px] leading-4 dark:bg-white/10">{{ JSON.stringify(m.toolCard.args, null, 2) }}</pre>
+                    </div>
+                    <div v-if="m.toolCard.result !== undefined" class="space-y-1">
+                      <div class="text-[11px] font-semibold text-[#0d0d0d]/60 dark:text-white/60">Result</div>
+                      <pre class="whitespace-pre-wrap rounded-lg bg-black/5 px-2 py-1 text-[11px] leading-4 dark:bg-white/10">{{ JSON.stringify(m.toolCard.result, null, 2) }}</pre>
+                    </div>
+                    <div v-if="m.toolCard.error" class="space-y-1">
+                      <div class="text-[11px] font-semibold text-red-700 dark:text-red-300">Error</div>
+                      <pre class="whitespace-pre-wrap rounded-lg bg-red-500/10 px-2 py-1 text-[11px] leading-4 text-red-800 dark:text-red-200">{{ m.toolCard.error }}</pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <div v-else-if="m.kind === 'tool'" class="whitespace-pre-wrap">{{ m.content }}</div>
               <div v-else class="prose prose-sm dark:prose-invert max-w-none" v-html="renderMarkdown(m.content)" />
             </div>
 
@@ -198,6 +244,16 @@
                 : 'bg-black/3 border-black/10 text-neutral-900 dark:bg-white/5 dark:border-white/10 dark:text-neutral-100'"
             >
               <div v-if="m.role === 'user'" class="whitespace-pre-wrap">{{ m.content }}</div>
+              <div v-else-if="m.image" class="space-y-2">
+                <img
+                  :src="m.image.dataUrl"
+                  :alt="m.image.alt || ''"
+                  class="block h-auto max-w-full rounded-xl border border-black/10 dark:border-white/10"
+                >
+                <div v-if="m.image.alt" class="text-xs text-[#0d0d0d]/60 dark:text-white/60">
+                  {{ m.image.alt }}
+                </div>
+              </div>
               <div v-else class="prose prose-sm dark:prose-invert max-w-none" v-html="renderMarkdown(m.content)" />
             </div>
           </div>
@@ -226,7 +282,7 @@
               @submit.prevent
             >
               <div class="overflow-visible rounded-[32px] bg-[#f8f8f8] shadow-sm ring-1 ring-[#e5e5e5] ring-inset transition-shadow focus-within:ring-[#d0d0d0] dark:bg-neutral-900/70 dark:ring-white/10 dark:focus-within:ring-white/20">
-                <div class="flex items-end gap-1 p-2">
+                <div class="flex flex-wrap items-end gap-1 p-2">
                   <button
                     type="button"
                     class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#0d0d0d] transition-colors hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
@@ -239,44 +295,51 @@
                   </button>
 
                   <textarea
+                    ref="composerTextareaEl"
                     v-model="query"
                     name="input"
                     placeholder="What do you want to know?"
                     class="my-2 h-6 max-h-[400px] min-w-0 flex-1 resize-none bg-transparent text-[#0d0d0d] text-base leading-6 outline-none placeholder:text-[#9a9a9a] dark:text-white dark:placeholder:text-neutral-500"
+                    :class="isComposerMultiline ? 'basis-full order-2' : 'order-2'"
                     :disabled="!systemReady"
+                    @input="updateComposerLayout"
                     @keydown.enter.exact.prevent="send"
                   />
 
-                  <div class="relative mb-0.5" ref="modelSelector.modelMenuEl">
-                    <button
-                      type="button"
-                      class="flex h-9 shrink-0 items-center gap-2 rounded-full px-2.5 text-[#0d0d0d] hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
-                      aria-label="Model select"
-                      :disabled="!systemReady"
-                      @click="modelSelector.toggleModelMenu"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
-                        <path d="M12 8V4" />
-                        <path d="M8 4h8" />
-                        <rect x="6" y="8" width="12" height="10" rx="2" />
-                        <path d="M9 18v2" />
-                        <path d="M15 18v2" />
-                        <path d="M9.5 12h.01" />
-                        <path d="M14.5 12h.01" />
-                        <path d="M10 15h4" />
-                      </svg>
-                      <div class="flex items-center gap-1 overflow-hidden">
-                        <span class="whitespace-nowrap font-semibold text-sm">{{ modelSelector.activeModelLabelValue }}</span>
-                        <svg width="16" height="16" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true">
-                          <path d="M3.13523 6.15803C3.3241 5.95657 3.64052 5.94637 3.84197 6.13523L7.5 9.56464L11.158 6.13523C11.3595 5.94637 11.6759 5.95657 11.8648 6.15803C12.0536 6.35949 12.0434 6.67591 11.842 6.86477L7.84197 10.6148C7.64964 10.7951 7.35036 10.7951 7.15803 10.6148L3.15803 6.86477C2.95657 6.67591 2.94637 6.35949 3.13523 6.15803Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                  <div
+                    class="mb-0.5 flex items-center gap-2"
+                    :class="isComposerMultiline ? 'order-3 w-full justify-between' : 'order-3'"
+                  >
+                    <div class="relative mb-0.5" ref="modelSelector.modelMenuEl">
+                      <button
+                        type="button"
+                        class="flex h-9 shrink-0 items-center gap-2 rounded-full px-2.5 text-[#0d0d0d] hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
+                        aria-label="Model select"
+                        :disabled="!systemReady"
+                        @click="modelSelector.toggleModelMenu"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
+                          <path d="M12 8V4" />
+                          <path d="M8 4h8" />
+                          <rect x="6" y="8" width="12" height="10" rx="2" />
+                          <path d="M9 18v2" />
+                          <path d="M15 18v2" />
+                          <path d="M9.5 12h.01" />
+                          <path d="M14.5 12h.01" />
+                          <path d="M10 15h4" />
                         </svg>
-                      </div>
-                    </button>
+                        <div class="flex items-center gap-1 overflow-hidden">
+                          <span class="whitespace-nowrap font-semibold text-sm">{{ modelSelector.activeModelLabelValue }}</span>
+                          <svg width="16" height="16" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true">
+                            <path d="M3.13523 6.15803C3.3241 5.95657 3.64052 5.94637 3.84197 6.13523L7.5 9.56464L11.158 6.13523C11.3595 5.94637 11.6759 5.95657 11.8648 6.15803C12.0536 6.35949 12.0434 6.67591 11.842 6.86477L7.84197 10.6148C7.64964 10.7951 7.35036 10.7951 7.15803 10.6148L3.15803 6.86477C2.95657 6.67591 2.94637 6.35949 3.13523 6.15803Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                          </svg>
+                        </div>
+                      </button>
 
-                    <div
-                      v-if="modelSelector.showModelMenuValue"
-                      class="agent-model-selector-menu absolute bottom-12 right-0 z-50 w-72 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-neutral-950"
-                    >
+                      <div
+                        v-if="modelSelector.showModelMenuValue"
+                        class="agent-model-selector-menu absolute bottom-12 right-0 z-50 w-72 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-neutral-950"
+                      >
                       <div class="px-3 py-2 text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">
                         Local
                       </div>
@@ -312,35 +375,38 @@
                         <span class="min-w-0 flex-1 truncate">{{ modelSelector.remoteOptionValue?.label }}</span>
                         <span v-if="modelSelector.remoteOptionValue?.isActive" class="shrink-0 text-xs font-semibold text-[#0d0d0d]/60 dark:text-white/60">Active</span>
                       </button>
+                      </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <div class="relative h-9 w-9 shrink-0 rounded-full bg-[#0d0d0d] text-white dark:bg-white dark:text-[#0d0d0d]">
+                        <button
+                          type="button"
+                          class="absolute inset-0 flex items-center justify-center"
+                          aria-label="Voice mode"
+                          :disabled="!systemReady"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 19v3" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <rect x="9" y="2" width="6" height="13" rx="3" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
+                        aria-label="Submit"
+                        :disabled="!systemReady || !query.trim()"
+                        @click="send"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                          <path d="M7.14645 2.14645C7.34171 1.95118 7.65829 1.95118 7.85355 2.14645L11.8536 6.14645C12.0488 6.34171 12.0488 6.65829 11.8536 6.85355C11.6583 7.04882 11.3417 7.04882 11.1464 6.85355L8 3.70711L8 12.5C8 12.7761 7.77614 13 7.5 13C7.22386 13 7 12.7761 7 12.5L7 3.70711L3.85355 6.85355C3.65829 7.04882 3.34171 7.04882 3.14645 6.85355C2.95118 6.65829 2.95118 6.34171 3.14645 6.14645L7.14645 2.14645Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
-
-                  <div class="relative mb-0.5 h-9 w-9 shrink-0 rounded-full bg-[#0d0d0d] text-white dark:bg-white dark:text-[#0d0d0d]">
-                    <button
-                      type="button"
-                      class="absolute inset-0 flex items-center justify-center"
-                      aria-label="Voice mode"
-                      :disabled="!systemReady"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M12 19v3" />
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                        <rect x="9" y="2" width="6" height="13" rx="3" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
-                    aria-label="Submit"
-                    :disabled="!systemReady || !query.trim()"
-                    @click="send"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                      <path d="M7.14645 2.14645C7.34171 1.95118 7.65829 1.95118 7.85355 2.14645L11.8536 6.14645C12.0488 6.34171 12.0488 6.65829 11.8536 6.85355C11.6583 7.04882 11.3417 7.04882 11.1464 6.85355L8 3.70711L8 12.5C8 12.7761 7.77614 13 7.5 13C7.22386 13 7 12.7761 7 12.5L7 3.70711L3.85355 6.85355C3.65829 7.04882 3.34171 7.04882 3.14645 6.85355C2.95118 6.65829 2.95118 6.34171 3.14645 6.14645L7.14645 2.14645Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
-                    </svg>
-                  </button>
                 </div>
               </div>
             </form>
@@ -354,7 +420,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import {
@@ -381,6 +447,73 @@ const THEME_STORAGE_KEY = 'agentTheme';
 const isDark = ref(false);
 
 const currentThreadId = ref<string | null>(null);
+
+const composerTextareaEl = ref<HTMLTextAreaElement | null>(null);
+const isComposerMultiline = ref(false);
+
+let composerMirrorEl: HTMLDivElement | null = null;
+
+function getComposerMirrorEl(): HTMLDivElement {
+  if (composerMirrorEl) {
+    return composerMirrorEl;
+  }
+  const el = document.createElement('div');
+  el.style.position = 'fixed';
+  el.style.left = '-99999px';
+  el.style.top = '0';
+  el.style.visibility = 'hidden';
+  el.style.whiteSpace = 'pre-wrap';
+  el.style.wordBreak = 'break-word';
+  el.style.overflowWrap = 'break-word';
+  el.style.pointerEvents = 'none';
+  document.body.appendChild(el);
+  composerMirrorEl = el;
+  return el;
+}
+
+function updateComposerLayout(): void {
+  const el = composerTextareaEl.value;
+  if (!el) {
+    return;
+  }
+
+  const style = window.getComputedStyle(el);
+  const lineHeight = Number.parseFloat(style.lineHeight || '24');
+  const paddingTop = Number.parseFloat(style.paddingTop || '0');
+  const paddingBottom = Number.parseFloat(style.paddingBottom || '0');
+  const singleLineHeight = Math.ceil(lineHeight + paddingTop + paddingBottom);
+
+  const mirror = getComposerMirrorEl();
+  mirror.style.boxSizing = style.boxSizing;
+  mirror.style.fontFamily = style.fontFamily;
+  mirror.style.fontSize = style.fontSize;
+  mirror.style.fontWeight = style.fontWeight;
+  mirror.style.fontStyle = style.fontStyle;
+  mirror.style.letterSpacing = style.letterSpacing;
+  mirror.style.textTransform = style.textTransform;
+  mirror.style.lineHeight = style.lineHeight;
+  mirror.style.padding = style.padding;
+  mirror.style.border = style.border;
+  mirror.style.width = `${el.clientWidth}px`;
+
+  // Add a trailing newline to ensure the last line's height is counted accurately.
+  mirror.textContent = `${el.value || ''}\n`;
+  const measuredHeight = mirror.scrollHeight;
+
+  const multiline = measuredHeight > (singleLineHeight + 1) || el.value.includes('\n');
+  isComposerMultiline.value = multiline;
+
+  const maxPx = 400;
+  if (!multiline) {
+    el.style.height = `${singleLineHeight}px`;
+    return;
+  }
+
+  // Now allow it to expand to fit content (capped).
+  el.style.height = 'auto';
+  const nextHeight = Math.min(el.scrollHeight, maxPx);
+  el.style.height = `${nextHeight}px`;
+}
 
 // Initialize agent components
 const sensory = getSensory();
@@ -728,6 +861,11 @@ onUnmounted(() => {
 });
 
 const send = () => chatController.send();
+
+watch(query, async () => {
+  await nextTick();
+  updateComposerLayout();
+});
 
 const toggleTheme = () => {
   isDark.value = !isDark.value;
