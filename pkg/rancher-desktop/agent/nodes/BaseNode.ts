@@ -1,11 +1,33 @@
 // BaseNode - Abstract base class for all graph nodes
 // Uses LLMServiceFactory for LLM interactions (supports both local Ollama and remote APIs)
 
+import * as fs from 'fs';
+import * as path from 'path';
 import type { GraphNode, ThreadState, NodeResult } from '../types';
 import type { ILLMService } from '../services/ILLMService';
 import { getLLMService, getCurrentMode } from '../services/LLMServiceFactory';
 import { getOllamaService } from '../services/OllamaService';
 import { getAwarenessService } from '../services/AwarenessService';
+
+// Cached soul prompt - loaded once and reused
+let cachedSoulPrompt: string | null = null;
+
+function getSoulPrompt(): string {
+  if (cachedSoulPrompt !== null) {
+    return cachedSoulPrompt;
+  }
+  
+  try {
+    const soulPath = path.join(__dirname, '..', 'prompts', 'soul.md');
+    cachedSoulPrompt = fs.readFileSync(soulPath, 'utf-8').trim();
+    console.log(`[BaseNode] Loaded soul.md (${cachedSoulPrompt.length} chars)`);
+  } catch (err) {
+    console.warn('[BaseNode] Could not load soul.md, using fallback:', err);
+    cachedSoulPrompt = 'You are Sulla Desktop, an autonomous AI assistant.';
+  }
+  
+  return cachedSoulPrompt;
+}
 
 export interface LLMOptions {
   model?: string;
@@ -100,15 +122,20 @@ export abstract class BaseNode implements GraphNode {
 
     const model = this.availableModel || this.llmService.getModel();
 
+    // Prepend soul prompt to every LLM request
+    const soulPrompt = getSoulPrompt();
+    const fullPrompt = `${soulPrompt}\n\n---\n\n${prompt}`;
+
     console.log(`[Agent:${this.name}] LLM prompt`, {
       node:   this.name,
       model,
-      length: prompt.length,
-      prompt,
+      soulLength: soulPrompt.length,
+      promptLength: prompt.length,
+      totalLength: fullPrompt.length,
     });
 
     try {
-      const content = await this.llmService.generate(prompt);
+      const content = await this.llmService.generate(fullPrompt);
 
       if (!content) {
         console.warn(`[Agent:${this.name}] No response from LLM`);

@@ -1,6 +1,4 @@
 import { getPersistenceService } from './PersistenceService';
-import fs from 'fs';
-import path from 'path';
 
 export interface AgentAwarenessData {
   agent_identity: string;
@@ -33,9 +31,8 @@ export class AwarenessService {
       this.data = this.getDefaultAwareness();
     }
 
-    if (!this.data.agent_identity || this.data.agent_identity.trim().length === 0) {
-      this.data.agent_identity = this.readFirstAwarenessPrompt();
-    }
+    // Note: soul.md is now prepended to every LLM request in BaseNode.prompt()
+    // No longer copy it to agent_identity here
 
     if (!loaded || this.isEffectivelyEmpty(this.data)) {
       await persistence.saveAwareness(this.data as unknown as Record<string, unknown>);
@@ -124,17 +121,6 @@ export class AwarenessService {
     ].every(v => !v || String(v).trim().length === 0);
   }
 
-  private readFirstAwarenessPrompt(): string {
-    try {
-      const p = path.join(__dirname, '..', 'prompts', 'soul.md');
-      const content = fs.readFileSync(p, 'utf-8');
-
-      return content.trim();
-    } catch {
-      return 'You are Sulla Desktop. You are Sulla, a desktop assistant that runs as a desktop application using a Kubernetes cluster as your neural network of capabilities and skills.';
-    }
-  }
-
   private coerce(raw: Record<string, unknown>): AgentAwarenessData {
     const d = raw as Partial<AgentAwarenessData>;
 
@@ -144,7 +130,7 @@ export class AwarenessService {
       : [];
 
     return {
-      agent_identity: String(d.agent_identity || this.getDefaultAwareness().agent_identity),
+      agent_identity: String(d.agent_identity || ''),
       primary_user_identity: String(d.primary_user_identity || ''),
       other_user_identities: String(d.other_user_identities || ''),
       long_term_context: String(d.long_term_context || ''),
