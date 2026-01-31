@@ -132,12 +132,36 @@ export class SchedulerService {
   }
 
   private buildEventPrompt(event: CalendarEvent): string {
+    // Format times in user's timezone
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const startDate = new Date(event.start);
+    const endDate = new Date(event.end);
+    const startFormatted = startDate.toLocaleString('en-US', {
+      timeZone: timezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+    const endFormatted = endDate.toLocaleTimeString('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+
     const parts = [
       `[CALENDAR EVENT NOTIFICATION]`,
       ``,
       `A scheduled event is starting now:`,
       ``,
+      `**Event ID:** ${event.id}`,
       `**Title:** ${event.title}`,
+      `**Start:** ${startFormatted}`,
+      `**End:** ${endFormatted}`,
     ];
 
     if (event.location) {
