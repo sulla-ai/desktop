@@ -4,8 +4,25 @@
       <div class="sticky top-0 z-40 border-b border-black/10 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-neutral-950/70">
         <div class="flex items-center justify-between px-4 py-3">
           <div class="text-sm font-semibold tracking-tight text-[#0d0d0d]/80 dark:text-white/80">
-            Sulla Desktop by Jonathon Byrdziak
+            Sulla
           </div>
+
+          <nav class="absolute left-1/2 -translate-x-1/2 flex items-center gap-x-6">
+              <router-link
+                to="/Chat"
+                class="text-sm font-semibold"
+                :class="route.path === '/Chat' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
+              >
+                Chat
+              </router-link>
+              <router-link
+                to="/Calendar"
+                class="text-sm font-semibold"
+                :class="route.path === '/Calendar' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
+              >
+                Calendar
+              </router-link>
+          </nav>
 
           <div class="flex items-center gap-2">
             <a
@@ -421,6 +438,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { useRoute } from 'vue-router';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import {
@@ -442,6 +460,8 @@ const renderMarkdown = (markdown: string): string => {
   const html = (marked(raw) as string) || '';
   return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
 };
+
+const route = useRoute();
 
 const THEME_STORAGE_KEY = 'agentTheme';
 const isDark = ref(false);

@@ -4020,6 +4020,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@preact/signals-core@npm:^1.12.2":
+  version: 1.12.2
+  resolution: "@preact/signals-core@npm:1.12.2"
+  checksum: 10c0/25ccf7639522179452ee4636290cd70573048c613bc1fffaa5f5deecd0a750611c170c954769ba3c71fca97aa4b951edcdd3a2b2c96b172c87e4ba3bc81ddccd
+  languageName: node
+  linkType: hard
+
+"@preact/signals@npm:^2.6.2":
+  version: 2.6.2
+  resolution: "@preact/signals@npm:2.6.2"
+  dependencies:
+    "@preact/signals-core": "npm:^1.12.2"
+  peerDependencies:
+    preact: ">= 10.25.0 || >=11.0.0-0"
+  checksum: 10c0/adfc1e39ad9d521018cafa4d01faed06baaad9f10b8cd855443665088b9c1a89af51f4c568651d1e45e71451060a2e0bfc5303d666bd2a6a74c51389bbfca88e
+  languageName: node
+  linkType: hard
+
 "@rancher/components@npm:0.3.0-alpha.1":
   version: 0.3.0-alpha.1
   resolution: "@rancher/components@npm:0.3.0-alpha.1"
@@ -4029,6 +4047,49 @@ __metadata:
     core-js: 3.25.3
     vue: ~3.2.13
   checksum: 10c0/ba6cef3e764671711c72042321c3129fbb75df8f0824b60acaf8c53da69adb9988994d6d1aba7604217ca510f6e8e36158abb785ec3148dd4fce42a746afab6f
+  languageName: node
+  linkType: hard
+
+"@schedule-x/calendar@npm:^4.1.0":
+  version: 4.1.0
+  resolution: "@schedule-x/calendar@npm:4.1.0"
+  peerDependencies:
+    "@preact/signals": ^2.0.2
+    preact: ^10.19.2
+    temporal-polyfill: 0.3.0
+  checksum: 10c0/17aa50916efe39a267330bf31e6c418562af4aefc3c380a91c8857c2fa351ae02d4c33d272e7c121a095519d2bb2ec0cbb1b975463e2c3b3fd854d9d07655950
+  languageName: node
+  linkType: hard
+
+"@schedule-x/drag-and-drop@npm:^3.7.3":
+  version: 3.7.3
+  resolution: "@schedule-x/drag-and-drop@npm:3.7.3"
+  checksum: 10c0/464017083a6af4d84742cb3919bb2c7824dd8d8dd4b8e17b0aaa57403c51fee7474df4c62245cf32c3a26d297ecf26366c2e03c1b40740d86dbdb89cbd2cc82c
+  languageName: node
+  linkType: hard
+
+"@schedule-x/events-service@npm:^4.1.0":
+  version: 4.1.0
+  resolution: "@schedule-x/events-service@npm:4.1.0"
+  checksum: 10c0/8c66290e29166c2084b03b616ee77d582be9ab4441142594f0819eecba8965660855000ac16f3529b6921266534c4bbbad9b90c252a48b913b56ea4f06b40a28
+  languageName: node
+  linkType: hard
+
+"@schedule-x/theme-default@npm:^4.1.0":
+  version: 4.1.0
+  resolution: "@schedule-x/theme-default@npm:4.1.0"
+  checksum: 10c0/f5ee588118c9e969c9bb5931e1c6247dd6fdd3ce7af711011969a04cfd51c2b117e1ecb0415d645e9ed8396539d19afad488649cd8f5957e462e54060f387857
+  languageName: node
+  linkType: hard
+
+"@schedule-x/vue@npm:^4.0.0":
+  version: 4.0.0
+  resolution: "@schedule-x/vue@npm:4.0.0"
+  peerDependencies:
+    "@schedule-x/calendar": ^3.4.0 || ^4.0.0
+    "@schedule-x/date-picker": 4.0.0
+    vue: ^3
+  checksum: 10c0/92382f32c39d6494359195a2beef61079971c9ee4f933ab66ea156d2e5b33f95daccd371b1168f230db835465c35892ca59d5666c28ddd25d27b734b7615a62d
   languageName: node
   linkType: hard
 
@@ -15324,6 +15385,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"preact@npm:^10.28.2":
+  version: 10.28.2
+  resolution: "preact@npm:10.28.2"
+  checksum: 10c0/eb60bf526eb6971701e6ac9c25236aca451f17f99e9c24704419196989b15bb576ed3101e084b151cd0fb30546b3e5e1ba73b774e8be2f2ed8187db42ec65faf
+  languageName: node
+  linkType: hard
+
 "prelude-ls@npm:^1.2.1":
   version: 1.2.1
   resolution: "prelude-ls@npm:1.2.1"
@@ -16967,7 +17035,13 @@ __metadata:
     "@langchain/ollama": "npm:^1.2.1"
     "@napi-rs/xattr": "npm:^1.0.3"
     "@playwright/test": "npm:1.57.0"
+    "@preact/signals": "npm:^2.6.2"
     "@rancher/components": "npm:0.3.0-alpha.1"
+    "@schedule-x/calendar": "npm:^4.1.0"
+    "@schedule-x/drag-and-drop": "npm:^3.7.3"
+    "@schedule-x/events-service": "npm:^4.1.0"
+    "@schedule-x/theme-default": "npm:^4.1.0"
+    "@schedule-x/vue": "npm:^4.0.0"
     "@tailwindcss/postcss": "npm:^4.1.18"
     "@types/cross-spawn": "npm:6.0.6"
     "@types/dompurify": "npm:3.2.0"
@@ -17044,6 +17118,7 @@ __metadata:
     pg: "npm:^8.17.2"
     plist: "npm:3.1.0"
     posix-node: "npm:0.12.0"
+    preact: "npm:^10.28.2"
     proxy-agent: "npm:^6.5.0"
     ps-tree: "npm:1.2.0"
     rancher-icons: "rancher/icons#v2.0.21"
@@ -17053,6 +17128,7 @@ __metadata:
     semver: "npm:7.7.3"
     tailwindcss: "npm:^4.1.18"
     tar-stream: "npm:3.1.7"
+    temporal-polyfill: "npm:^0.3.0"
     ts-jest: "npm:29.4.6"
     ts-loader: "npm:^9.5.4"
     tsconfig-paths: "npm:4.2.0"
@@ -17264,6 +17340,22 @@ __metadata:
     async-exit-hook: "npm:^2.0.1"
     fs-extra: "npm:^10.0.0"
   checksum: 10c0/70e441909097346a930ae02278df9b0133cd02dddf0b49e5ddaade735fef1410a50a448a2a812106f97c045294c99cc19f26943eb88f1d728d41fbc445a40298
+  languageName: node
+  linkType: hard
+
+"temporal-polyfill@npm:^0.3.0":
+  version: 0.3.0
+  resolution: "temporal-polyfill@npm:0.3.0"
+  dependencies:
+    temporal-spec: "npm:0.3.0"
+  checksum: 10c0/ea6a495fac64c19b194ec3536c2a5916a754c2bf7f645fac5c149fe6a43f266fe4493c6fd6a6b6dfa3e9813505bc48346cf0514c1631a401b354f4c6568b908d
+  languageName: node
+  linkType: hard
+
+"temporal-spec@npm:0.3.0":
+  version: 0.3.0
+  resolution: "temporal-spec@npm:0.3.0"
+  checksum: 10c0/2f7c8530f10e628ff755618490352f6c45b9a20833518286a3c10a8301012696fe6f0bcaa795d5f6f20038777595f2a73dc3390ddea743803405173ff233f482
   languageName: node
   linkType: hard
 
