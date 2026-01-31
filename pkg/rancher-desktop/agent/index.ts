@@ -6,12 +6,14 @@ export { Sensory, getSensory } from './SensoryInput';
 export { ContextDetector, getContextDetector } from './ContextDetector';
 export { ConversationThread, getThread, getAllThreads, removeThread, onGlobalEvent, offGlobalEvent } from './ConversationThread';
 export { ResponseHandler, getResponseHandler } from './ResponseHandler';
-export { Graph, createDefaultGraph } from './Graph';
+export { Graph, createDefaultGraph, createHierarchicalGraph } from './Graph';
 
 // Graph Nodes
 export { BaseNode } from './nodes/BaseNode';
 export { MemoryNode } from './nodes/MemoryNode';
 export { PlannerNode } from './nodes/PlannerNode';
+export { StrategicPlannerNode } from './nodes/StrategicPlannerNode';
+export { TacticalPlannerNode } from './nodes/TacticalPlannerNode';
 export { ExecutorNode } from './nodes/ExecutorNode';
 export { CriticNode } from './nodes/CriticNode';
 

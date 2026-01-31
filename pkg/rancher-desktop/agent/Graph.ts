@@ -206,7 +206,7 @@ export class Graph {
 }
 
 /**
- * Create the default agent graph
+ * Create the default agent graph (legacy flat planning)
  * Flow: Memory → Planner → Executor → Critic → (loop to Planner or END)
  */
 export function createDefaultGraph(): Graph {
@@ -248,6 +248,78 @@ export function createDefaultGraph(): Graph {
   graph.addConditionalEdge('final_critic', (state: ThreadState) => {
     if (state.metadata.finalCriticDecision === 'revise') {
       return 'planner';
+    }
+    return 'end';
+  });
+
+  // Set entry and end points
+  graph.setEntryPoint('memory_recall');
+  graph.setEndPoints('final_critic');
+
+  return graph;
+}
+
+/**
+ * Create the hierarchical planning graph
+ * Flow: Memory → StrategicPlanner → [TacticalPlanner → Executor → Critic] → FinalCritic
+ * 
+ * Strategic Planner: Creates high-level goals and milestones (persisted to DB)
+ * Tactical Planner: Creates micro-plans for each milestone (state-only)
+ * Executor: Executes tactical steps with tools
+ * Critic: Reviews tactical step execution, can request revision or advance
+ */
+export function createHierarchicalGraph(): Graph {
+  const { 
+    MemoryNode, 
+    StrategicPlannerNode, 
+    TacticalPlannerNode, 
+    ExecutorNode, 
+    CriticNode, 
+    FinalCriticNode 
+  } = require('./nodes');
+  const { registerDefaultTools } = require('./tools');
+
+  const graph = new Graph();
+
+  registerDefaultTools();
+
+  // Add nodes
+  graph.addNode(new MemoryNode());
+  graph.addNode(new StrategicPlannerNode());
+  graph.addNode(new TacticalPlannerNode());
+  graph.addNode(new ExecutorNode());
+  graph.addNode(new CriticNode());
+  graph.addNode(new FinalCriticNode());
+
+  // Flow: Memory → StrategicPlanner → TacticalPlanner → Executor → Critic
+  graph.addEdge('memory_recall', 'strategic_planner');
+  graph.addEdge('strategic_planner', 'tactical_planner');
+  graph.addEdge('tactical_planner', 'executor');
+  graph.addEdge('executor', 'critic');
+
+  // Conditional edge from Critic
+  graph.addConditionalEdge('critic', (state: ThreadState) => {
+    const decision = state.metadata.criticDecision;
+
+    // If revision requested, go back to tactical planner to re-plan the current milestone
+    if (decision === 'revise') {
+      return 'tactical_planner';
+    }
+
+    // Check if there are more tactical steps or milestones
+    if (state.metadata.planHasRemainingTodos) {
+      // Go back to tactical planner to get next step or next milestone
+      return 'tactical_planner';
+    }
+
+    // All done - final review
+    return 'final_critic';
+  });
+
+  graph.addConditionalEdge('final_critic', (state: ThreadState) => {
+    if (state.metadata.finalCriticDecision === 'revise') {
+      // Major revision needed - go back to strategic planner
+      return 'strategic_planner';
     }
     return 'end';
   });

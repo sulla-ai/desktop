@@ -111,20 +111,19 @@ export class MemoryNode extends BaseNode {
       ? `Available collections: ${ collections.join(', ') }`
       : 'No collections available';
 
-    const prompt = `You are a memory recall controller.
+    const prompt = `The user has provided this query: "${ userQuery }".
 
-Decide whether the user request needs additional context from long-term memory.
-If memory is needed, produce 1-6 short, specific search queries.
+Before searching memory, outline 3-5 key elements of a potential strategic plan (e.g., goals, steps, risks, resources, metrics) to accomplish this.
 
-${ collectionsInfo }
+From that outline, derive what info from long-term memory would make the plan feasible—focus on gaps in knowledge, precedents, or assets.
 
-Current user query: "${ userQuery }"
+If search needed, produce 1-6 short, specific queries targeting those gaps.
 
 Respond in JSON format only:
 {
   "needsMemory": boolean,
   "searchQueries": string[],
-  "collection": "which collection to search (use one from available, or 'conversations' as default)",
+  "collection": "choose one or both ${ collectionsInfo }",
   "whereClause": { "optional": "metadata filters" },
   "candidateLimit": number,
   "reasoning": "brief explanation of search strategy"

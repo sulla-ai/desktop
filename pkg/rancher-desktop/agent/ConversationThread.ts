@@ -10,7 +10,7 @@ import type {
   AgentEventHandler,
   GraphNode,
 } from './types';
-import { Graph, createDefaultGraph } from './Graph';
+import { Graph, createDefaultGraph, createHierarchicalGraph } from './Graph';
 import { getPersistenceService } from './services/PersistenceService';
 import { getMemoryPedia } from './services/MemoryPedia';
 import { getAwarenessService } from './services/AwarenessService';
@@ -66,7 +66,8 @@ export class ConversationThread {
       updatedAt:       now,
     };
 
-    this.graph = graph || createDefaultGraph();
+    // Use hierarchical planning by default for more human-like reasoning
+    this.graph = graph || createHierarchicalGraph();
   }
 
   get threadId(): string {

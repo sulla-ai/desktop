@@ -6,6 +6,7 @@ import fs from 'fs';
 export class HostStatTool extends BaseTool {
   override readonly name = 'host_stat';
   override readonly category = 'host_fs';
+  override readonly aliases = ['stat', 'file_stat', 'host_file_stat', 'check_file'];
 
   override getPlanningInstructions(): string {
     return [

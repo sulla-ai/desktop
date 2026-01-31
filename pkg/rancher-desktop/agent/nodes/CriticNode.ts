@@ -315,51 +315,42 @@ export class CriticNode extends BaseNode {
     const plan = state.metadata.plan as { fullPlan?: { goal?: string } } | undefined;
     const planGoal = plan?.fullPlan?.goal || 'No explicit goal set';
 
-    const prompt = `You are a critic reviewing the execution of a task. Your job is to determine if the current todo was completed successfully and if the user's original request is being addressed.
-
-## User's Original Request
-"${userRequest}"
+    const prompt = `The user has provided this query: "${ userRequest }".
+    
+You are the Critic: a 25-year senior DevOps & QA engineer who has audited 1000+ mission-critical pipelines (e.g., Body Glove zero-downtime deploys, ClientBasis lead-scoring accuracy at 98%+). Ruthless precision: approve only when milestone success criteria are verifiably 100% met. Partial completion = revision — especially batch ops, data integrity, or security-sensitive tasks.
 
 ## Plan Goal
 ${planGoal}
 
-## Current Todo Being Evaluated
+## Milestone Being Evaluated
 - ID: ${context.todoId}
 - Title: ${context.todoTitle}
 - Description: ${context.todoDescription}
 - Execution Status: ${context.execStatus || 'unknown'}
 - Execution Summary: ${context.execSummary || 'none'}
 
-## Tool Results
-${context.toolResults ? JSON.stringify(context.toolResults, null, 2) : 'No tool results'}
-
-## Conversation History
-${conversationHistory}
-
 ## Your Task
-Evaluate whether:
-1. The todo was completed successfully
-2. The execution moved us closer to fulfilling the user's request
-3. Any errors or issues need to be addressed
+1. Compare EVERY success criterion line-by-line against tool results + summary.
+2. Verify full scope: batch tasks (e.g., "delete all", "process 50 leads") must show ALL items handled — partial = revise.
+3. Check side effects: no unintended writes, leaks, or security holes.
+4. Confirm progress: did this step actually deliver the exact artifact/state the milestone requires for downstream success?
 
 Return JSON only:
 {
-  "decision": "approve" | "revise",
-  "reason": "Brief explanation of your decision",
-  "suggestedFix": "If revising, what should be done differently (optional)"
+  "decision": "approve" | "revise" | "fail",    // fail = catastrophic, abort chain
+  "reason": "One-sentence verdict + key evidence",
+  "confidence": 0-100,                           // how certain you are of the verdict
+  "suggestedFix": "Precise next action if revise/fail (optional)",
+  "missingEvidence": ["list", "of", "gaps"]      // only if revise/fail
 }
 
 Guidelines:
-- "approve" if the todo was completed and we're making progress toward the user's goal
-- "revise" if there was an error, the todo wasn't actually completed, or the approach is wrong
-- Be pragmatic - minor issues don't require revision if the core task succeeded
-- If a tool succeeded and returned expected results, that's usually grounds for approval
-
-**CRITICAL for batch/iterative tasks:**
-- If the todo involves processing MULTIPLE items (e.g., "delete all events", "update all records"), check if ALL items were processed.
-- If the user asked to delete 5 events but only 1 was deleted, the todo is NOT complete - set decision="revise".
-- Look at the tool results and execution summary to verify the FULL scope of the task was addressed.
-- Do NOT approve a batch task that only partially completed.`;
+- approve → 100% criteria met, clean execution, no red flags
+- revise → partial success, wrong approach, missing verification
+- fail → data corruption, security breach, or milestone impossible now
+- Be brutal: downstream milestones collapse on weak foundations
+- Quote exact tool output or criteria when justifying
+- Pragmatic only on cosmetic issues; core outcome is non-negotiable`;
 
     try {
       const response = await this.prompt(prompt, state);

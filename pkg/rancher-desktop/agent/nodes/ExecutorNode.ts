@@ -81,9 +81,16 @@ export class ExecutorNode extends BaseNode {
     // Track consecutive LLM failures to prevent infinite loops
     const llmFailureCount = ((state.metadata.llmFailureCount as number) || 0);
     
-    const executed = await this.executeNextTodoFromActivePlan(state);
+    // Check for tactical step first (hierarchical planning), then fall back to DB todos (legacy)
+    let executed = false;
+    if (state.metadata.activeTacticalStep) {
+      executed = await this.executeTacticalStep(state);
+    } else {
+      executed = await this.executeNextTodoFromActivePlan(state);
+    }
+    
     if (!executed) {
-      console.log('[Agent:Executor] No active todo to execute, generating response...');
+      console.log('[Agent:Executor] No active task to execute, generating response...');
     }
 
     console.log(`[Agent:Executor] Generating LLM response...`);
@@ -339,6 +346,247 @@ Revision attempt: ${blockedRevisionCount}/3`;
     }
 
     return true;
+  }
+
+  /**
+   * Execute a tactical step from hierarchical planning (state-only, not DB)
+   */
+  private async executeTacticalStep(state: ThreadState): Promise<boolean> {
+    const tacticalStep = state.metadata.activeTacticalStep;
+    if (!tacticalStep) {
+      return false;
+    }
+
+    const emit = state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined;
+    const milestone = state.metadata.activeMilestone;
+
+    console.log(`[Agent:Executor] Executing tactical step: ${tacticalStep.action}`);
+    if (milestone) {
+      console.log(`[Agent:Executor] For milestone: ${milestone.title}`);
+    }
+
+    emit?.({
+      type: 'progress',
+      threadId: state.threadId,
+      data: { phase: 'tactical_step_start', step: tacticalStep.action, milestone: milestone?.title },
+    });
+
+    await this.emitChat(state, `Working on: ${tacticalStep.action}`);
+
+    // Use LLM to decide what tools to call for this step
+    const decision = await this.planTacticalStepExecution(state, tacticalStep);
+
+    if (!decision) {
+      await this.emitChat(state, 'Could not determine actions for this step. Requesting revision.');
+      state.metadata.todoExecution = { 
+        todoId: 0, 
+        status: 'failed', 
+        summary: 'No execution decision produced' 
+      };
+      state.metadata.requestPlanRevision = { reason: 'Tactical step failed: no execution decision' };
+      
+      // Mark step as failed in tactical plan
+      if (state.metadata.tacticalPlan) {
+        const step = state.metadata.tacticalPlan.steps.find(s => s.id === tacticalStep.id);
+        if (step) {
+          step.status = 'failed';
+        }
+      }
+      
+      return true;
+    }
+
+    if (decision.actions.length === 0) {
+      await this.emitChat(state, decision.summary || 'No tool actions needed for this step.');
+      
+      // Mark step as done even without tool calls
+      state.metadata.todoExecution = {
+        todoId: 0,
+        status: 'done',
+        summary: decision.summary || 'Step completed without tool actions',
+        actions: [],
+        actionsCount: 0,
+        markDone: true,
+      };
+      
+      // Mark step as done in tactical plan
+      if (state.metadata.tacticalPlan) {
+        const step = state.metadata.tacticalPlan.steps.find(s => s.id === tacticalStep.id);
+        if (step) {
+          step.status = 'done';
+        }
+      }
+      
+      state.metadata.planHasRemainingTodos = this.hasRemainingTacticalWork(state);
+      return true;
+    }
+
+    // Execute tool actions
+    let anyToolFailed = false;
+    let lastFailedAction = '';
+    let lastFailedError = '';
+
+    for (const actionItem of decision.actions) {
+      const actionName = actionItem.action;
+      const actionArgs = actionItem.args || {};
+
+      console.log(`[Agent:Executor] Executing tool: ${actionName}`);
+      emit?.({
+        type: 'progress',
+        threadId: state.threadId,
+        data: { phase: 'tool_call', tool: actionName, args: actionArgs },
+      });
+
+      const result = await this.executeSingleToolAction(state, actionName, actionArgs);
+
+      if (result && result.success === false) {
+        anyToolFailed = true;
+        lastFailedAction = actionName;
+        lastFailedError = result.error || 'Unknown error';
+        console.warn(`[Agent:Executor] Tool ${actionName} failed: ${lastFailedError}`);
+      }
+    }
+
+    const allActionsSucceeded = decision.actions.length > 0 && !anyToolFailed;
+    const markDone = decision.markDone || allActionsSucceeded;
+
+    state.metadata.todoExecution = {
+      todoId: 0,
+      actions: decision.actions.map(a => a.action),
+      actionsCount: decision.actions.length,
+      markDone,
+      status: markDone ? 'done' : (anyToolFailed ? 'failed' : 'in_progress'),
+      summary: decision.summary || '',
+    };
+
+    // Update step status in tactical plan
+    if (state.metadata.tacticalPlan) {
+      const step = state.metadata.tacticalPlan.steps.find(s => s.id === tacticalStep.id);
+      if (step) {
+        step.status = markDone ? 'done' : (anyToolFailed ? 'failed' : 'in_progress');
+      }
+    }
+
+    if (anyToolFailed) {
+      await this.emitChat(state, `Tool failed (${lastFailedAction}): ${lastFailedError}`);
+      state.metadata.requestPlanRevision = { reason: `Tool failed: ${lastFailedAction} - ${lastFailedError}` };
+    } else if (markDone) {
+      await this.emitChat(state, decision.summary ? `Completed: ${decision.summary}` : 'Step completed.');
+    }
+
+    state.metadata.planHasRemainingTodos = this.hasRemainingTacticalWork(state);
+
+    return true;
+  }
+
+  /**
+   * Check if there's remaining tactical work (steps or milestones)
+   */
+  private hasRemainingTacticalWork(state: ThreadState): boolean {
+    // Check tactical plan for remaining steps
+    const tacticalPlan = state.metadata.tacticalPlan;
+    if (tacticalPlan) {
+      const pendingSteps = tacticalPlan.steps.filter(s => s.status === 'pending' || s.status === 'in_progress');
+      if (pendingSteps.length > 0) {
+        return true;
+      }
+    }
+
+    // Check strategic plan for remaining milestones
+    const strategicPlan = state.metadata.strategicPlan;
+    if (strategicPlan?.milestones) {
+      const pendingMilestones = strategicPlan.milestones.filter(m => m.status === 'pending' || m.status === 'in_progress');
+      if (pendingMilestones.length > 0) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Plan execution for a tactical step using LLM
+   */
+  private async planTacticalStepExecution(
+    state: ThreadState,
+    step: { id: string; action: string; description: string; toolHints?: string[] },
+  ): Promise<{ actions: Array<{ action: string; args?: Record<string, unknown> }>; markDone: boolean; summary: string } | null> {
+    registerDefaultTools();
+    const registry = getToolRegistry();
+
+    // Get tools, prioritizing hints if available
+    const hintedCategories = (step.toolHints || []).map(String).filter(Boolean);
+    const selectedCategories = hintedCategories.length > 0
+      ? hintedCategories
+      : this.selectRelevantCategories(`${step.action}\n${step.description}`);
+
+    const categoryIndex = registry.getCompactCategoryIndexBlock({ includeToolNames: false });
+    const toolsBlock = registry.getCompactPlanningInstructionsBlock({ includeCategories: selectedCategories });
+
+    const milestone = state.metadata.activeMilestone;
+    const strategicPlan = state.metadata.strategicPlan;
+
+    const prompt = `You are the executor: a 25-year senior DevOps & security engineer running on the Primary User's primary machine.
+
+Your sole job: complete this exact step without deviation, delay, or chit-chat. Be ruthless about success, paranoid about safety.
+
+## Core Directives (non-negotiable)
+- PROTECT THE PRIMARY MACHINE AT ALL COSTS
+- NO PII ever leaves this system
+- Use ephemeral /tmp dirs only — clean up immediately after
+- Every shell command must be dry-run checked first when possible
+- If risk > low → abort and report exact reason
+- If unsure → stop and return error instead of guessing
+
+## Context
+Overall Goal: ${strategicPlan?.goal || 'Complete the user request'}
+Milestone: ${milestone ? `${milestone.title}: ${milestone.description}` : 'No specific milestone'}
+Step: ${step.action} — ${step.description}
+
+## Available Tools
+${toolsBlock || 'No tools available'}
+
+## Execution Rules
+1. Think once — very briefly: "What is the minimal, safest path to done?"
+2. List ONLY the tool calls needed — in exact execution order
+3. Use shell for anything local (git, docker, file ops, custom scripts)
+4. If gap exists → write + chmod + exec a tiny shell/python helper in /tmp, then clean it
+5. Retry logic: max 3 attempts with exponential backoff, then fail fast
+6. Validate every output against step success before proceeding
+7. Final output: only tool calls or { "done": true, "result": "short summary" }
+
+## Output JSON
+{
+  "actions": [
+    { "action": "tool_name", "args": { "arg1": "value1" } }
+  ],
+  "markDone": true,
+  "summary": "Brief description of what was done"
+}
+
+Respond with JSON only.`;
+
+    try {
+      const response = await this.prompt(prompt, state);
+      if (!response?.content) {
+        return null;
+      }
+
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        return null;
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        actions: Array.isArray(parsed.actions) ? parsed.actions : [],
+        markDone: parsed.markDone !== false,
+        summary: parsed.summary || '',
+      };
+    } catch (err) {
+      console.error('[Agent:Executor] Failed to plan tactical step:', err);
+      return null;
+    }
   }
 
   private async getActivePlanId(state: ThreadState): Promise<number | null> {
@@ -705,7 +953,7 @@ Output requirements:
       includeHistory: true,
     });
 
-    console.log(`[Agent:Executor] Full prompt length: ${fullPrompt.length} chars`);
+    console.log(`[Agent:Executor] Final response prompt (plain text):\n${fullPrompt}`);
 
     return this.prompt(fullPrompt, state);
   }

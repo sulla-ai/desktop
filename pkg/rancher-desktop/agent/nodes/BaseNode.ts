@@ -122,13 +122,7 @@ export abstract class BaseNode implements GraphNode {
     const soulPrompt = getSoulPrompt();
     const fullPrompt = `${soulPrompt}\n\n---\n\n${prompt}`;
 
-    console.log(`[Agent:${this.name}] LLM prompt`, {
-      node:   this.name,
-      model,
-      soulLength: soulPrompt.length,
-      promptLength: prompt.length,
-      totalLength: fullPrompt.length,
-    });
+    console.log(`[Agent:${this.name}] LLM prompt (${fullPrompt.length} chars, model: ${model}):\n${fullPrompt}`);
 
     try {
       const content = await this.llmService.generate(fullPrompt);
@@ -288,16 +282,7 @@ export abstract class BaseNode implements GraphNode {
 
     const finalPrompt = parts.join('\n');
 
-    console.log(`[Agent:${this.name}] Contextual prompt`, {
-      node: this.name,
-      instruction,
-      includeMemory:  !!options.includeMemory,
-      includeHistory: !!options.includeHistory,
-      memoryContext:  options.includeMemory ? state.metadata.memoryContext : undefined,
-      history:        historyForLog.length > 0 ? historyForLog : undefined,
-      prompt:         finalPrompt,
-      length:         finalPrompt.length,
-    });
+    console.log(`[Agent:${this.name}] Contextual prompt (${finalPrompt.length} chars):\n${finalPrompt}`);
 
     return finalPrompt;
   }

@@ -43,8 +43,50 @@ export interface TaskState {
   // Memory Node
   memoryContext?: string;
   memories?: unknown[];
+  memorySearchPlan?: unknown;
+  retrievedMemories?: unknown[];
   
-  // Planner Node
+  // Strategic Planner Node (high-level goals/milestones)
+  strategicPlan?: {
+    goal: string;
+    goalDescription: string;
+    milestones: Array<{
+      id: string;
+      title: string;
+      description: string;
+      successCriteria: string;
+      dependsOn: string[];
+      status: 'pending' | 'in_progress' | 'completed' | 'failed';
+    }>;
+    requiresTools: boolean;
+    estimatedComplexity: 'simple' | 'moderate' | 'complex';
+  };
+  activeMilestone?: {
+    id: string;
+    title: string;
+    description: string;
+    successCriteria: string;
+  };
+  
+  // Tactical Planner Node (micro-plans per milestone, state-only)
+  tacticalPlan?: {
+    milestoneId: string;
+    steps: Array<{
+      id: string;
+      action: string;
+      description: string;
+      toolHints?: string[];
+      status: 'pending' | 'in_progress' | 'done' | 'failed';
+    }>;
+  };
+  activeTacticalStep?: {
+    id: string;
+    action: string;
+    description: string;
+    toolHints?: string[];
+  };
+  
+  // Legacy Planner Node (for backwards compatibility during transition)
   plan?: {
     intent?: { type: string; confidence: number; description: string };
     planNeeded?: boolean;
@@ -85,6 +127,9 @@ export interface TaskState {
   criticDecision?: 'approve' | 'revise' | 'reject';
   criticReason?: string;
   finalCriticDecision?: string;
+  finalCriticReason?: string;
+  finalCriticSuggestedTodos?: Array<{ title: string; description?: string; categoryHints?: string[] }>;
+  finalRevisionCount?: number;
   revisionCount?: number;
   
   // Graph execution

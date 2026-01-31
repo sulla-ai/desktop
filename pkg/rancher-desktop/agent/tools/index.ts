@@ -32,6 +32,7 @@ import { HostStatTool } from './HostStatTool';
 import { HostFindFilesTool } from './HostFindFilesTool';
 import { HostGrepTool } from './HostGrepTool';
 import { HostRunCommandTool } from './HostRunCommandTool';
+import { HostImageMetadataTool } from './HostImageMetadataTool';
 import { EmitChatMessageTool } from './EmitChatMessageTool';
 import { EmitChatImageTool } from './EmitChatImageTool';
 import { CalendarListEventsTool } from './CalendarListEventsTool';
@@ -82,6 +83,7 @@ export function registerDefaultTools(): void {
   registry.register(new HostFindFilesTool());
   registry.register(new HostGrepTool());
   registry.register(new HostRunCommandTool());
+  registry.register(new HostImageMetadataTool());
   registry.register(new EmitChatMessageTool());
   registry.register(new EmitChatImageTool());
   registry.register(new CalendarListEventsTool());

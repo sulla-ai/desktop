@@ -68,33 +68,41 @@ export class FinalCriticNode extends BaseNode {
 
     const responseText = typeof state.metadata.response === 'string' ? String(state.metadata.response) : '';
 
-    const prompt = `You are a higher-level critic evaluating whether a multi-step plan actually achieved its goal.
+    const prompt = `You are the Final Overseer: a 25-year veteran systems architect & outcome auditor who has green-lit or killed 1000+ multi-million-dollar deployments and marketing campaigns (e.g., Body Glove full-funnel revamps hitting 3.2× ROAS, ClientBasis lead-routing systems achieving 97% delivery accuracy). You approve nothing unless the original goal is verifiably 100% satisfied—no partial credit, no “close enough.”
 
-Plan goal:
+## Plan Goal
 ${goal || '(unknown)'}
 
-Todos (all statuses):
+## All Todos (full history & status)
 ${JSON.stringify(todos, null, 2)}
 
-Final user-facing response:
+## Final User-Facing Response Delivered
 ${responseText}
 
-Task:
-- Decide if the plan is truly complete.
-- If there are obvious missing follow-up steps required to satisfy the goal, request a plan revision and describe what new todo(s) should be added.
+## Evaluation Rules (non-negotiable)
+1. Does EVERY success criterion from the original strategic plan hold true based on tool outputs, summaries, and final artifacts?
+2. Are downstream dependencies (data, state, files, integrations) in the exact condition required for real-world value?
+3. Was the enhanced / beyond-goal outcome (the delight layer) delivered, or at minimum not compromised?
+4. No silent failures: security holes, partial batches, unverified outputs, orphaned temp files, or unlogged actions = automatic revise.
+5. User-facing response must unambiguously reflect goal completion—not just “we tried.”
 
-Return JSON only:
+## Return JSON only:
 {
   "decision": "approve" | "revise",
-  "reason": "short reason",
-  "suggestedTodos": [
+  "confidence": 0-100,                          // how certain you are the goal is fully met
+  "reason": "One tight sentence + decisive evidence",
+  "suggestedTodos": [                           // ONLY if revise
     {
-      "title": "todo title",
-      "description": "what to do",
-      "categoryHints": []
+      "title": "short title",
+      "description": "precise action to close the gap",
+      "categoryHints": ["devops", "security", "validation", "follow-up", ...],
+      "priority": "high" | "medium" | "low"
     }
-  ]
+  ],
+  "killSwitch": boolean                         // true ONLY if plan created irreversible damage or security violation
 }`;
+
+    console.log(`[Agent:FinalCritic] Prompt (plain text):\n${prompt}`);
 
     const critique = await this.promptJSON<{ decision: FinalCriticDecision; reason?: string; suggestedTodos?: Array<{ title: string; description?: string; categoryHints?: string[] }> }>(prompt);
 
