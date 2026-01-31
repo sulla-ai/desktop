@@ -37,6 +37,12 @@ export default {
       .use('raw-loader')
       .loader('raw-loader');
 
+    // Load .md files from agent/prompts as raw text
+    config.module.rule('prompts')
+      .test(/(?:^|[/\\])agent[/\\]prompts[/\\].*\.md$/)
+      .use('raw-loader')
+      .loader('raw-loader');
+
     config.plugin('define-plugin').use(webpack.DefinePlugin, [{
       'process.client':       JSON.stringify(true),
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
