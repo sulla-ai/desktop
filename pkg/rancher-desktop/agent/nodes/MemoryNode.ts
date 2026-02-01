@@ -141,7 +141,7 @@ Respond in JSON format only:
 
     console.log(`[Agent:Memory] Prompt (plain text):\n${prompt}`);
 
-    // Use BaseNode's promptJSON helper
+    // Use BaseNode's promptJSON helper (don't store in messages - this is internal planning)
     const parsed = await this.promptJSON<{
       needsMemory?: boolean;
       searchQueries?: unknown;
@@ -149,7 +149,7 @@ Respond in JSON format only:
       whereClause?: Record<string, unknown>;
       candidateLimit?: number;
       reasoning?: string;
-    }>(prompt, state);
+    }>(prompt, state, false);
 
     if (!parsed) {
       return this.fallbackSearchPlan(userQuery);
@@ -243,7 +243,7 @@ Rules:
 - It's valid to select none.
 - Prefer fewer, higher-signal items.`;
 
-    const parsed = await this.promptJSON<{ selected?: unknown; reasoning?: string }>(prompt);
+    const parsed = await this.promptJSON<{ selected?: unknown; reasoning?: string }>(prompt, undefined, false);
     if (!parsed || !Array.isArray(parsed.selected)) {
       return capped.slice(0, 10);
     }

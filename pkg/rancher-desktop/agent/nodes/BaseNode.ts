@@ -60,14 +60,6 @@ export abstract class BaseNode implements GraphNode {
     this.name = name;
   }
 
-  protected prefixWithSoulPrompt(prompt: string): string {
-    const soulPrompt = getSoulPrompt();
-    const soulHeader = `${soulPrompt}\n\n---\n\n`;
-    return prompt.startsWith(soulHeader)
-      ? prompt
-      : `${soulHeader}${prompt}`;
-  }
-
   protected async enrichPrompt(
     basePrompt: string,
     state: ThreadState,
@@ -75,8 +67,16 @@ export abstract class BaseNode implements GraphNode {
   ): Promise<string> {
     const parts: string[] = [];
 
+
     if (options.requireJson) {
       parts.push('CRITICAL: You MUST respond with ONLY valid JSON. No markdown, no explanation, no conversation. Start your response with { and end with }.');
+    }
+
+    if (options.includeSoul) {
+      const soulPrompt = getSoulPrompt();
+      if (soulPrompt.trim()) {
+        parts.push(soulPrompt);
+      }
     }
 
     if (options.includeAwareness) {
@@ -158,8 +158,7 @@ export abstract class BaseNode implements GraphNode {
 
     parts.push(basePrompt);
 
-    const enriched = parts.join('\n\n');
-    return options.includeSoul ? this.prefixWithSoulPrompt(enriched) : enriched;
+    return parts.join('\n\n');
   }
 
   protected extractFirstJSONObjectText(text: string): string | null {
@@ -482,8 +481,8 @@ export abstract class BaseNode implements GraphNode {
   /**
    * Send a prompt and parse JSON response
    */
-  protected async promptJSON<T = unknown>(prompt: string, state?: ThreadState): Promise<T | null> {
-    const response = await this.prompt(prompt, state);
+  protected async promptJSON<T = unknown>(prompt: string, state?: ThreadState, storeInMessages = true): Promise<T | null> {
+    const response = await this.prompt(prompt, state, storeInMessages);
 
     if (!response) {
       return null;
