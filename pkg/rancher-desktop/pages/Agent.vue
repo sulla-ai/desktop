@@ -467,7 +467,10 @@ import './agent/AgentModelSelector.css';
 const renderMarkdown = (markdown: string): string => {
   const raw = typeof markdown === 'string' ? markdown : String(markdown || '');
   const html = (marked(raw) as string) || '';
-  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|data:image\/(?:png|gif|jpe?g|webp);base64,|\/|\.|#)/i,
+  });
 };
 
 const route = useRoute();

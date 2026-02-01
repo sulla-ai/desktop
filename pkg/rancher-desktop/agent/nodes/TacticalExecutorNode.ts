@@ -11,6 +11,35 @@ export class TacticalExecutorNode extends BaseNode {
     super('tactical_executor', 'Tactical Executor');
   }
 
+  private appendToolResultMessage(state: ThreadState, action: string, result: ToolResult): void {
+    const content = JSON.stringify(
+      {
+        tool: action,
+        success: !!result.success,
+        error: result.error || null,
+        result: result.result,
+      },
+      null,
+      2,
+    );
+
+    const id = `internal_tool_result_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
+
+    state.messages.push({
+      id,
+      role: 'assistant',
+      content,
+      timestamp: Date.now(),
+      metadata: {
+        nodeId: this.id,
+        nodeName: this.name,
+        kind: 'tool_result',
+        toolName: action,
+        success: !!result.success,
+      },
+    });
+  }
+
   private appendExecutionNote(state: ThreadState, note: string): void {
     const text = String(note || '').trim();
     if (!text) {
@@ -402,6 +431,8 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       data:     { phase: 'tool_result', toolRunId, toolName: action, success: result.success, error: result.error || null, result: result.result },
     });
 
+    this.appendToolResultMessage(state, action, result);
+
     return result;
   }
 
@@ -450,6 +481,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       });
 
       toolResults[action] = result;
+      this.appendToolResultMessage(state, action, result);
     }
 
     if (Object.keys(toolResults).length > 0) {
