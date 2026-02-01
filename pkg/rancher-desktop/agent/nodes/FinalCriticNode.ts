@@ -1,7 +1,7 @@
 // FinalCriticNode - Reviews overall plan completion and can request plan revision
 
 import type { ThreadState, NodeResult } from '../types';
-import { BaseNode } from './BaseNode';
+import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
 import { getPlanService } from '../services/PlanService';
 
 export type FinalCriticDecision = 'approve' | 'revise';

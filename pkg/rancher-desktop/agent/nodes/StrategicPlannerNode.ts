@@ -3,7 +3,7 @@
 // Persists the strategic plan to the database
 
 import type { ThreadState, NodeResult } from '../types';
-import { BaseNode } from './BaseNode';
+import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
 import { getPlanService } from '../services/PlanService';
 import { getAwarenessService } from '../services/AwarenessService';
 
@@ -307,7 +307,7 @@ export class StrategicPlannerNode extends BaseNode {
     state: ThreadState,
     revisionReason?: string,
   ): Promise<StrategicPlan | null> {
-    const basePrompt = `Based on the conversation above, create a strategic plan.
+    const basePrompt = `You must create a strategic plan for the user's request.
 
 You are an expert strategic planner with 20+ years across industries—tech (e.g., Amazon's predictive scaling for 40% efficiency gains), retail (Zappos' personalization driving 30% repeats), nonprofits (SWOT-led 25% donation boosts). Avoid novice pitfalls like generic steps; craft high-leverage, low-risk plans from battle-tested tactics that deliver 2-5x results. Expose blind spots, rethink assumptions, use foresight for lifelike overdelivery.
 
@@ -320,7 +320,7 @@ You are an expert strategic planner with 20+ years across industries—tech (e.g
 6. **First Principles**: Deconstruct to core checkpoints, embedding shortcuts.
 7. **Success Criteria**: Use the SMARTER goals framework for Specific Measurable Achievable Relevant Time-bound Emotionally compelling and Rewarding.
 
-${revisionReason ? `## Revision Required\nThe previous plan needs revision because: ${revisionReason}\n` : ''}
+${revisionReason ? `## Revision Required\nThe previous plan needs revision because: ${revisionReason}` : ''}
 
 ## Guidelines
 - Milestones: As needed, fewer preferred; include 1-2 high-leverage enhancements.
@@ -330,7 +330,7 @@ ${revisionReason ? `## Revision Required\nThe previous plan needs revision becau
 - Think lifelike: "What's the 80/20 lever? How do pros like Google (data-driven pivots) ace this?"
 - Think like a human: "What do I need to accomplish to reach this goal?"
 
-## Output JSON
+${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
   "goal": "The user's primary objective in one sentence",
   "goalDescription": "Detailed description of what success looks like",
@@ -351,11 +351,9 @@ ${revisionReason ? `## Revision Required\nThe previous plan needs revision becau
     "format": "brief" | "detailed" | "json" | "markdown" | "conversational"
   }
 }
-
-CRITICAL: You MUST respond with ONLY valid JSON. No markdown, no explanation, no conversation. Start your response with { and end with }. Any non-JSON response will cause a system failure.`;
+`;
 
     const prompt = await this.enrichPrompt(basePrompt, state, {
-      requireJson: true,
       includeSoul: true,
       includeAwareness: true,
       includeMemory: true,
@@ -366,6 +364,12 @@ CRITICAL: You MUST respond with ONLY valid JSON. No markdown, no explanation, no
     });
 
     console.log(`[Agent:StrategicPlanner] Prompt (plain text):\n${prompt}`);
+
+    // Log the messages that will be sent to the LLM
+    const messagesForLLM = state.messages
+      .filter(m => m.role === 'user' || m.role === 'assistant' || m.role === 'system')
+      .map(m => ({ role: m.role, content: m.content }));
+    console.log(`[Agent:StrategicPlanner] Messages to LLM:\n${JSON.stringify(messagesForLLM, null, 2)}`);
 
     try {
       const response = await this.prompt(prompt, state, false);
@@ -379,7 +383,7 @@ CRITICAL: You MUST respond with ONLY valid JSON. No markdown, no explanation, no
       
       const plan = this.parseFirstJSONObject<any>(response.content);
       if (!plan) {
-        console.warn('[Agent:StrategicPlanner] Failed to parse plan JSON from response:', response.content.substring(0, 500));
+        console.warn('[Agent:StrategicPlanner] Failed to parse plan JSON from response:', response.content);
         return null;
       }
 

@@ -46,8 +46,12 @@ export interface PromptEnrichmentOptions {
   includeSkills?: boolean;
   includeStrategicPlan?: boolean;
   includeTacticalPlan?: boolean;
-  requireJson?: boolean;
 }
+
+export const JSON_ONLY_RESPONSE_INSTRUCTIONS = `When you respond it will be parsed as JSON and ONLY the following object will be read.
+Any text outside this exact structure will break downstream parsing.
+
+Respond ONLY with this valid JSON — nothing before, nothing after, no fences, no commentary:`;
 
 export abstract class BaseNode implements GraphNode {
   id: string;
@@ -66,11 +70,6 @@ export abstract class BaseNode implements GraphNode {
     options: PromptEnrichmentOptions = {},
   ): Promise<string> {
     const parts: string[] = [];
-
-
-    if (options.requireJson) {
-      parts.push('CRITICAL: You MUST respond with ONLY valid JSON. No markdown, no explanation, no conversation. Start your response with { and end with }.');
-    }
 
     if (options.includeSoul) {
       const soulPrompt = getSoulPrompt();
@@ -155,6 +154,11 @@ export abstract class BaseNode implements GraphNode {
         parts.push(planBlock);
       }
     }
+
+    const now = new Date();
+    const date = now.toISOString().slice(0, 10);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
+    parts.push(`Current date: ${date}\nTime zone: ${timeZone}`);
 
     parts.push(basePrompt);
 
@@ -325,17 +329,8 @@ export abstract class BaseNode implements GraphNode {
     try {
       let messages: ChatMessage[] = [{ role: 'user', content: prompt }];
       if (state) {
-        if (storeInMessages) {
-          const promptMsg: Message = {
-            id: this.createInternalMessageId('node_prompt'),
-            role: 'system',
-            content: prompt,
-            timestamp: Date.now(),
-            metadata: { nodeId: this.id, nodeName: this.name, kind: 'node_prompt' },
-          };
-          state.messages.push(promptMsg);
-        }
         messages = this.toChatMessagesFromThread(state);
+        messages.push({ role: 'system', content: prompt });
       }
 
       const content = await this.llmService.chat(messages);
@@ -393,16 +388,11 @@ export abstract class BaseNode implements GraphNode {
         
         let messages: ChatMessage[] = [{ role: 'user', content: prompt }];
         if (state) {
-          const promptMsg: Message = {
-            id: this.createInternalMessageId('node_prompt'),
-            role: 'system',
-            content: prompt,
-            timestamp: Date.now(),
-            metadata: { nodeId: this.id, nodeName: this.name, kind: 'node_prompt', modelOverride },
-          };
-          state.messages.push(promptMsg);
           messages = this.toChatMessagesFromThread(state);
+          messages.push({ role: 'system', content: prompt });
         }
+
+        console.error(`[Agent:${this.name}] LLM chat payload model=${modelName} (override=${modelOverride}):`, messages);
 
         const content = await ollama.chatWithModel(messages, modelName);
         
@@ -447,8 +437,10 @@ export abstract class BaseNode implements GraphNode {
         // Remote override API currently accepts a single prompt string.
         // When state is provided, serialize the accumulated thread into a single prompt.
         const effectivePrompt = state
-          ? this.toChatMessagesFromThread(state).map(m => `${m.role}: ${m.content}`).join('\n\n')
+          ? `${this.toChatMessagesFromThread(state).map(m => `${m.role}: ${m.content}`).join('\n\n')}\n\nsystem: ${prompt}`
           : prompt;
+
+        console.error(`[Agent:${this.name}] LLM generate payload model=${provider}:${modelName} (override=${modelOverride}):`, effectivePrompt);
 
         const content = await remoteService.generateWithModel(effectivePrompt, provider, modelName);
         

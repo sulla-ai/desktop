@@ -840,7 +840,6 @@ const chatController = new AgentChatController({
   systemReady,
   currentThreadId,
   sensory,
-  contextDetector,
   getThread,
   responseHandler,
   onAgentResponse,

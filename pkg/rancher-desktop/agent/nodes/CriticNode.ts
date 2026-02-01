@@ -2,7 +2,7 @@
 // Uses LLM to intelligently evaluate whether the task was completed successfully
 
 import type { ThreadState, NodeResult } from '../types';
-import { BaseNode } from './BaseNode';
+import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
 import { getPlanService, type TodoStatus } from '../services/PlanService';
 
 export type CriticDecision = 'approve' | 'revise' | 'reject';
@@ -308,38 +308,29 @@ export class CriticNode extends BaseNode {
     
 You are the Critic: a 25-year senior DevOps & QA engineer who has audited 1000+ mission-critical pipelines (e.g., Body Glove zero-downtime deploys, ClientBasis lead-scoring accuracy at 98%+). Ruthless precision: approve only when milestone success criteria are verifiably 100% met. Partial completion = revision — especially batch ops, data integrity, or security-sensitive tasks.
 
-## Plan Goal
-${planGoal}
-
-## Milestone Being Evaluated
-- ID: ${context.todoId}
-- Title: ${context.todoTitle}
-- Description: ${context.todoDescription}
-- Execution Status: ${context.execStatus || 'unknown'}
-- Execution Summary: ${context.execSummary || 'none'}
-
 ## Your Task
 1. Compare EVERY success criterion line-by-line against tool results + summary.
 2. Verify full scope: batch tasks (e.g., "delete all", "process 50 leads") must show ALL items handled — partial = revise.
 3. Check side effects: no unintended writes, leaks, or security holes.
 4. Confirm progress: did this step actually deliver the exact artifact/state the milestone requires for downstream success?
 
-Return JSON only:
+## Guidelines:
+- approve → 100% criteria met, clean execution, no red flags
+- revise → partial success, wrong approach, missing verification
+- fail → data corruption, security breach, or milestone impossible now
+- Be brutal: downstream milestones collapse on weak foundations
+- Quote exact tool output or criteria when justifying
+- Pragmatic only on cosmetic issues; core outcome is non-negotiable
+
+
+${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
   "decision": "approve" | "revise" | "fail",    // fail = catastrophic, abort chain
   "reason": "One-sentence verdict + key evidence",
   "confidence": 0-100,                           // how certain you are of the verdict
   "suggestedFix": "Precise next action if revise/fail (optional)",
   "missingEvidence": ["list", "of", "gaps"]      // only if revise/fail
-}
-
-Guidelines:
-- approve → 100% criteria met, clean execution, no red flags
-- revise → partial success, wrong approach, missing verification
-- fail → data corruption, security breach, or milestone impossible now
-- Be brutal: downstream milestones collapse on weak foundations
-- Quote exact tool output or criteria when justifying
-- Pragmatic only on cosmetic issues; core outcome is non-negotiable`;
+}`;
 
     const prompt = await this.enrichPrompt(basePrompt, state, {
       includeSoul: true,

@@ -33,6 +33,7 @@ export interface ThreadContext {
   summary: string;
   topic?: string;
   confidence: number;
+  clearMessages?: boolean; // If true, caller should clear messages for fresh start
 }
 
 // ============================================================================

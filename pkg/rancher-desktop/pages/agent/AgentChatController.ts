@@ -52,7 +52,6 @@ export class AgentChatController {
     currentThreadId: Ref<string | null>;
 
     sensory: { createTextInput: (text: string) => SensoryInput };
-    contextDetector: { detect: (input: SensoryInput, threadId?: string) => Promise<ThreadContext> };
     getThread: (threadId: string) => ConversationThread;
     responseHandler: {
       hasErrors: (resp: AgentResponse) => boolean;
@@ -72,6 +71,10 @@ export class AgentChatController {
       this.handleAgentEvent(event as any);
     };
     onGlobalEvent(this.globalEventHandler);
+
+    if (!this.deps.currentThreadId.value) {
+      this.deps.currentThreadId.value = `thread_${ Date.now() }`;
+    }
   }
 
   private globalEventHandler: ((event: AgentEvent) => void) | null = null;
@@ -332,16 +335,17 @@ export class AgentChatController {
     try {
       const input = this.deps.sensory.createTextInput(userText);
 
-      const threadContext = await this.deps.contextDetector.detect(
-        input,
-        this.deps.currentThreadId.value || undefined,
-      );
+      const currentThreadId = this.deps.currentThreadId.value || undefined;
 
-      this.deps.currentThreadId.value = threadContext.threadId;
+      if (!currentThreadId) {
+        throw new Error('No threadId available');
+      }
 
-      this.ensureThreadEventSubscription(threadContext.threadId);
+      const threadId = currentThreadId;
 
-      const thread = this.deps.getThread(threadContext.threadId);
+      this.ensureThreadEventSubscription(threadId);
+
+      const thread = this.deps.getThread(threadId);
       await thread.initialize();
 
       const agentResponse = await thread.process(input);

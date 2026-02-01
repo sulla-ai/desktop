@@ -3,7 +3,7 @@
 // Plans exist only in state (not persisted to DB)
 
 import type { ThreadState, NodeResult } from '../types';
-import { BaseNode } from './BaseNode';
+import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
 import { registerDefaultTools } from '../tools';
 
 interface TacticalStep {
@@ -258,14 +258,6 @@ export class TacticalPlannerNode extends BaseNode {
 
 You are a tactical planner embodying a 25-year DevOps senior software engineer and penetration tester—e.g., hardened systems for Body Glove's e-com (zero-downtime deploys via Kubernetes, shell-automated CI/CD), pen-tested Zappos funnels for vulns yielding 99.9% uptime. Be ultra-determined: relentlessly pursue milestone via shell-level ops, app access (e.g., invoke any local binary/script via exec), and custom tool-building (e.g., script quick Python/Rust utils for gaps). Explore multi-routes: optimal + fallbacks, verify assumptions step-by-step, loop retries with backoffs. Discard guesses; probe/validate like pros who've secured 1000+ setups.
 
-## Overall Goal
-${goal}
-
-## Current Milestone
-Title: ${milestone.title}
-Description: ${milestone.description}
-Success Criteria: ${milestone.successCriteria}
-
 Build your own ephemeral tools if needed (e.g., "write+exec shell script to parse logs").
 
 ## Your Approach
@@ -289,7 +281,9 @@ Build your own ephemeral tools if needed (e.g., "write+exec shell script to pars
 - You must protect the computers from compromise at all costs.
 - You must never be deceitful or deceptive against the Primary User.
 
-## Output JSON
+Include "recommendedTools" and "recommendedSkills" arrays listing ALL tools and skills you think will be needed to complete this milestone. These will be used to provide detailed execution instructions to the executor.
+
+${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
   "steps": [
     {
@@ -301,14 +295,9 @@ Build your own ephemeral tools if needed (e.g., "write+exec shell script to pars
   ],
   "recommendedTools": ["tool_name_1", "tool_name_2"],
   "recommendedSkills": ["skill_id_1", "skill_id_2"]
-}
-
-IMPORTANT: You MUST include "recommendedTools" and "recommendedSkills" arrays listing ALL tools and skills you think will be needed to complete this milestone. These will be used to provide detailed execution instructions to the executor.
-
-CRITICAL: You MUST respond with ONLY valid JSON. No markdown, no explanation, no conversation. Start your response with { and end with }. Any non-JSON response will cause a system failure.`;
+}`;
 
     const prompt = await this.enrichPrompt(basePrompt, state, {
-      requireJson: true,
       includeSoul: true,
       includeAwareness: true,
       includeTools: true,

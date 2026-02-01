@@ -1,7 +1,7 @@
 // ExecutorNode - Executes the plan (LLM calls, tool execution)
 
 import type { ThreadState, NodeResult, ToolResult } from '../types';
-import { BaseNode } from './BaseNode';
+import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
 import { getToolRegistry, registerDefaultTools } from '../tools';
 import { getAwarenessService } from '../services/AwarenessService';
 import { getSkillService } from '../services/SkillService';
@@ -299,16 +299,15 @@ Your sole job: complete this exact step without deviation, delay, or chit-chat. 
 6. Validate every output against step success before proceeding
 7. Final output: only tool calls or { "done": true, "result": "short summary" }
 
-## Output JSON
+
+${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
   "actions": [
     { "action": "tool_name", "args": { "arg1": "value1" } }
   ],
   "markDone": true,
   "summary": "Brief description of what was done"
-}
-
-Respond with JSON only.`;
+}`;
 
     const prompt = await this.enrichPrompt(basePrompt, state, {
       includeSoul: true,

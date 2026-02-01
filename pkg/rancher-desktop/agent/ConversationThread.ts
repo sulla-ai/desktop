@@ -74,6 +74,11 @@ export class ConversationThread {
     return this.state.threadId;
   }
 
+  clearMessages(): void {
+    this.state.messages = [];
+    this.state.shortTermMemory = [];
+  }
+
   /**
    * Add a custom node to the graph
    */

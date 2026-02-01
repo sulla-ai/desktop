@@ -1,7 +1,7 @@
 // MemoryNode - Uses LLM to determine what to search for, then queries Chroma
 
 import type { ThreadState, NodeResult } from '../types';
-import { BaseNode } from './BaseNode';
+import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
 import { getChromaService } from '../services/ChromaService';
 
 interface SearchPlan {
@@ -118,8 +118,9 @@ Before searching memory, outline 3-5 key elements of a potential strategic plan 
 From that outline, derive what info from long-term memory would make the plan feasible—focus on gaps in knowledge, precedents, or assets.
 
 If search needed, produce 1-6 short, specific queries targeting those gaps.
+    
 
-Respond in JSON format only:
+${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
   "needsMemory": boolean,
   "searchQueries": string[],
@@ -226,22 +227,22 @@ Respond in JSON format only:
     const capped = candidates.slice(0, 24);
     const prompt = `You are selecting relevant memories for a user request.
 
-User request:
-"${userQuery}"
-
 Candidate memories (each item is a standalone snippet):
 ${capped.map((m, i) => `${i + 1}. ${m}`).join('\n')}
 
-Return JSON only:
+
+
+## Rules:
+- Select ONLY items that are clearly relevant.
+- It's valid to select none.
+- Prefer fewer, higher-signal items.
+
+
+${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
   "selected": number[],
   "reasoning": "brief"
-}
-
-Rules:
-- Select ONLY items that are clearly relevant.
-- It's valid to select none.
-- Prefer fewer, higher-signal items.`;
+}`;
 
     const parsed = await this.promptJSON<{ selected?: unknown; reasoning?: string }>(prompt, undefined, false);
     if (!parsed || !Array.isArray(parsed.selected)) {
