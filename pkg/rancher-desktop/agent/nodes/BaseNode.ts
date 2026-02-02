@@ -295,13 +295,10 @@ When to trigger the KnowledgeBase SOP:
   }
 
   protected getKnowledgeGraphInstructionsForExecutor(): string {
-    return `## KnowledgeBase Generation
-When the active milestone has "generateKnowledgeBase": true, this node automatically:
-1. Calls KnowledgeGraph.runSync() with the current thread messages
-2. The KnowledgeGraph pipeline plans article structure, compiles sections, validates, and persists
-3. Marks the milestone as done/failed based on result
-
-You do not need to call any tools for KB generation - it happens automatically when the milestone flag is set.`;
+    return `
+- There is NO tool named "knowledge_base_create_page" do not attempt to call it.
+- The actualy saving of knowledgebase articles is handled automatically by other systems.
+`;
   }
 
   protected getKnowledgeGraphInstructionsForCritic(): string {
