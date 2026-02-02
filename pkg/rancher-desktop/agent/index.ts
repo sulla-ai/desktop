@@ -16,6 +16,10 @@ export { TacticalPlannerNode } from './nodes/TacticalPlannerNode';
 export { TacticalExecutorNode } from './nodes/TacticalExecutorNode';
 export { TacticalCriticNode } from './nodes/TacticalCriticNode';
 export { StrategicCriticNode } from './nodes/StrategicCriticNode';
+export { KnowledgePlannerNode } from './nodes/KnowledgePlannerNode';
+export { KnowledgeExecutorNode } from './nodes/KnowledgeExecutorNode';
+export { KnowledgeCriticNode } from './nodes/KnowledgeCriticNode';
+export { KnowledgeWriterNode } from './nodes/KnowledgeWriterNode';
 
 // Services
 export { getPersistenceService } from './services/PersistenceService';
@@ -26,3 +30,5 @@ export { getAwarenessPlanner, AwarenessPlanner } from './services/AwarenessPlann
 export { getCalendarService, CalendarService } from './services/CalendarService';
 export { getSchedulerService, SchedulerService } from './services/SchedulerService';
 export { getHeartbeatService, HeartbeatService } from './services/HeartbeatService';
+export { getKnowledgeGraph, KnowledgeGraphClass } from './services/KnowledgeGraph';
+export type { KnowledgeFinalPage, KnowledgePageSection, KnowledgeGoal } from './services/KnowledgeState';

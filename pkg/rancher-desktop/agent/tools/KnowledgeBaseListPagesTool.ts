@@ -11,12 +11,12 @@ export class KnowledgeBaseListPagesTool extends BaseTool {
 
   override getPlanningInstructions(): string {
     return [
-      '9) knowledge_base_list_pages (KnowledgeBase / Chroma pages)',
-      '   - Purpose: List KnowledgeBase pages from Chroma collection "memorypedia_pages" without needing a search query.',
+      '9) knowledge_base_list_pages (KnowledgeBase / Chroma articles)',
+      '   - Purpose: List KnowledgeBase articles from Chroma collection "knowledgebase_articles".',
       '   - Args:',
       '     - limit (number, optional)          // default 50, max 500',
-      '     - includeContent (boolean, optional) // default false; if true includes full documents',
-      '   - Output: Returns page ids + metadata (and optionally content).',
+      '     - includeContent (boolean, optional) // default false; if true includes full article JSON',
+      '   - Output: Returns articles with slug, title, tags, order, locked, updated_at.',
     ].join('\n');
   }
 
@@ -40,41 +40,48 @@ export class KnowledgeBaseListPagesTool extends BaseTool {
         return { toolName: this.name, success: false, error: 'Chroma not available' };
       }
 
-      await chroma.ensureCollection('memorypedia_pages');
+      await chroma.ensureCollection('knowledgebase_articles');
       await chroma.refreshCollections();
 
       const include = includeContent ? ['documents', 'metadatas'] : ['metadatas'];
-      const data = await chroma.get('memorypedia_pages', undefined, { limit, include });
+      const data = await chroma.get('knowledgebase_articles', undefined, { limit, include });
 
       const ids = data?.ids || [];
       const metadatas = data?.metadatas || [];
       const documents = data?.documents || [];
 
-      const pages = ids.map((id, i) => {
-        const md = metadatas[i] || {};
-        const title = String((md as any).title || id);
-        const pageType = String((md as any).pageType || 'entity');
-        const lastUpdated = Number((md as any).lastUpdated) || null;
-
-        if (includeContent) {
-          return {
-            pageId: id,
-            title,
-            pageType,
-            lastUpdated,
-            content: documents[i] || '',
-          };
+      const articles = ids.map((id, i) => {
+        const md = (metadatas[i] || {}) as Record<string, unknown>;
+        const tagsRaw = md.tags;
+        let tags: string[] = [];
+        if (typeof tagsRaw === 'string') {
+          tags = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+        } else if (Array.isArray(tagsRaw)) {
+          tags = tagsRaw.map(String);
         }
 
-        return { pageId: id, title, pageType, lastUpdated };
+        const article: Record<string, unknown> = {
+          slug: String(md.slug || id),
+          title: String(md.title || id),
+          tags,
+          order: Number(md.order) || 0,
+          locked: md.locked === true || md.locked === 'true',
+          updated_at: md.updated_at ? String(md.updated_at) : null,
+        };
+
+        if (includeContent) {
+          article.document = documents[i] || '';
+        }
+
+        return article;
       });
 
-      (state.metadata as any).knowledgeBaseList = pages;
+      (state.metadata as any).knowledgeBaseList = articles;
 
       return {
         toolName: this.name,
         success: true,
-        result: { count: pages.length, limit, includeContent, pages },
+        result: { count: articles.length, limit, includeContent, articles },
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

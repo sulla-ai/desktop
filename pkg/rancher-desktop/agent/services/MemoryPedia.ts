@@ -12,7 +12,7 @@ import path from 'path';
 // Collection names
 const COLLECTIONS = {
   SUMMARIES: 'conversation_summaries',
-  PAGES: 'memorypedia_pages',
+  PAGES: 'knowledgebase_articles',
 };
 
 interface ConversationSummary {

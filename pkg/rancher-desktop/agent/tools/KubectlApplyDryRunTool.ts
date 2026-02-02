@@ -23,12 +23,16 @@ export class KubectlApplyDryRunTool extends BaseTool {
   }
 
   override async execute(_state: ThreadState, context: ToolContext): Promise<ToolResult> {
-    const yaml = String(context.args?.yaml || '');
+    const rawYaml = String(context.args?.yaml || '');
     const ns = context.args?.namespace ? String(context.args.namespace) : '';
 
-    if (!yaml.trim()) {
+    if (!rawYaml.trim()) {
       return { toolName: this.name, success: false, error: 'Missing args: yaml' };
     }
+
+    const yaml = rawYaml
+      .replace(/\\"/g, '"')
+      .replace(/\\'/g, "'");
 
     const args = ['apply', '--dry-run=server', '-f', '-'];
     if (ns) {

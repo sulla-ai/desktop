@@ -4,6 +4,8 @@
 
 import type { ThreadState, NodeResult } from '../types';
 import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
+import { parseJson } from '../services/JsonParseService';
+import { agentLog, agentWarn } from '../services/AgentLogService';
 import { StrategicStateService, type StrategicPlanData } from '../services/StrategicStateService';
 
 interface StrategicPlan {
@@ -42,6 +44,7 @@ export class StrategicPlannerNode extends BaseNode {
     const emit = state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined;
 
     const llmFailureCount = (state.metadata.llmFailureCount as number) || 0;
+    const strategicPlanRetryCount = (state.metadata.strategicPlanRetryCount as number) || 0;
 
     const lastUserMessage = state.messages.filter(m => m.role === 'user').pop();
     if (!lastUserMessage) {
@@ -54,14 +57,21 @@ export class StrategicPlannerNode extends BaseNode {
     // Check if we're revising an existing plan
     const revisionContext = state.metadata.requestPlanRevision;
     const priorPlanId = state.metadata.activePlanId;
+    const lastStrategicPlanError = typeof state.metadata.strategicPlanLastError === 'string'
+      ? String(state.metadata.strategicPlanLastError)
+      : '';
 
     // Generate strategic plan
     const strategicPlan = await this.generateStrategicPlan(
       state,
-      revisionContext ? String((revisionContext as any).reason || '') : undefined,
+      revisionContext
+        ? String((revisionContext as any).reason || '')
+        : (lastStrategicPlanError || undefined),
     );
 
     if (strategicPlan) {
+      delete state.metadata.strategicPlanLastError;
+      state.metadata.strategicPlanRetryCount = 0;
       console.log(`[Agent:StrategicPlanner] Strategic plan created:`);
       console.log(`  Goal: ${strategicPlan.goal}`);
       console.log(`  Complexity: ${strategicPlan.estimatedComplexity}`);
@@ -148,11 +158,20 @@ export class StrategicPlannerNode extends BaseNode {
         // Set first milestone as active
         if (strategicPlan.milestones.length > 0) {
           const first = strategicPlan.milestones[0];
-          state.metadata.activeMilestone = {
+          const firstStateMilestone = state.metadata.strategicPlan.milestones.find(m => m.id === first.id);
+          if (firstStateMilestone) {
+            (firstStateMilestone as any).status = 'in_progress';
+            const todoIdFirst = (firstStateMilestone as any).todoId as number | undefined;
+            if (todoIdFirst) {
+              await strategicStateForMapping.inprogressTodo(todoIdFirst, firstStateMilestone.title);
+            }
+          }
+          (state.metadata as any).activeMilestone = {
             id: first.id,
             title: first.title,
             description: first.description,
             successCriteria: first.successCriteria,
+            generateKnowledgeBase: (first as any).generateKnowledgeBase === true,
           };
         }
 
@@ -184,35 +203,34 @@ export class StrategicPlannerNode extends BaseNode {
       return { state, next: 'continue' };
     }
 
-    // LLM planning failed
-    console.log(`[Agent:StrategicPlanner] LLM planning failed, using fallback`);
+    // Strategic planning failed (parse/validation/etc). Do not continue until a valid plan exists.
     state.metadata.llmFailureCount = llmFailureCount + 1;
+    state.metadata.strategicPlanRetryCount = strategicPlanRetryCount + 1;
 
-    if (llmFailureCount + 1 >= 3) {
-      console.error(`[Agent:StrategicPlanner] LLM failed ${llmFailureCount + 1} times, ending`);
-      state.metadata.error = 'Strategic planning failed after multiple attempts';
+    if (strategicPlanRetryCount + 1 >= 2) {
+      console.error(`[Agent:StrategicPlanner] Strategic plan failed after ${strategicPlanRetryCount + 1} attempts, ending`);
+      state.metadata.error = typeof state.metadata.strategicPlanLastError === 'string'
+        ? String(state.metadata.strategicPlanLastError)
+        : 'Strategic planning failed after multiple attempts';
       return { state, next: 'end' };
     }
 
-    // Fallback: create a simple single-milestone plan
-    state.metadata.strategicPlan = {
-      goal: 'Respond to user request',
-      goalDescription: lastUserMessage.content,
-      milestones: [{
-        id: 'milestone_1',
-        title: 'Process and respond',
-        description: 'Analyze the request and provide a helpful response',
-        successCriteria: 'User receives a relevant response',
-        dependsOn: [],
-        status: 'pending' as const,
-      }],
-      requiresTools: false,
-      estimatedComplexity: 'simple',
-    };
+    agentWarn(this.name, 'Strategic plan invalid; retrying StrategicPlanner', {
+      strategicPlanRetryCount: strategicPlanRetryCount + 1,
+      strategicPlanLastError: state.metadata.strategicPlanLastError,
+    });
 
-    state.metadata.planHasRemainingTodos = true;
+    emit?.({
+      type: 'progress',
+      threadId: state.threadId,
+      data: {
+        phase: 'strategic_plan_retry',
+        attempt: strategicPlanRetryCount + 1,
+        reason: state.metadata.strategicPlanLastError,
+      },
+    });
 
-    return { state, next: 'continue' };
+    return { state, next: 'strategic_planner' };
   }
 
   private async generateStrategicPlan(
@@ -273,41 +291,61 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       toolDetail: 'names',
       includeSkills: true,
       includeStrategicPlan: false,
+      includeKnowledgeGraphInstructions: 'planner',
     });
 
-    console.log(`[Agent:StrategicPlanner] Prompt (plain text):\n${prompt}`);
-
-    // Log the messages that will be sent to the LLM
-    const messagesForLLM = state.messages
-      .filter(m => m.role === 'user' || m.role === 'assistant' || m.role === 'system')
-      .map(m => ({ role: m.role, content: m.content }));
-    console.log(`[Agent:StrategicPlanner] Messages to LLM:\n${JSON.stringify(messagesForLLM, null, 2)}`);
+    agentLog(this.name, `Prompt built (${prompt.length} chars)`);
 
     try {
       const response = await this.prompt(prompt, state, false);
 
       if (!response?.content) {
-        console.warn('[Agent:StrategicPlanner] No response from LLM');
+        agentWarn(this.name, 'No response from LLM');
         return null;
       }
 
-      console.log(`[Agent:StrategicPlanner] LLM response:\n${response.content.substring(0, 1000)}`);
+      agentLog(this.name, `LLM response received (${response.content.length} chars)`);
       
-      const plan = this.parseFirstJSONObject<any>(response.content);
+      const plan = parseJson<any>(response.content);
       if (!plan) {
-        console.warn('[Agent:StrategicPlanner] Failed to parse plan JSON from response:', response.content);
+        state.metadata.strategicPlanLastError = 'Failed to parse JSON for strategic plan. Output must be a single valid JSON object matching the required schema.';
+        agentWarn(this.name, 'Failed to parse plan JSON from response', { responseLength: response.content.length });
         return null;
       }
 
-      // Validate required fields
-      if (!plan.goal || typeof plan.planNeeded !== 'boolean') {
-        console.warn('[Agent:StrategicPlanner] Invalid plan structure');
-        return null;
+      // Normalize fields (do not hard-fail when the model omits optional high-level fields).
+      const lastUser = state.messages.filter(m => m.role === 'user').pop();
+      const lastUserText = lastUser?.content ? String(lastUser.content) : '';
+
+      if (typeof plan.goal !== 'string' || !plan.goal.trim()) {
+        plan.goal = lastUserText ? lastUserText.slice(0, 160) : '';
+      }
+      if (typeof plan.goalDescription !== 'string') {
+        plan.goalDescription = '';
       }
 
       // Ensure milestones array exists
       if (!Array.isArray(plan.milestones)) {
         plan.milestones = [];
+      }
+
+      if (typeof plan.planNeeded !== 'boolean') {
+        plan.planNeeded = plan.milestones.length > 0;
+      }
+      if (typeof plan.requiresTools !== 'boolean') {
+        plan.requiresTools = plan.planNeeded;
+      }
+      if (plan.estimatedComplexity !== 'simple' && plan.estimatedComplexity !== 'moderate' && plan.estimatedComplexity !== 'complex') {
+        plan.estimatedComplexity = plan.planNeeded ? 'moderate' : 'simple';
+      }
+      if (!plan.responseGuidance || typeof plan.responseGuidance !== 'object') {
+        plan.responseGuidance = { tone: 'technical', format: 'detailed' };
+      }
+      if (plan.responseGuidance.tone !== 'formal' && plan.responseGuidance.tone !== 'casual' && plan.responseGuidance.tone !== 'technical' && plan.responseGuidance.tone !== 'friendly') {
+        plan.responseGuidance.tone = 'technical';
+      }
+      if (plan.responseGuidance.format !== 'brief' && plan.responseGuidance.format !== 'detailed' && plan.responseGuidance.format !== 'json' && plan.responseGuidance.format !== 'markdown' && plan.responseGuidance.format !== 'conversational') {
+        plan.responseGuidance.format = 'detailed';
       }
 
       // Ensure each milestone has required fields
@@ -317,11 +355,13 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         description: m.description || '',
         successCriteria: m.successCriteria || 'Milestone completed',
         dependsOn: Array.isArray(m.dependsOn) ? m.dependsOn : [],
+        generateKnowledgeBase: m.generateKnowledgeBase === true,
       }));
 
       return plan as StrategicPlan;
 
     } catch (err) {
+      state.metadata.strategicPlanLastError = `Strategic plan generation error: ${String((err as any)?.message || err)}`;
       console.error('[Agent:StrategicPlanner] Plan generation failed:', err);
       return null;
     }

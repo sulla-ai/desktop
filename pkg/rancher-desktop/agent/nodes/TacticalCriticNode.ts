@@ -3,11 +3,14 @@
 
 import type { ThreadState, NodeResult } from '../types';
 import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
+import { parseJson } from '../services/JsonParseService';
+import { agentError, agentLog, agentWarn } from '../services/AgentLogService';
 import { StrategicStateService } from '../services/StrategicStateService';
 
 export type CriticDecision = 'approve' | 'revise' | 'reject';
 
 interface CriticLLMResponse {
+  successScore: number;
   decision: CriticDecision;
   reason: string;
   suggestedFix?: string;
@@ -21,9 +24,11 @@ export class TacticalCriticNode extends BaseNode {
   }
 
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
-    console.log(`[Agent:TacticalCritic] Executing...`);
-    console.log(`[Agent:TacticalCritic] activePlanId=${state.metadata.activePlanId}, activeTodo=${JSON.stringify(state.metadata.activeTodo)}`);
-    console.log(`[Agent:TacticalCritic] todoExecution=${JSON.stringify(state.metadata.todoExecution)}`);
+    agentLog(this.name, 'Executing...', {
+      activePlanId: state.metadata.activePlanId,
+      activeTodo: state.metadata.activeTodo,
+      todoExecution: state.metadata.todoExecution,
+    });
     const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
 
     // Check for LLM failure count to prevent infinite loops
@@ -63,45 +68,31 @@ export class TacticalCriticNode extends BaseNode {
         state.metadata.revisionFeedback = reason;
       }
 
-      // Critic owns status transitions: mark current todo blocked in DB (if we have one)
-      if (activeTodo && Number.isFinite(Number(activeTodo.id))) {
-        try {
-          const todoId = Number(activeTodo.id);
-          const title = typeof activeTodo.title === 'string' ? activeTodo.title : '';
-          await strategicState.blockTodo(todoId, reason, title);
-        } catch {
-          // best effort
-        }
-      }
-
-      await strategicState.requestRevision(reason);
-
-      state.metadata.criticDecision = 'revise';
-      state.metadata.criticReason = reason;
-      state.metadata.revisionCount = ((state.metadata.revisionCount as number) || 0) + 1;
-      console.log(`[Agent:TacticalCritic] Forcing revision due to executor request: ${reason}`);
-
-      emit?.({
-        type:     'progress',
-        threadId: state.threadId,
-        data:     { phase: 'critic_decision', decision: 'revise', reason },
+      agentLog(this.name, 'Executor reported issues (not auto-revising)', {
+        reason,
+        activePlanId: state.metadata.activePlanId,
+        activeTodo: state.metadata.activeTodo,
+        todoExecution: state.metadata.todoExecution,
+        toolResultsHistory: (state.metadata as any).toolResultsHistory,
+        revisionFeedback: state.metadata.revisionFeedback,
       });
-      return { state, next: 'tactical_planner' };
+
+      // Continue: the critic must decide based on whether the milestone was sufficiently completed.
     }
 
     const revisionCount = (state.metadata.revisionCount as number) || 0;
 
     if (revisionCount >= this.maxRevisions) {
-      console.log(`[Agent:TacticalCritic] Max revisions (${this.maxRevisions}) reached, auto-approving`);
+      agentWarn(this.name, `Max revisions (${this.maxRevisions}) reached, auto-approving`);
 
       // Mark the todo as done in the database before auto-approving
       if (activePlanId && activeTodo) {
         try {
           const todoId = Number(activeTodo.id);
-          console.log(`[Agent:TacticalCritic] Auto-approving todo ${todoId} due to max revisions`);
+          agentWarn(this.name, `Auto-approving todo ${todoId} due to max revisions`);
           await strategicState.completeTodo(todoId, typeof activeTodo.title === 'string' ? activeTodo.title : undefined);
         } catch (err) {
-          console.error(`[Agent:TacticalCritic] Failed to mark todo as done on max revisions:`, err);
+          agentError(this.name, 'Failed to mark todo as done on max revisions', err);
         }
       }
 
@@ -138,6 +129,13 @@ export class TacticalCriticNode extends BaseNode {
     const execSummary = todoExecution && typeof todoExecution.summary === 'string' ? String(todoExecution.summary) : '';
     const toolResults = state.metadata.toolResults as Record<string, any> | undefined;
 
+    const activeMilestone = state.metadata.activeMilestone as { id?: string; title?: string; description?: string; successCriteria?: string } | undefined;
+    const strategicPlan = state.metadata.strategicPlan as { goal?: string } | undefined;
+    const milestoneTitle = String(activeMilestone?.title || todoTitle || '');
+    const milestoneDescription = String(activeMilestone?.description || todoDescription || '');
+    const milestoneSuccessCriteria = String(activeMilestone?.successCriteria || '');
+    const milestoneGoal = String(strategicPlan?.goal || planGoalFromState(state) || '');
+
     // Use LLM to evaluate the execution
     const llmDecision = await this.evaluateWithLLM(state, {
       todoId,
@@ -147,16 +145,25 @@ export class TacticalCriticNode extends BaseNode {
       execSummary,
       toolResults,
       activePlanId,
+      milestoneTitle,
+      milestoneDescription,
+      milestoneSuccessCriteria,
+      milestoneGoal,
+      executorIssues: typeof state.metadata.revisionFeedback === 'string' ? String(state.metadata.revisionFeedback) : undefined,
     });
 
     if (llmDecision.decision === 'approve') {
       try {
-        console.log(`[Agent:TacticalCritic] Marking todo ${todoId} as done in database...`);
+        agentLog(this.name, `Marking todo ${todoId} as done in database...`);
         await strategicState.completeTodo(todoId, todoTitle);
-        console.log(`[Agent:TacticalCritic] Todo ${todoId} marked as done successfully`);
+        agentLog(this.name, `Todo ${todoId} marked as done successfully`);
       } catch (err) {
-        console.error(`[Agent:TacticalCritic] Failed to mark todo ${todoId} as done:`, err);
+        agentError(this.name, `Failed to mark todo ${todoId} as done`, err);
       }
+
+      // Clear any executor issue flags once we accept success.
+      delete state.metadata.requestPlanRevision;
+      delete state.metadata.revisionFeedback;
 
       // Check if all todos are now complete - if so, mark plan as completed
       try {
@@ -165,7 +172,7 @@ export class TacticalCriticNode extends BaseNode {
         state.metadata.planHasRemainingTodos = remaining;
 
         if (!remaining) {
-          console.log(`[Agent:TacticalCritic] All todos complete, marking plan ${activePlanId} as completed`);
+          agentLog(this.name, `All todos complete, marking plan ${activePlanId} as completed`);
           await strategicState.markPlanCompleted('All todos complete');
 
           // Clear the active plan pointer so the next user prompt starts a new plan.
@@ -173,7 +180,7 @@ export class TacticalCriticNode extends BaseNode {
           delete (state.metadata as any).activeTodo;
         }
       } catch (err) {
-        console.warn('[Agent:TacticalCritic] Failed to check plan completion:', err);
+        agentWarn(this.name, 'Failed to check plan completion', err);
         state.metadata.planHasRemainingTodos = true;
       }
 
@@ -207,7 +214,16 @@ export class TacticalCriticNode extends BaseNode {
     state.metadata.revisionFeedback = reason;
     state.metadata.requestPlanRevision = { reason };
     state.metadata.revisionCount = revisionCount + 1;
-    console.log(`[Agent:TacticalCritic] Requesting plan revision ${revisionCount + 1}/${this.maxRevisions}: ${reason}`);
+
+    agentError(this.name, `Requesting plan revision ${revisionCount + 1}/${this.maxRevisions}`, {
+      reason,
+      todoId,
+      todoTitle,
+      execStatus,
+      execSummary,
+      toolResultsHistory: (state.metadata as any).toolResultsHistory,
+      toolResults: state.metadata.toolResults,
+    });
 
     emit?.({
       type:     'progress',
@@ -228,13 +244,35 @@ export class TacticalCriticNode extends BaseNode {
       execSummary: string;
       toolResults: Record<string, any> | undefined;
       activePlanId: number | null;
+      milestoneTitle: string;
+      milestoneDescription: string;
+      milestoneSuccessCriteria: string;
+      milestoneGoal: string;
+      executorIssues?: string;
     },
   ): Promise<CriticLLMResponse> {
-    // Get the plan goal if available
-    const plan = state.metadata.plan as { fullPlan?: { goal?: string } } | undefined;
-    const planGoal = plan?.fullPlan?.goal || 'No explicit goal set';
+    const basePrompt = `You are the Tactical Critic. Your ONLY job is to determine whether the current milestone was sufficiently completed.
 
-    const basePrompt = `Based on the conversation above, evaluate whether the milestone was completed successfully.
+Milestone being critiqued (in-progress): "${context.milestoneTitle}".
+Milestone description: ${context.milestoneDescription}
+Milestone success criteria: ${context.milestoneSuccessCriteria || '(not explicitly provided)'}
+
+This milestone is one step toward the overall goal: "${context.milestoneGoal || '(not explicitly provided)'}".
+
+If the milestone success criteria is missing, you must infer what "done" means by reviewing the conversation and the execution summary/tool results.
+
+IMPORTANT:
+- Errors, tool failures, or messy execution are NOT by themselves a reason to revise.
+- Focus only on whether the milestone outcome exists / is true.
+- Assign a successScore from 0-10.
+- If successScore >= 8: approve (mark milestone complete), even if there were errors.
+- If successScore < 8: revise, and explain what is missing to reach >=8.
+
+Execution context:
+- executorStatus: ${context.execStatus}
+- executorSummary: ${context.execSummary}
+${context.executorIssues ? `- executorIssues: ${context.executorIssues}` : ''}
+${context.toolResults ? `- toolResults: ${JSON.stringify(context.toolResults)}` : ''}
     
 You are the Critic: a 25-year senior DevOps & QA engineer who has audited 1000+ mission-critical pipelines (e.g., Body Glove zero-downtime deploys, ClientBasis lead-scoring accuracy at 98%+). Ruthless precision: approve only when milestone success criteria are verifiably 100% met. Partial completion = revision — especially batch ops, data integrity, or security-sensitive tasks.
 
@@ -255,11 +293,10 @@ You are the Critic: a 25-year senior DevOps & QA engineer who has audited 1000+ 
 
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
-  "decision": "approve" | "revise" | "fail",    // fail = catastrophic, abort chain
-  "reason": "One-sentence verdict + key evidence",
-  "confidence": 0-100,                           // how certain you are of the verdict
-  "suggestedFix": "Precise next action if revise/fail (optional)",
-  "missingEvidence": ["list", "of", "gaps"]      // only if revise/fail
+  "successScore": 0,                              // integer 0-10
+  "decision": "approve" | "revise",              // if successScore >= 8 then approve
+  "reason": "One-sentence verdict with evidence",
+  "suggestedFix": "Precise next action if revise (optional)"
 }`;
 
     const prompt = await this.enrichPrompt(basePrompt, state, {
@@ -280,21 +317,27 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         return this.fallbackHeuristic(context);
       }
 
-      const parsed = this.parseFirstJSONObject<Partial<CriticLLMResponse>>(response.content);
+      const parsed = parseJson<Partial<CriticLLMResponse>>(response.content);
       if (!parsed) {
         console.warn('[Agent:TacticalCritic] Could not parse LLM response, defaulting to heuristic');
         return this.fallbackHeuristic(context);
       }
 
-      if (parsed.decision !== 'approve' && parsed.decision !== 'revise') {
-        console.warn('[Agent:TacticalCritic] Invalid decision from LLM, defaulting to heuristic');
+      const scoreRaw = (parsed as any).successScore;
+      const score = Number.isFinite(Number(scoreRaw)) ? Number(scoreRaw) : NaN;
+      if (!Number.isFinite(score)) {
+        console.warn('[Agent:TacticalCritic] Missing/invalid successScore from LLM, defaulting to heuristic');
         return this.fallbackHeuristic(context);
       }
 
-      console.log(`[Agent:TacticalCritic] LLM decision: ${parsed.decision} - ${parsed.reason}`);
+      const normalizedScore = Math.max(0, Math.min(10, Math.round(score)));
+      const decision: CriticDecision = normalizedScore >= 8 ? 'approve' : 'revise';
+      console.log(`[Agent:TacticalCritic] LLM score: ${normalizedScore}/10 => ${decision} - ${parsed.reason}`);
+
       return {
-        decision: parsed.decision,
-        reason: parsed.reason || 'No reason provided',
+        successScore: normalizedScore,
+        decision,
+        reason: parsed.reason || `Success score: ${normalizedScore}/10`,
         suggestedFix: parsed.suggestedFix,
       };
     } catch (err) {
@@ -310,11 +353,9 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     todoTitle: string;
     todoId: number;
   }): CriticLLMResponse {
-    const anyToolFailed = !!context.toolResults &&
-      Object.values(context.toolResults).some((r: any) => r && r.success === false);
-
-    if (context.execStatus === 'done' && !anyToolFailed) {
+    if (context.execStatus === 'done') {
       return {
+        successScore: 8,
         decision: 'approve',
         reason: `Todo complete: ${context.todoTitle || String(context.todoId)}`,
       };
@@ -325,16 +366,19 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     if (context.execStatus) {
       reasonParts.push(`status=${context.execStatus}`);
     }
-    if (anyToolFailed) {
-      reasonParts.push('one or more tool calls failed');
-    }
     if (context.execSummary) {
       reasonParts.push(context.execSummary);
     }
 
     return {
+      successScore: 4,
       decision: 'revise',
       reason: reasonParts.join(' | '),
     };
   }
+}
+
+function planGoalFromState(state: ThreadState): string {
+  const plan = state.metadata.plan as { fullPlan?: { goal?: string } } | undefined;
+  return String(plan?.fullPlan?.goal || '');
 }

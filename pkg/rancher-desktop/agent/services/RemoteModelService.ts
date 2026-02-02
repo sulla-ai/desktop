@@ -3,6 +3,31 @@
 
 import type { ILLMService, ChatMessage, RemoteProviderConfig } from './ILLMService';
 
+function combineSignals(timeoutMs: number, external?: AbortSignal): AbortSignal {
+  if (!external) {
+    return AbortSignal.timeout(timeoutMs);
+  }
+
+  const anyFn = (AbortSignal as any).any as ((signals: AbortSignal[]) => AbortSignal) | undefined;
+  if (typeof anyFn === 'function') {
+    return anyFn([AbortSignal.timeout(timeoutMs), external]);
+  }
+
+  const controller = new AbortController();
+  const onAbort = () => {
+    try {
+      controller.abort();
+    } catch {
+      // ignore
+    }
+  };
+
+  const timer = setTimeout(onAbort, timeoutMs);
+  external.addEventListener('abort', onAbort, { once: true });
+  controller.signal.addEventListener('abort', () => clearTimeout(timer), { once: true });
+  return controller.signal;
+}
+
 // Provider-specific API configurations
 const PROVIDER_CONFIGS: Record<string, { baseUrl: string; chatEndpoint: string; authHeader: string }> = {
   grok: {
@@ -110,18 +135,23 @@ class RemoteModelServiceClass implements ILLMService {
   /**
    * Generate completion (converts to chat format for API compatibility)
    */
-  async generate(prompt: string): Promise<string | null> {
+  async generate(prompt: string, options?: { signal?: AbortSignal }): Promise<string | null> {
     const messages: ChatMessage[] = [];
     messages.push({ role: 'user', content: prompt });
 
-    return this.chat(messages);
+    return this.chat(messages, options);
   }
 
   /**
    * Generate completion with a specific provider and model override
    * Used for heartbeat model override
    */
-  async generateWithModel(prompt: string, providerId: string, modelName: string): Promise<string | null> {
+  async generateWithModel(
+    prompt: string,
+    providerId: string,
+    modelName: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<string | null> {
     if (!this.config?.apiKey) {
       console.warn('[RemoteModelService] No API key configured for model override');
       return null;
@@ -147,7 +177,7 @@ class RemoteModelServiceClass implements ILLMService {
           'Authorization': `Bearer ${this.config.apiKey}`,
         },
         body:   JSON.stringify(body),
-        signal: AbortSignal.timeout(timeout),
+        signal: combineSignals(timeout, options?.signal),
       });
 
       if (!res.ok) {
@@ -235,7 +265,7 @@ class RemoteModelServiceClass implements ILLMService {
    * Chat completion - main method
    * Retries on failure, then falls back to local Ollama
    */
-  async chat(messages: ChatMessage[]): Promise<string | null> {
+  async chat(messages: ChatMessage[], options?: { signal?: AbortSignal }): Promise<string | null> {
     if (!this.config || !this.config.apiKey) {
       console.warn('[RemoteModelService] Not configured');
 
@@ -254,23 +284,42 @@ class RemoteModelServiceClass implements ILLMService {
     // Retry loop
     for (let attempt = 0; attempt <= this.retryCount; attempt++) {
       try {
+        if (options?.signal?.aborted) {
+          const err = new Error('Aborted');
+          (err as any).name = 'AbortError';
+          throw err;
+        }
         if (attempt > 0) {
           console.log(`[RemoteModelService] Retry attempt ${attempt}/${this.retryCount}`);
           // Exponential backoff: 1s, 2s, 4s, etc.
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000));
+          const backoffMs = Math.pow(2, attempt - 1) * 1000;
+          await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(() => resolve(), backoffMs);
+            if (options?.signal) {
+              options.signal.addEventListener('abort', () => {
+                clearTimeout(timer);
+                const err = new Error('Aborted');
+                (err as any).name = 'AbortError';
+                reject(err);
+              }, { once: true });
+            }
+          });
         }
 
         // Route to provider-specific handler
         switch (this.config.id) {
           case 'anthropic':
-            return await this.chatAnthropic(messages, timeout);
+            return await this.chatAnthropic(messages, timeout, options?.signal);
           case 'google':
-            return await this.chatGoogle(messages, timeout);
+            return await this.chatGoogle(messages, timeout, options?.signal);
           default:
             // OpenAI-compatible (Grok, OpenAI)
-            return await this.chatOpenAI(messages, timeout);
+            return await this.chatOpenAI(messages, timeout, options?.signal);
         }
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          throw err;
+        }
         lastError = err;
         console.error(`[RemoteModelService] Chat failed (attempt ${attempt + 1}/${this.retryCount + 1}):`, err);
 
@@ -297,7 +346,7 @@ class RemoteModelServiceClass implements ILLMService {
 
         await ollama.initialize();
         if (ollama.isAvailable()) {
-          return await ollama.chat(messages);
+          return await ollama.chat(messages, { signal: options?.signal });
         }
       } catch (fallbackErr) {
         console.error('[RemoteModelService] Fallback to Ollama also failed:', fallbackErr);
@@ -313,6 +362,7 @@ class RemoteModelServiceClass implements ILLMService {
   private async chatOpenAI(
     messages: ChatMessage[],
     timeout = 60000,
+    signal?: AbortSignal,
   ): Promise<string | null> {
     const providerConfig = this.getProviderConfig()!;
     const url = `${providerConfig.baseUrl}${providerConfig.chatEndpoint}`;
@@ -329,7 +379,7 @@ class RemoteModelServiceClass implements ILLMService {
         'Authorization': `Bearer ${this.config!.apiKey}`,
       },
       body:   JSON.stringify(body),
-      signal: AbortSignal.timeout(timeout),
+      signal: combineSignals(timeout, signal),
     });
 
     if (!res.ok) {
@@ -356,6 +406,7 @@ class RemoteModelServiceClass implements ILLMService {
   private async chatAnthropic(
     messages: ChatMessage[],
     timeout = 60000,
+    signal?: AbortSignal,
   ): Promise<string | null> {
     const url = 'https://api.anthropic.com/v1/messages';
 
@@ -408,6 +459,7 @@ class RemoteModelServiceClass implements ILLMService {
   private async chatGoogle(
     messages: ChatMessage[],
     timeout = 60000,
+    signal?: AbortSignal,
   ): Promise<string | null> {
     const model = this.config!.model;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.config!.apiKey}`;
@@ -456,8 +508,8 @@ class RemoteModelServiceClass implements ILLMService {
   /**
    * Generate and parse JSON response
    */
-  async generateJSON<T>(prompt: string): Promise<T | null> {
-    const response = await this.generate(prompt);
+  async generateJSON<T>(prompt: string, options?: { signal?: AbortSignal }): Promise<T | null> {
+    const response = await this.generate(prompt, options);
 
     if (!response) {
       return null;

@@ -4,8 +4,8 @@ import { getMemoryPedia } from '../services/MemoryPedia';
 import { BaseTool } from './BaseTool';
 import type { ToolContext } from './BaseTool';
 
-function normalizePageId(name: string): string {
-  return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+function normalizeSlug(name: string): string {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 export class KnowledgeBaseGetPageTool extends BaseTool {
@@ -15,24 +15,22 @@ export class KnowledgeBaseGetPageTool extends BaseTool {
 
   override getPlanningInstructions(): string {
     return [
-      '10) knowledge_base_get_page (KnowledgeBase / Chroma pages)',
-      '   - Purpose: Get the contents of a specific KnowledgeBase page from Chroma collection "memorypedia_pages".',
+      '10) knowledge_base_get_page (KnowledgeBase / Chroma articles)',
+      '   - Purpose: Get a specific KnowledgeBase article from Chroma collection "knowledgebase_articles".',
       '   - Args:',
-      '     - pageId (string, optional) // preferred',
-      '     - title (string, optional)  // used to derive pageId if pageId omitted',
-      '   - Output: Returns the page (id + metadata + content) if it exists.',
+      '     - slug (string, required) // the article slug',
+      '   - Output: Returns the full article JSON with slug, title, tags, order, sections, etc.',
     ].join('\n');
   }
 
   override async execute(state: ThreadState, context: ToolContext): Promise<ToolResult> {
     const chroma = getChromaService();
 
-    const pageIdRaw = String(context.args?.pageId || '').trim();
-    const title = String(context.args?.title || '').trim();
-    const pageId = pageIdRaw || (title ? normalizePageId(title) : '');
+    const slugRaw = String(context.args?.slug || context.args?.pageId || '').trim();
+    const slug = normalizeSlug(slugRaw);
 
-    if (!pageId) {
-      return { toolName: this.name, success: false, error: 'Missing args: pageId (or provide title to derive it)' };
+    if (!slug) {
+      return { toolName: this.name, success: false, error: 'Missing args: slug' };
     }
 
     try {
@@ -47,26 +45,42 @@ export class KnowledgeBaseGetPageTool extends BaseTool {
         return { toolName: this.name, success: false, error: 'Chroma not available' };
       }
 
-      await chroma.ensureCollection('memorypedia_pages');
+      await chroma.ensureCollection('knowledgebase_articles');
       await chroma.refreshCollections();
 
-      const data = await chroma.get('memorypedia_pages', [pageId], { include: ['documents', 'metadatas'] });
+      const data = await chroma.get('knowledgebase_articles', [slug], { include: ['documents', 'metadatas'] });
 
       const ids = data?.ids || [];
       if (!ids.length) {
-        return { toolName: this.name, success: false, error: `KnowledgeBase page not found: ${pageId}` };
+        return { toolName: this.name, success: false, error: `KnowledgeBase article not found: ${slug}` };
       }
 
-      const md = (data?.metadatas && data.metadatas[0]) || {};
-      const content = (data?.documents && data.documents[0]) || '';
+      const md = (data?.metadatas && data.metadatas[0]) || {} as Record<string, unknown>;
+      const rawDocument = (data?.documents && data.documents[0]) || '{}';
+
+      let article: Record<string, unknown>;
+      try {
+        article = JSON.parse(rawDocument);
+      } catch {
+        article = { slug, title: md.title || slug };
+      }
+
+      const tagsRaw = md.tags;
+      let tags: string[] = [];
+      if (typeof tagsRaw === 'string') {
+        tags = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+      } else if (Array.isArray(tagsRaw)) {
+        tags = tagsRaw.map(String);
+      }
 
       const result = {
-        pageId,
-        title: String((md as any).title || pageId),
-        pageType: String((md as any).pageType || 'entity'),
-        lastUpdated: Number((md as any).lastUpdated) || null,
-        metadata: md,
-        content,
+        slug,
+        title: String(md.title || article.title || slug),
+        tags,
+        order: Number(md.order) || 0,
+        locked: md.locked === true || md.locked === 'true',
+        updated_at: md.updated_at ? String(md.updated_at) : null,
+        article,
       };
 
       (state.metadata as any).knowledgeBasePage = result;

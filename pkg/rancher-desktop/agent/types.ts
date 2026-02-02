@@ -48,6 +48,8 @@ export interface TaskState {
   retrievedMemories?: unknown[];
   
   // Strategic Planner Node (high-level goals/milestones)
+  strategicPlanRetryCount?: number;
+  strategicPlanLastError?: string;
   strategicPlan?: {
     goal: string;
     goalDescription: string;
@@ -67,6 +69,9 @@ export interface TaskState {
     title: string;
     description: string;
     successCriteria: string;
+    generateKnowledgeBase?: boolean;
+    kbSuggestedSlug?: string;
+    kbSuggestedTags?: string[];
   };
   
   // Tactical Planner Node (micro-plans per milestone, state-only)
@@ -147,7 +152,15 @@ export interface TaskState {
   
   // Error handling
   error?: string;
-  
+
+  // Knowledge graph generation (KnowledgePlanner/Executor/Critic/Writer)
+  knowledgePlannerError?: string;
+  knowledgeExecutorError?: string;
+  knowledgeExecutorRetryCount?: number;
+  knowledgeExecutorLastError?: string;
+  knowledgeCriticError?: string;
+  knowledgeWriterError?: string;
+
   // Internal event emitter (set during process())
   __emitAgentEvent?: (event: Omit<AgentEvent, 'timestamp'>) => void;
 }

@@ -11,12 +11,12 @@ export class KnowledgeBaseSearchTool extends BaseTool {
 
   override getPlanningInstructions(): string {
     return [
-      '1) knowledge_base_search (KnowledgeBase / Chroma pages)',
-      '   - Purpose: Search the KnowledgeBase (wiki-style pages) stored in Chroma collection "memorypedia_pages".',
+      '1) knowledge_base_search (KnowledgeBase / Chroma articles)',
+      '   - Purpose: Search the KnowledgeBase articles stored in Chroma collection "knowledgebase_articles".',
       '   - Args:',
       '     - query (string, required)  // short, specific search text',
       '     - limit (number, optional)  // default 6, max 50',
-      '   - Output: Sets state.metadata.knowledgeBaseContext with the top matching KnowledgeBase page snippets.',
+      '   - Output: Sets state.metadata.knowledgeBaseContext with the top matching article content.',
       '   - Use when:',
       '     - You need durable facts, entity pages, project docs, architecture notes, or seeded documentation.',
       '     - The user references "KnowledgeBase" or asks for stored reference material.',
@@ -53,7 +53,7 @@ export class KnowledgeBaseSearchTool extends BaseTool {
 
       await chroma.refreshCollections();
 
-      const pageResults = await chroma.query('memorypedia_pages', [query], limit);
+      const pageResults = await chroma.query('knowledgebase_articles', [query], limit);
       const docs = pageResults?.documents?.[0] || [];
       const top = docs.filter(Boolean).slice(0, limit);
 

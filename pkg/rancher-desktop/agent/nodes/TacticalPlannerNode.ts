@@ -4,8 +4,9 @@
 
 import type { ThreadState, NodeResult } from '../types';
 import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
-import { registerDefaultTools } from '../tools';
+import { parseJson } from '../services/JsonParseService';
 import { StrategicStateService } from '../services/StrategicStateService';
+import { agentLog, agentWarn } from '../services/AgentLogService';
 
 interface TacticalStep {
   id: string;
@@ -28,7 +29,6 @@ export class TacticalPlannerNode extends BaseNode {
   }
 
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
-    console.log(`[Agent:TacticalPlanner] Executing...`);
     const emit = state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined;
 
     const llmFailureCount = (state.metadata.llmFailureCount as number) || 0;
@@ -41,21 +41,19 @@ export class TacticalPlannerNode extends BaseNode {
     await strategicState.initialize();
 
     if (!activeMilestone) {
-      console.log(`[Agent:TacticalPlanner] No active milestone, checking for next milestone`);
-      
       // Try to find the next pending milestone
       if (strategicPlan?.milestones) {
         const nextMilestone = strategicPlan.milestones.find(m => m.status === 'pending');
         if (nextMilestone) {
-          state.metadata.activeMilestone = {
+          (state.metadata as any).activeMilestone = {
             id: nextMilestone.id,
             title: nextMilestone.title,
             description: nextMilestone.description,
             successCriteria: nextMilestone.successCriteria,
+            generateKnowledgeBase: (nextMilestone as any).generateKnowledgeBase === true,
           };
           // Update milestone status
           nextMilestone.status = 'in_progress';
-          console.log(`[Agent:TacticalPlanner] Activated milestone: ${nextMilestone.title}`);
           const todoId = (nextMilestone as any).todoId as number | undefined;
           if (todoId) {
             await strategicState.inprogressTodo(todoId, nextMilestone.title);
@@ -77,8 +75,38 @@ export class TacticalPlannerNode extends BaseNode {
       }
     }
 
-    const milestone = state.metadata.activeMilestone!;
-    console.log(`[Agent:TacticalPlanner] Planning for milestone: ${milestone.title}`);
+    const milestone = state.metadata.activeMilestone! as { id: string; title: string; description: string; successCriteria: string; generateKnowledgeBase?: boolean };
+
+    // Check if this is a KnowledgeBase generation milestone - skip LLM planning
+    if (milestone.generateKnowledgeBase === true) {
+      console.log('%c*** KNOWLEDGEGRAPH TRIGGERED! Switching to KB generation flow ***', 'color: #00bfff; font-weight: bold; font-size: 14px;');
+      
+      state.metadata.tacticalPlan = {
+        milestoneId: milestone.id,
+        steps: [{
+          id: 'kb_generation',
+          action: 'knowledge_base_generate',
+          description: 'Execute KnowledgeGraph pipeline to create article from conversation',
+          toolHints: [],
+          status: 'in_progress' as const,
+        }],
+      };
+      
+      state.metadata.activeTacticalStep = {
+        id: 'kb_generation',
+        action: 'knowledge_base_generate',
+        description: 'Execute KnowledgeGraph pipeline to create article from conversation',
+        toolHints: [],
+      };
+      
+      emit?.({
+        type: 'progress',
+        threadId: state.threadId,
+        data: { phase: 'tactical_step_status', stepId: 'kb_generation', action: 'knowledge_base_generate', status: 'in_progress' },
+      });
+      
+      return { state, next: 'continue' };
+    }
 
     // Check if we already have a tactical plan for this milestone
     const existingPlan = state.metadata.tacticalPlan;
@@ -130,11 +158,12 @@ export class TacticalPlannerNode extends BaseNode {
         // Check for next milestone
         const nextMilestone = strategicPlan?.milestones?.find(m => m.status === 'pending');
         if (nextMilestone) {
-          state.metadata.activeMilestone = {
+          (state.metadata as any).activeMilestone = {
             id: nextMilestone.id,
             title: nextMilestone.title,
             description: nextMilestone.description,
             successCriteria: nextMilestone.successCriteria,
+            generateKnowledgeBase: (nextMilestone as any).generateKnowledgeBase === true,
           };
           nextMilestone.status = 'in_progress';
           console.log(`[Agent:TacticalPlanner] Moving to next milestone: ${nextMilestone.title}`);
@@ -252,19 +281,30 @@ export class TacticalPlannerNode extends BaseNode {
     const strategicPlan = state.metadata.strategicPlan;
     const goal = strategicPlan?.goal || '';
 
-    const basePrompt = `Based on the conversation above, create a tactical plan for the current milestone.
+    const basePrompt = `You are creating a tactical plan for the in-progress strategic milestone.
+
+In-progress milestone: "${milestone.title}".
+Milestone description: ${milestone.description}
+Milestone success criteria: ${milestone.successCriteria}
+
+This milestone is ONE step toward the overall goal: "${goal}".
+
+Your job is to decide what work must be completed (and how to verify it) so that the milestone is unquestionably successful.
 
 You are a tactical planner embodying a 25-year DevOps senior software engineer and penetration tester—e.g., hardened systems for Body Glove's e-com (zero-downtime deploys via Kubernetes, shell-automated CI/CD), pen-tested Zappos funnels for vulns yielding 99.9% uptime. Be ultra-determined: relentlessly pursue milestone via shell-level ops, app access (e.g., invoke any local binary/script via exec), and custom tool-building (e.g., script quick Python/Rust utils for gaps). Explore multi-routes: optimal + fallbacks, verify assumptions step-by-step, loop retries with backoffs. Discard guesses; probe/validate like pros who've secured 1000+ setups.
 
-Build your own ephemeral tools if needed (e.g., "write+exec shell script to parse logs").
+## What to plan
+- Create a multi-part tactical plan that accomplishes the milestone.
+- The number of steps is NOT fixed. Use exactly as many steps as necessary (including just 1 step if that is sufficient). Do not pad with filler steps.
+- Each step MUST be tied to milestone success and must include a concrete outcome plus how to verify it.
+- Think in terms of deliverables and checks: "what will exist / be true" after the step is done.
 
 ## Your Approach
-1. **Deconstruct Milestone**: Atomic steps—start with shell probes to confirm env/state.
-2. **Multi-Path Foresight**: Per step: optimal route (e.g., direct shell cmd) + 1-2 fallbacks (e.g., "if app X fails, build wrapper script"); embed persistence (e.g., "retry 5x, escalate to custom tool").
-3. **Creative Aggression**: Innovate low-risk edges—e.g., chain shell+tools for 3x speed, like auto-scaling scripts from AWS pen-tests.
-4. **Tool Building**: If gap, plan+build quick utils (e.g., "script to monitor+alert via shell").
-5. **Verification Loops**: Act, check vs. criteria, adapt—e.g., "shell test output; if mismatch, debug+retry".
-6. **Success Lock-In**: Confirm with shell validation tying to criteria.
+1. **Interpret Success Criteria**: Restate (to yourself) what "done" means for this milestone.
+2. **Deconstruct Milestone**: Break down into the minimum set of steps needed to meet the success criteria.
+3. **Verification Loops**: Each step must include a verification method that directly supports the success criteria.
+4. **Multi-Path Foresight**: Where needed, include fallbacks and retries.
+5. **Success Lock-In**: End with an explicit validation step if validation is non-trivial.
 
 ## Guidelines
 - Steps: Atomic, tool/shell-tied, ordered; include hints + contingencies (e.g., "Exec shell 'git pull'; fallback: build clone script").
@@ -302,9 +342,10 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       toolDetail: 'tactical',
       includeSkills: true,
       includeStrategicPlan: true,
+      includeKnowledgeGraphInstructions: 'executor',
     });
 
-    console.log(`[Agent:TacticalPlanner] Prompt (plain text):\n${prompt}`);
+    agentLog(this.name, `Prompt (plain text):\n${prompt}`);
 
     try {
       const response = await this.prompt(prompt, state, false);
@@ -316,9 +357,16 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 
       console.log(`[Agent:TacticalPlanner] LLM response:\n${response.content.substring(0, 1000)}`);
       
-      const parsed = this.parseFirstJSONObject<any>(response.content);
+      const parsed = parseJson<any>(response.content);
       if (!parsed || !Array.isArray(parsed.steps)) {
-        console.warn('[Agent:TacticalPlanner] Invalid plan structure, response:', response.content.substring(0, 500));
+        agentWarn(this.name, `Invalid plan structure. Response length: ${response.content.length} chars`);
+        agentWarn(this.name, '=== FULL LLM RESPONSE START ===');
+        // Log in chunks to avoid console truncation
+        const chunkSize = 2000;
+        for (let i = 0; i < response.content.length; i += chunkSize) {
+          agentWarn(this.name, response.content.substring(i, i + chunkSize));
+        }
+        agentWarn(this.name, '=== FULL LLM RESPONSE END ===');
         return null;
       }
 

@@ -3,6 +3,8 @@
 import type { ThreadState, NodeResult } from '../types';
 import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
 import { StrategicStateService } from '../services/StrategicStateService';
+import { getKnowledgeGraph } from '../services/KnowledgeGraph';
+import { agentError, agentLog } from '../services/AgentLogService';
 
 export type StrategicCriticDecision = 'approve' | 'revise';
 
@@ -63,6 +65,13 @@ export class StrategicCriticNode extends BaseNode {
       state.metadata.revisionFeedback = reason;
       state.metadata.requestPlanRevision = { reason };
       state.metadata.finalRevisionCount = finalRevisionCount + 1;
+
+      agentError(this.name, 'Strategic critic requested revision (remaining todos)', {
+        reason,
+        activePlanId: state.metadata.activePlanId,
+        planHasRemainingTodos: anyRemaining,
+        todos,
+      });
       return { state, next: 'strategic_planner' };
     }
 
@@ -111,9 +120,16 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeSkills: true,
       includeStrategicPlan: true,
       includeTacticalPlan: true,
+      includeKnowledgeGraphInstructions: 'critic',
     });
 
-    const critique = await this.promptJSON<{ decision: StrategicCriticDecision; reason?: string; suggestedTodos?: Array<{ title: string; description?: string; categoryHints?: string[] }> }>(prompt);
+    const critique = await this.promptJSON<{
+      decision: StrategicCriticDecision;
+      reason?: string;
+      suggestedTodos?: Array<{ title: string; description?: string; categoryHints?: string[] }>;
+      triggerKnowledgeBase?: boolean;
+      kbReason?: string;
+    }>(prompt);
 
     const decision: StrategicCriticDecision = (critique?.decision === 'revise') ? 'revise' : 'approve';
     const reason = String(critique?.reason || (decision === 'revise' ? 'Strategic critic requested revision' : 'Strategic critic approved'));
@@ -129,12 +145,38 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       state.metadata.revisionFeedback = reason;
       state.metadata.requestPlanRevision = { reason };
       state.metadata.finalRevisionCount = finalRevisionCount + 1;
+
+      agentError(this.name, 'Strategic critic requested revision', {
+        reason,
+        activePlanId: state.metadata.activePlanId,
+        finalRevisionCount: state.metadata.finalRevisionCount,
+        suggestedTodos,
+      });
       return { state, next: 'strategic_planner' };
     }
 
     delete (state.metadata as any).activePlanId;
     delete (state.metadata as any).activeTodo;
 
+    // Check if LLM requested KnowledgeBase generation
+    if (critique?.triggerKnowledgeBase === true) {
+      agentLog(this.name, `LLM requested KB generation: ${critique.kbReason || 'no reason given'}`);
+      this.triggerKnowledgeGraph(state);
+    }
+
     return { state, next: 'end' };
+  }
+
+  private triggerKnowledgeGraph(state: ThreadState): void {
+    agentLog(this.name, 'Triggering KnowledgeGraph async');
+
+    getKnowledgeGraph().run({
+      threadId: state.threadId,
+      mode: 'async',
+    }).catch(err => {
+      console.error(`[StrategicCriticNode] KnowledgeGraph async trigger failed:`, err);
+    });
+
+    (state.metadata as any).knowledgeGraphTriggered = true;
   }
 }

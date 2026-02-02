@@ -15,6 +15,7 @@ import { getPersistenceService } from './services/PersistenceService';
 import { getMemoryPedia } from './services/MemoryPedia';
 import { getAwarenessService } from './services/AwarenessService';
 import { getAwarenessPlanner } from './services/AwarenessPlanner';
+import type { AbortService } from './services/AbortService';
 
 const SHORT_TERM_MEMORY_SIZE = 5; // Recent 5 exchanges
 
@@ -177,7 +178,7 @@ export class ConversationThread {
    * Process input through the graph workflow
    * Flow: Memory → Planner → Executor → Critic → (loop or END)
    */
-  async process(input: SensoryInput): Promise<AgentResponse> {
+  async process(input: SensoryInput, options?: { abort?: AbortService }): Promise<AgentResponse> {
     console.log(`[Agent:Thread:${this.threadId}] Processing input: "${input.data.substring(0, 50)}..."`);
     this.emit({ type: 'progress', threadId: this.threadId, data: { phase: 'start' } });
 
@@ -204,10 +205,21 @@ export class ConversationThread {
       this.emit(event);
     };
 
+    if (options?.abort) {
+      (this.state.metadata as any).__abort = options.abort;
+    } else {
+      delete (this.state.metadata as any).__abort;
+    }
+
     try {
-      this.state = await this.graph.execute(this.state);
+      this.state = await this.graph.execute(this.state, 1_000_000, { abort: options?.abort });
       console.log(`[Agent:Thread:${this.threadId}] Graph execution complete`);
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        delete (this.state.metadata as any).__emitAgentEvent;
+        delete (this.state.metadata as any).__abort;
+        throw err;
+      }
       const message = err instanceof Error ? err.message : String(err);
 
       console.error(`[Agent:Thread:${this.threadId}] Graph execution failed:`, message);
@@ -244,6 +256,7 @@ export class ConversationThread {
     this.emit({ type: 'complete', threadId: this.threadId, data: response });
 
     delete (this.state.metadata as any).__emitAgentEvent;
+    delete (this.state.metadata as any).__abort;
 
     return response;
   }

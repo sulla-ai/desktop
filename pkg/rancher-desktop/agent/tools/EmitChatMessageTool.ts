@@ -19,7 +19,12 @@ export class EmitChatMessageTool extends BaseTool {
 
   async execute(state: ThreadState, context: ToolContext): Promise<ToolResult> {
     const args = (context.args && typeof context.args === 'object') ? context.args : {};
-    const content = typeof (args as any).content === 'string' ? String((args as any).content) : '';
+    const rawContent = typeof (args as any).content === 'string'
+      ? String((args as any).content)
+      : (typeof (args as any).message === 'string' ? String((args as any).message) : '');
+    const content = rawContent
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t');
     const role = typeof (args as any).role === 'string' ? String((args as any).role) : 'assistant';
     const kind = typeof (args as any).kind === 'string' ? String((args as any).kind) : 'progress';
 

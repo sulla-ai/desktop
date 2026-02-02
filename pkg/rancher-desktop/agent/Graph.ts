@@ -1,6 +1,7 @@
 // Graph - LangGraph-style workflow orchestrator
 
 import type { GraphNode, GraphEdge, ThreadState, NodeResult } from './types';
+import type { AbortService } from './services/AbortService';
 
 type AgentRuntimeEmitter = (event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void;
 
@@ -82,7 +83,11 @@ export class Graph {
   /**
    * Execute the graph with given state
    */
-  async execute(initialState: ThreadState, maxIterations = 1_000_000): Promise<ThreadState> {
+  async execute(
+    initialState: ThreadState,
+    maxIterations = 1_000_000,
+    options?: { abort?: AbortService },
+  ): Promise<ThreadState> {
     if (!this.entryPoint) {
       throw new Error('No entry point set');
     }
@@ -94,14 +99,29 @@ export class Graph {
     let currentNodeId = this.entryPoint;
     let iterations = 0;
 
+    const abort = options?.abort;
+    const throwIfAborted = () => {
+      if (abort?.signal.aborted) {
+        const err = new Error('Aborted');
+        (err as any).name = 'AbortError';
+        throw err;
+      }
+    };
+
+    throwIfAborted();
+
     while (iterations < maxIterations) {
       iterations++;
+
+      throwIfAborted();
 
       const node = this.nodes.get(currentNodeId);
 
       if (!node) {
         throw new Error(`Node not found: ${ currentNodeId }`);
       }
+
+      throwIfAborted();
 
       const emit = (state.metadata.__emitAgentEvent as AgentRuntimeEmitter | undefined);
       emit?.({

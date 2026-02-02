@@ -29,17 +29,17 @@ export interface ILLMService {
   /**
    * Generate a completion from a prompt
    */
-  generate(prompt: string): Promise<string | null>;
+  generate(prompt: string, options?: { signal?: AbortSignal }): Promise<string | null>;
 
   /**
    * Chat completion with message history
    */
-  chat(messages: ChatMessage[]): Promise<string | null>;
+  chat(messages: ChatMessage[], options?: { signal?: AbortSignal }): Promise<string | null>;
 
   /**
    * Generate and parse JSON response
    */
-  generateJSON<T>(prompt: string): Promise<T | null>;
+  generateJSON<T>(prompt: string, options?: { signal?: AbortSignal }): Promise<T | null>;
 
   /**
    * Health check

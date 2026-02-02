@@ -28,6 +28,38 @@ interface ModelInfo {
   modified_at: string;
 }
 
+function combineSignals(timeoutMs: number, external?: AbortSignal): AbortSignal {
+  // If there is no external signal, keep existing timeout behavior.
+  if (!external) {
+    return AbortSignal.timeout(timeoutMs);
+  }
+
+  // Prefer native AbortSignal.any when available.
+  const anyFn = (AbortSignal as any).any as ((signals: AbortSignal[]) => AbortSignal) | undefined;
+  if (typeof anyFn === 'function') {
+    return anyFn([AbortSignal.timeout(timeoutMs), external]);
+  }
+
+  // Fallback: manually compose.
+  const controller = new AbortController();
+  const onAbort = () => {
+    try {
+      controller.abort();
+    } catch {
+      // ignore
+    }
+  };
+
+  const timer = setTimeout(onAbort, timeoutMs);
+  external.addEventListener('abort', onAbort, { once: true });
+
+  controller.signal.addEventListener('abort', () => {
+    clearTimeout(timer);
+  }, { once: true });
+
+  return controller.signal;
+}
+
 class OllamaServiceClass implements ILLMService {
   private available = false;
   private initialized = false;
@@ -125,14 +157,14 @@ class OllamaServiceClass implements ILLMService {
   /**
    * Generate a completion (non-chat)
    */
-  async generate(prompt: string): Promise<string | null> {
-    return this.generateWithModel(prompt, this.getModel());
+  async generate(prompt: string, options?: { signal?: AbortSignal }): Promise<string | null> {
+    return this.generateWithModel(prompt, this.getModel(), options);
   }
 
   /**
    * Generate a completion with a specific model
    */
-  async generateWithModel(prompt: string, modelName: string): Promise<string | null> {
+  async generateWithModel(prompt: string, modelName: string, options?: { signal?: AbortSignal }): Promise<string | null> {
     try {
       const body: Record<string, unknown> = {
         model:  modelName,
@@ -145,7 +177,7 @@ class OllamaServiceClass implements ILLMService {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
-        signal:  AbortSignal.timeout(timeoutSeconds * 1000),
+        signal:  combineSignals(timeoutSeconds * 1000, options?.signal),
       });
 
       if (res.ok) {
@@ -154,13 +186,16 @@ class OllamaServiceClass implements ILLMService {
         return data.response?.trim() || null;
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw err;
+      }
       console.warn('[OllamaService] Generate failed:', err);
     }
 
     return null;
   }
 
-  async chatWithModel(messages: ChatMessage[], modelName: string): Promise<string | null> {
+  async chatWithModel(messages: ChatMessage[], modelName: string, options?: { signal?: AbortSignal }): Promise<string | null> {
     try {
       const body: Record<string, unknown> = {
         model: modelName,
@@ -173,7 +208,7 @@ class OllamaServiceClass implements ILLMService {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
-        signal:  AbortSignal.timeout(timeoutSeconds * 1000),
+        signal:  combineSignals(timeoutSeconds * 1000, options?.signal),
       });
 
       if (res.ok) {
@@ -181,6 +216,9 @@ class OllamaServiceClass implements ILLMService {
         return data.message?.content?.trim() || null;
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw err;
+      }
       console.warn('[OllamaService] Chat (model override) failed:', err);
     }
 
@@ -190,7 +228,7 @@ class OllamaServiceClass implements ILLMService {
   /**
    * Chat completion
    */
-  async chat(messages: ChatMessage[]): Promise<string | null> {
+  async chat(messages: ChatMessage[], options?: { signal?: AbortSignal }): Promise<string | null> {
     try {
       const body: Record<string, unknown> = {
         model: this.getModel(),
@@ -203,7 +241,7 @@ class OllamaServiceClass implements ILLMService {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
-        signal:  AbortSignal.timeout(timeoutSeconds * 1000),
+        signal:  combineSignals(timeoutSeconds * 1000, options?.signal),
       });
 
       if (res.ok) {
@@ -212,6 +250,9 @@ class OllamaServiceClass implements ILLMService {
         return data.message?.content?.trim() || null;
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw err;
+      }
       console.warn('[OllamaService] Chat failed:', err);
     }
 
@@ -221,8 +262,8 @@ class OllamaServiceClass implements ILLMService {
   /**
    * Generate and parse JSON response
    */
-  async generateJSON<T>(prompt: string): Promise<T | null> {
-    const response = await this.generate(prompt);
+  async generateJSON<T>(prompt: string, options?: { signal?: AbortSignal }): Promise<T | null> {
+    const response = await this.generate(prompt, options);
 
     if (!response) {
       return null;

@@ -4938,6 +4938,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/relaxed-json@npm:^1":
+  version: 1.0.4
+  resolution: "@types/relaxed-json@npm:1.0.4"
+  checksum: 10c0/27384d258337f2d747c573a6e1d1165089065b50331a75ed782a6b829235b815f02eb81deace5df23e832ff03ce2ddb9eb6805b0015d5fca6b55e0148eb89e71
+  languageName: node
+  linkType: hard
+
 "@types/responselike@npm:^1.0.0":
   version: 1.0.3
   resolution: "@types/responselike@npm:1.0.3"
@@ -7591,6 +7598,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"best-effort-json-parser@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "best-effort-json-parser@npm:1.2.1"
+  checksum: 10c0/2d032d83064317b88f4419827ddfb1826576296211b49103132931253081f8f568a730204f111aafcd4adbdff02ca6feb3016adcbf3fa4f23ea7133fa1b8ba3c
+  languageName: node
+  linkType: hard
+
 "big.js@npm:^5.2.2":
   version: 5.2.2
   resolution: "big.js@npm:5.2.2"
@@ -7988,7 +8002,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"chalk@npm:^2.1.0":
+"chalk@npm:^2.1.0, chalk@npm:^2.4.2":
   version: 2.4.2
   resolution: "chalk@npm:2.4.2"
   dependencies:
@@ -8354,7 +8368,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"commander@npm:^2.20.0":
+"commander@npm:^2.20.0, commander@npm:^2.6.0":
   version: 2.20.3
   resolution: "commander@npm:2.20.3"
   checksum: 10c0/74c781a5248c2402a0a3e966a0a2bba3c054aad144f5c023364be83265e796b20565aa9feff624132ff629aa64e16999fa40a743c10c12f7c61e96a794b99288
@@ -9136,6 +9150,17 @@ __metadata:
   dependencies:
     path-type: "npm:^4.0.0"
   checksum: 10c0/dcac00920a4d503e38bb64001acb19df4efc14536ada475725e12f52c16777afdee4db827f55f13a908ee7efc0cb282e2e3dbaeeb98c0993dd93d1802d3bf00c
+  languageName: node
+  linkType: hard
+
+"dirty-json@npm:^0.9.2":
+  version: 0.9.2
+  resolution: "dirty-json@npm:0.9.2"
+  dependencies:
+    lex: "npm:^1.7.9"
+    unescape-js: "npm:^1.1.4"
+    utf8: "npm:^3.0.0"
+  checksum: 10c0/c0dffbc48bf147da0de56d5526bc60ac66afc1b5f9157f8f8839220ccdd340347a9c51e1bcde64ea8565db5ecfc6c74fbbcd25af9721695cfab85a58094382db
   languageName: node
   linkType: hard
 
@@ -12713,6 +12738,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"json-repair-js@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "json-repair-js@npm:1.0.0"
+  checksum: 10c0/f54f746f80812d835f2c91f4f89208521e21ee275263b1b7513fa7aa0f09ae4e6a8dedc9465ae71b40894ba9362c1fecc9c33c19728c18dae25677ffb0ec3a82
+  languageName: node
+  linkType: hard
+
 "json-schema-traverse@npm:^0.4.1":
   version: 0.4.1
   resolution: "json-schema-traverse@npm:0.4.1"
@@ -12928,6 +12960,13 @@ __metadata:
     prelude-ls: "npm:~1.1.2"
     type-check: "npm:~0.3.2"
   checksum: 10c0/e440df9de4233da0b389cd55bd61f0f6aaff766400bebbccd1231b81801f6dbc1d816c676ebe8d70566394b749fa624b1ed1c68070e9c94999f0bdecc64cb676
+  languageName: node
+  linkType: hard
+
+"lex@npm:^1.7.9":
+  version: 1.7.9
+  resolution: "lex@npm:1.7.9"
+  checksum: 10c0/87a5454af195ae130907be7af255d39f39cb6dc8df3e7619b50f4161b6f46d9ff0dfb65e1d74abb738a5523b42d1f3dc7361bf8f219a3db438a703ce27e76c2d
   languageName: node
   linkType: hard
 
@@ -15933,6 +15972,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"relaxed-json@npm:^1.0.3":
+  version: 1.0.3
+  resolution: "relaxed-json@npm:1.0.3"
+  dependencies:
+    chalk: "npm:^2.4.2"
+    commander: "npm:^2.6.0"
+  bin:
+    rjson: ./bin/rjson.js
+  checksum: 10c0/121c5c2b0369c79fb9f97ba09ebb994e166caf7c420464ace40b3877ca20a3781d45eec397b5490161b4be222f87bea0065880d71bf501753942ae506077be72
+  languageName: node
+  linkType: hard
+
 "renderkid@npm:^3.0.0":
   version: 3.0.0
   resolution: "renderkid@npm:3.0.0"
@@ -16972,6 +17023,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"string.fromcodepoint@npm:^0.2.1":
+  version: 0.2.1
+  resolution: "string.fromcodepoint@npm:0.2.1"
+  checksum: 10c0/2e26c7370daea0725f2cc3b0a2e4b84613c44b68130ad2afa1364b51fd48ebdfe6390086807d7b5e95d58e8a872aca46a53bbc182c549cd74c0ee9b46de32b02
+  languageName: node
+  linkType: hard
+
 "string_decoder@npm:^1.1.1":
   version: 1.3.0
   resolution: "string_decoder@npm:1.3.0"
@@ -17105,6 +17163,7 @@ __metadata:
     "@types/pg": "npm:^8"
     "@types/plist": "npm:3.0.5"
     "@types/ps-tree": "npm:1.1.6"
+    "@types/relaxed-json": "npm:^1"
     "@types/semver": "npm:7.7.1"
     "@types/tar-stream": "npm:3.1.4"
     "@types/which": "npm:3.0.4"
@@ -17128,11 +17187,13 @@ __metadata:
     babel-core: "npm:7.0.0-bridge.0"
     babel-jest: "npm:30.2.0"
     babel-loader: "npm:10.0.0"
+    best-effort-json-parser: "npm:^1.2.1"
     cookie-universal: "npm:2.2.2"
     cross-env: "npm:10.1.0"
     cross-spawn: "npm:7.0.6"
     css-loader: "npm:7.1.2"
     dayjs: "npm:1.11.19"
+    dirty-json: "npm:^0.9.2"
     dmg-license: "npm:1.0.11"
     dompurify: "npm:3.3.1"
     ejs: "npm:4.0.1"
@@ -17154,6 +17215,8 @@ __metadata:
     jest-environment-jsdom: "npm:30.2.0"
     jquery: "npm:4.0.0"
     js-yaml-loader: "npm:1.2.2"
+    json-repair-js: "npm:^1.0.0"
+    json5: "npm:^2.2.3"
     jsonpath: "npm:1.1.1"
     jsonrepair: "npm:3.13.0"
     lodash: "npm:4.17.21"
@@ -17175,6 +17238,7 @@ __metadata:
     ps-tree: "npm:1.2.0"
     rancher-icons: "rancher/icons#v2.0.21"
     raw-loader: "npm:4.0.2"
+    relaxed-json: "npm:^1.0.3"
     sass: "npm:1.97.2"
     sass-loader: "npm:16.0.6"
     semver: "npm:7.7.3"
@@ -17970,6 +18034,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"unescape-js@npm:^1.1.4":
+  version: 1.1.4
+  resolution: "unescape-js@npm:1.1.4"
+  dependencies:
+    string.fromcodepoint: "npm:^0.2.1"
+  checksum: 10c0/4f7cda5c524cb4392d482eba11762dbc43ff8cd0d0d88c4deecdacb7ec04d9162595406f66c5fbe9a6a565aabf7f2f1cc1889d44d805b1e8326deb7b3b279484
+  languageName: node
+  linkType: hard
+
 "unicode-canonical-property-names-ecmascript@npm:^2.0.0":
   version: 2.0.1
   resolution: "unicode-canonical-property-names-ecmascript@npm:2.0.1"
@@ -18162,6 +18235,13 @@ __metadata:
   version: 1.0.5
   resolution: "utf8-byte-length@npm:1.0.5"
   checksum: 10c0/e69bda3299608f4cc75976da9fb74ac94801a58b9ca29fdad03a20ec952e7477d7f226c12716b5f36bd4cff8151d1d152d02ee1df3752f017d4b2c725ce3e47a
+  languageName: node
+  linkType: hard
+
+"utf8@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "utf8@npm:3.0.0"
+  checksum: 10c0/675d008bab65fc463ce718d5cae8fd4c063540f269e4f25afebce643098439d53e7164bb1f193e0c3852825c7e3e32fbd8641163d19a618dbb53f1f09acb0d5a
   languageName: node
   linkType: hard
 

@@ -7,7 +7,7 @@ import type { ChatMessage } from '../services/ILLMService';
 import { getLLMService, getCurrentMode } from '../services/LLMServiceFactory';
 import { getOllamaService } from '../services/OllamaService';
 import { getAwarenessService } from '../services/AwarenessService';
-import { jsonrepair } from 'jsonrepair';
+import type { AbortService } from '../services/AbortService';
 
 // Import soul.md via raw-loader (configured in vue.config.mjs)
 // @ts-ignore - raw-loader import
@@ -34,6 +34,8 @@ export interface LLMResponse {
 
 export type ToolPromptDetail = 'names' | 'tactical' | 'planning';
 
+export type KnowledgeGraphInstructionType = 'planner' | 'executor' | 'critic';
+
 export interface PromptEnrichmentOptions {
   includeSoul?: boolean;
   includeAwareness?: boolean;
@@ -46,6 +48,7 @@ export interface PromptEnrichmentOptions {
   includeSkills?: boolean;
   includeStrategicPlan?: boolean;
   includeTacticalPlan?: boolean;
+  includeKnowledgeGraphInstructions?: KnowledgeGraphInstructionType;
 }
 
 export const JSON_ONLY_RESPONSE_INSTRUCTIONS = `When you respond it will be parsed as JSON and ONLY the following object will be read.
@@ -62,6 +65,16 @@ export abstract class BaseNode implements GraphNode {
   constructor(id: string, name: string) {
     this.id = id;
     this.name = name;
+  }
+
+  private logRawLLMResponse(prefix: string, model: string, content: string): void {
+    const chunkSize = 2000;
+    const safeModel = String(model || 'unknown');
+    console.log(`[${prefix}] Raw LLM response start (model=${safeModel})`);
+    for (let i = 0; i < content.length; i += chunkSize) {
+      console.log(content.substring(i, i + chunkSize));
+    }
+    console.log(`[${prefix}] Raw LLM response end (model=${safeModel})`);
   }
 
   protected async enrichPrompt(
@@ -136,6 +149,13 @@ export abstract class BaseNode implements GraphNode {
         const registry = getToolRegistry();
         const detail: ToolPromptDetail = options.toolDetail || 'names';
 
+        parts.push([
+          'Tooling constraints (mandatory):',
+          '- You may ONLY use tool actions that appear in the "Available tools" list below.',
+          '- Tool action names must match EXACTLY (case-sensitive).',
+          '- Do NOT invent tools or actions. Any unknown tool/action will fail and you will be forced to revise.',
+        ].join('\n'));
+
         if (detail === 'tactical') {
           parts.push(`Available tools:\n${registry.getTacticalInstructionsBlock()}`);
         } else if (detail === 'planning') {
@@ -156,9 +176,19 @@ export abstract class BaseNode implements GraphNode {
         const skillService = getSkillService();
         await skillService.initialize();
         const enabledSkills = await skillService.listEnabledSkills();
+
+        parts.push([
+          'Skill constraints (mandatory):',
+          '- You may ONLY use skills that appear in the "Enabled skills" list below.',
+          '- Do NOT invent skills, plugins, or capabilities.',
+          '- If a desired capability is not listed as a tool or enabled skill, you must proceed without it.',
+        ].join('\n'));
+
         if (enabledSkills.length > 0) {
           const lines = enabledSkills.map(s => `- ${s.id}: ${s.description || s.title || ''}`);
           parts.push(`Enabled skills:\n${lines.join('\n')}`);
+        } else {
+          parts.push('Enabled skills:\n(none)');
         }
       } catch {
         // best effort
@@ -172,6 +202,17 @@ export abstract class BaseNode implements GraphNode {
       }
     }
 
+    if (options.includeKnowledgeGraphInstructions) {
+      const kgType = options.includeKnowledgeGraphInstructions;
+      if (kgType === 'planner') {
+        parts.push(this.getKnowledgeGraphInstructionsForPlanner());
+      } else if (kgType === 'executor') {
+        parts.push(this.getKnowledgeGraphInstructionsForExecutor());
+      } else if (kgType === 'critic') {
+        parts.push(this.getKnowledgeGraphInstructionsForCritic());
+      }
+    }
+
     const now = new Date();
     const date = now.toISOString().slice(0, 10);
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
@@ -182,32 +223,6 @@ export abstract class BaseNode implements GraphNode {
     return parts.join('\n\n');
   }
 
-  protected extractFirstJSONObjectText(text: string): string | null {
-    const src = String(text || '');
-    const match = src.match(/\{[\s\S]*\}/);
-    return match ? match[0] : null;
-  }
-
-  protected parseJsonLenient<T = unknown>(text: string): T | null {
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      try {
-        const repaired = jsonrepair(text);
-        return JSON.parse(repaired) as T;
-      } catch {
-        return null;
-      }
-    }
-  }
-
-  protected parseFirstJSONObject<T = unknown>(text: string): T | null {
-    const jsonText = this.extractFirstJSONObjectText(text);
-    if (!jsonText) {
-      return null;
-    }
-    return this.parseJsonLenient<T>(jsonText);
-  }
 
   /**
    * Build a context block showing strategic and tactical plan progress
@@ -249,6 +264,60 @@ export abstract class BaseNode implements GraphNode {
     }
 
     return parts.length > 0 ? parts.join('\n\n') : null;
+  }
+
+  protected getKnowledgeGraphInstructionsForPlanner(): string {
+    return `## Your Standard Operating Procedure for creating KnowledgeBase Articles
+You MUST follow this SOP exactly as written whenever you are creating any knowledgebase article:
+1. Create a milestone to gather the information
+2. Create a milestone to generate the article
+3. Create a milestone to save/store the article. Add the ("generateKnowledgeBase": true) flag to this milestone.
+
+Example:
+{
+  "milestones": [
+    {
+      "id": "milestone_kb",
+      "title": "Document the solution",
+      "description": "Create a KnowledgeBase article capturing this workflow",
+      "generateKnowledgeBase": true
+    }
+  ]
+}
+The KnowledgeGraph will save the article.
+
+When to trigger the KnowledgeBase SOP:
+- User explicitly asked for documentation
+- Complex workflow that should be preserved for future reference
+- New architecture decisions or patterns established
+- You learned how to do something new
+- When creating an Standard Operating Procedure (SOP)`;
+  }
+
+  protected getKnowledgeGraphInstructionsForExecutor(): string {
+    return `## KnowledgeBase Generation
+When the active milestone has "generateKnowledgeBase": true, this node automatically:
+1. Calls KnowledgeGraph.runSync() with the current thread messages
+2. The KnowledgeGraph pipeline plans article structure, compiles sections, validates, and persists
+3. Marks the milestone as done/failed based on result
+
+You do not need to call any tools for KB generation - it happens automatically when the milestone flag is set.`;
+  }
+
+  protected getKnowledgeGraphInstructionsForCritic(): string {
+    return `## KnowledgeBase Article Generation
+If the conversation contains knowledge worth preserving for future reference, include in your response:
+{
+  "triggerKnowledgeBase": true,
+  "kbReason": "Brief explanation of why this is worth documenting"
+}
+This triggers KnowledgeGraph asynchronously after the plan completes - it does not block the user.
+
+When to trigger KB generation:
+- Non-trivial problem was solved worth documenting
+- Troubleshooting steps that could help in the future
+- New patterns or workflows were established
+- Information that would be useful to recall later`;
   }
 
   private createInternalMessageId(prefix: string): string {
@@ -306,6 +375,8 @@ export abstract class BaseNode implements GraphNode {
    * If state contains heartbeatModel override, uses that model instead
    */
   protected async prompt(prompt: string, state?: ThreadState, storeInMessages = true): Promise<LLMResponse | null> {
+    const abort = (state?.metadata && (state.metadata as any).__abort) as AbortService | undefined;
+
     // Check for heartbeat model override in state metadata
     const heartbeatModel = state?.metadata?.heartbeatModel as string | undefined;
     
@@ -350,7 +421,7 @@ export abstract class BaseNode implements GraphNode {
         messages.push({ role: 'system', content: prompt });
       }
 
-      const content = await this.llmService.chat(messages);
+      const content = await this.llmService.chat(messages, { signal: abort?.signal });
 
       if (!content) {
         console.warn(`[Agent:${this.name}] No response from LLM`);
@@ -375,9 +446,13 @@ export abstract class BaseNode implements GraphNode {
       };
 
       console.log(`[Agent:${this.name}] Response received (${result.content.length} chars)`);
+      this.logRawLLMResponse(`Agent:${this.name}`, model, result.content);
 
       return result;
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw err;
+      }
       console.error(`[Agent:${this.name}] Prompt failed:`, err);
 
       return null;
@@ -390,6 +465,8 @@ export abstract class BaseNode implements GraphNode {
    */
   private async promptWithModelOverride(prompt: string, modelOverride: string, state?: ThreadState): Promise<LLMResponse | null> {
     console.log(`[Agent:${this.name}] Using model override: ${modelOverride}`);
+
+    const abort = (state?.metadata && (state.metadata as any).__abort) as AbortService | undefined;
     
     try {
       if (modelOverride.startsWith('local:')) {
@@ -409,13 +486,16 @@ export abstract class BaseNode implements GraphNode {
           messages.push({ role: 'system', content: prompt });
         }
 
-        console.error(`[Agent:${this.name}] LLM chat payload model=${modelName} (override=${modelOverride}):`, messages);
+        console.log(`[Agent:${this.name}] LLM chat payload prepared (override=${modelOverride}, model=${modelName}, messages=${messages.length})`);
 
-        const content = await ollama.chatWithModel(messages, modelName);
+        const content = await ollama.chatWithModel(messages, modelName, { signal: abort?.signal });
         
         if (!content) {
           return null;
         }
+
+        console.log(`[Agent:${this.name}] Response received (${content.length} chars)`);
+        this.logRawLLMResponse(`Agent:${this.name}`, modelName, content);
         
         if (state) {
           const responseMsg: Message = {
@@ -457,13 +537,17 @@ export abstract class BaseNode implements GraphNode {
           ? `${this.toChatMessagesFromThread(state).map(m => `${m.role}: ${m.content}`).join('\n\n')}\n\nsystem: ${prompt}`
           : prompt;
 
-        console.error(`[Agent:${this.name}] LLM generate payload model=${provider}:${modelName} (override=${modelOverride}):`, effectivePrompt);
+        console.log(`[Agent:${this.name}] LLM generate payload prepared (override=${modelOverride}, model=${provider}:${modelName}, chars=${effectivePrompt.length})`);
 
-        const content = await remoteService.generateWithModel(effectivePrompt, provider, modelName);
+        const content = await (remoteService as unknown as { generateWithModel: (p: string, providerId: string, model: string, options?: { signal?: AbortSignal }) => Promise<string | null> })
+          .generateWithModel(effectivePrompt, provider, modelName, { signal: abort?.signal });
         
         if (!content) {
           return null;
         }
+
+        console.log(`[Agent:${this.name}] Response received (${content.length} chars)`);
+        this.logRawLLMResponse(`Agent:${this.name}`, `${provider}:${modelName}`, content);
         
         if (state) {
           const responseMsg: Message = {
@@ -482,6 +566,9 @@ export abstract class BaseNode implements GraphNode {
         return null;
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw err;
+      }
       console.error(`[Agent:${this.name}] Model override prompt failed:`, err);
       return null;
     }

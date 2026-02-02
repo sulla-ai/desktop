@@ -23,6 +23,13 @@
                 Calendar
               </router-link>
               <router-link
+                to="/KnowledgeBase"
+                class="text-sm font-semibold"
+                :class="route.path === '/KnowledgeBase' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
+              >
+                KnowledgeBase
+              </router-link>
+              <router-link
                 to="/Skills"
                 class="text-sm font-semibold"
                 :class="route.path === '/Skills' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
@@ -197,6 +204,7 @@
             v-for="m in messages"
             :key="m.id"
             class="mb-3 flex"
+            :style="m.kind === 'tool' ? 'margin-bottom: 0px;' : ''"
             :class="m.role === 'user' ? 'justify-end' : 'justify-start'"
           >
             <div
@@ -209,6 +217,7 @@
                   : m.kind === 'critic'
                     ? 'bg-amber-500/10 border-amber-500/20 text-[#0d0d0d] dark:bg-amber-500/10 dark:border-amber-400/20 dark:text-neutral-50'
                     : 'bg-black/3 border-black/10 text-neutral-900 dark:bg-white/5 dark:border-white/10 dark:text-neutral-100'"
+              :style="m.kind === 'tool' ? 'padding: 0px 6px; border-radius: 8px; line-height: 15px; height: 15px;' : ''"
             >
               <div v-if="m.image" class="space-y-2">
                 <img
@@ -220,41 +229,24 @@
                   {{ m.image.alt }}
                 </div>
               </div>
-              <div v-if="m.kind === 'tool' && m.toolCard" class="space-y-2">
-                <div class="flex items-center justify-between gap-3">
-                  <div class="min-w-0 flex items-center gap-2">
-                    <span
-                      class="h-2.5 w-2.5 shrink-0 rounded-full"
-                      :class="m.toolCard.status === 'running'
-                        ? 'bg-amber-500'
-                        : m.toolCard.status === 'success'
-                          ? 'bg-emerald-500'
-                          : 'bg-red-500'"
-                    />
-                    <div class="min-w-0 truncate font-semibold">{{ m.toolCard.toolName }}</div>
-                  </div>
-                  <div class="shrink-0 text-[11px] text-[#0d0d0d]/60 dark:text-white/60">
-                    {{ m.toolCard.status }}
-                  </div>
+              <div v-if="m.kind === 'tool' && m.toolCard" class="flex h-[15px] min-h-[15px] items-center gap-2 overflow-hidden">
+                <span
+                  class="h-1.5 w-1.5 shrink-0 rounded-full"
+                  :class="m.toolCard.status === 'running'
+                    ? 'bg-amber-500'
+                    : m.toolCard.status === 'success'
+                      ? 'bg-emerald-500'
+                      : 'bg-red-500'"
+                />
+                <div class="min-w-0 truncate text-[11px] font-medium">
+                  {{ m.toolCard.toolName }}
+                  <span v-if="m.toolCard.args && Object.keys(m.toolCard.args).length" class="text-[#0d0d0d]/60 dark:text-white/60">
+                    {{ ' ' + JSON.stringify(m.toolCard.args) }}
+                  </span>
                 </div>
-
-                <details class="rounded-xl border border-black/10 bg-white/50 px-3 py-2 dark:border-white/10 dark:bg-neutral-950/40">
-                  <summary class="cursor-pointer select-none text-[11px] font-semibold text-[#0d0d0d]/70 dark:text-white/70">Details</summary>
-                  <div class="mt-2 space-y-2">
-                    <div v-if="m.toolCard.args" class="space-y-1">
-                      <div class="text-[11px] font-semibold text-[#0d0d0d]/60 dark:text-white/60">Args</div>
-                      <pre class="whitespace-pre-wrap rounded-lg bg-black/5 px-2 py-1 text-[11px] leading-4 dark:bg-white/10">{{ JSON.stringify(m.toolCard.args, null, 2) }}</pre>
-                    </div>
-                    <div v-if="m.toolCard.result !== undefined" class="space-y-1">
-                      <div class="text-[11px] font-semibold text-[#0d0d0d]/60 dark:text-white/60">Result</div>
-                      <pre class="whitespace-pre-wrap rounded-lg bg-black/5 px-2 py-1 text-[11px] leading-4 dark:bg-white/10">{{ JSON.stringify(m.toolCard.result, null, 2) }}</pre>
-                    </div>
-                    <div v-if="m.toolCard.error" class="space-y-1">
-                      <div class="text-[11px] font-semibold text-red-700 dark:text-red-300">Error</div>
-                      <pre class="whitespace-pre-wrap rounded-lg bg-red-500/10 px-2 py-1 text-[11px] leading-4 text-red-800 dark:text-red-200">{{ m.toolCard.error }}</pre>
-                    </div>
-                  </div>
-                </details>
+                <div class="shrink-0 text-[11px] text-[#0d0d0d]/50 dark:text-white/50">
+                  {{ m.toolCard.status }}
+                </div>
               </div>
               <div v-else-if="m.kind === 'tool'" class="whitespace-pre-wrap">{{ m.content }}</div>
               <div v-else class="prose prose-sm dark:prose-invert max-w-none" v-html="renderMarkdown(m.content)" />
@@ -327,7 +319,7 @@
                     :class="isComposerMultiline ? 'basis-full order-2' : 'order-2'"
                     :disabled="!systemReady"
                     @input="updateComposerLayout"
-                    @keydown.enter.exact.prevent="send"
+                    @keydown.enter.exact.prevent="sendOrStop"
                   />
 
                   <div
@@ -422,10 +414,13 @@
                         type="button"
                         class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
                         aria-label="Submit"
-                        :disabled="!systemReady || !query.trim()"
-                        @click="send"
+                        :disabled="!systemReady || (!loading && !query.trim())"
+                        @click="sendOrStop"
                       >
-                        <svg width="18" height="18" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <svg v-if="loading" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                          <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />
+                        </svg>
+                        <svg v-else width="18" height="18" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                           <path d="M7.14645 2.14645C7.34171 1.95118 7.65829 1.95118 7.85355 2.14645L11.8536 6.14645C12.0488 6.34171 12.0488 6.65829 11.8536 6.85355C11.6583 7.04882 11.3417 7.04882 11.1464 6.85355L8 3.70711L8 12.5C8 12.7761 7.77614 13 7.5 13C7.22386 13 7 12.7761 7 12.5L7 3.70711L3.85355 6.85355C3.65829 7.04882 3.34171 7.04882 3.14645 6.85355C2.95118 6.65829 2.95118 6.34171 3.14645 6.14645L7.14645 2.14645Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
                         </svg>
                       </button>
@@ -910,7 +905,13 @@ onUnmounted(() => {
   chatController.dispose();
 });
 
-const send = () => chatController.send();
+const sendOrStop = () => {
+  if (loading.value) {
+    chatController.stop();
+    return;
+  }
+  chatController.send();
+};
 
 watch(query, async () => {
   await nextTick();

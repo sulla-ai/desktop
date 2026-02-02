@@ -2,9 +2,11 @@
 
 import type { ThreadState, NodeResult, ToolResult } from '../types';
 import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
+import { parseJson } from '../services/JsonParseService';
+import { agentError, agentLog, agentWarn } from '../services/AgentLogService';
 import { getToolRegistry, registerDefaultTools } from '../tools';
 import { getAwarenessService } from '../services/AwarenessService';
-import { getSkillService } from '../services/SkillService';
+import { getKnowledgeGraph } from '../services/KnowledgeGraph';
 
 export class TacticalExecutorNode extends BaseNode {
   constructor() {
@@ -86,7 +88,7 @@ export class TacticalExecutorNode extends BaseNode {
   }
 
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
-    console.log(`[Agent:TacticalExecutor] Executing...`);
+    agentLog(this.name, 'Executing...');
     
     // Clear previous iteration's revision request - each execution starts fresh
     delete state.metadata.requestPlanRevision;
@@ -104,24 +106,27 @@ export class TacticalExecutorNode extends BaseNode {
       console.log('[Agent:Executor] No active task to execute, generating response...');
     }
 
-    console.log(`[Agent:Executor] Generating LLM response...`);
+    agentLog(this.name, 'Generating LLM response...');
     const response = await this.generateIncrementalResponse(state);
 
     if (response) {
-      console.log(`[Agent:Executor] Response generated (${response.content.length} chars)`);
+      agentLog(this.name, `Response generated (${response.content.length} chars)`);
       state.metadata.response = response.content;
       state.metadata.ollamaModel = response.model;
       state.metadata.ollamaEvalCount = response.evalCount;
       state.metadata.executorCompleted = true;
       state.metadata.llmFailureCount = 0; // Reset on success
+
+      // Ensure the user sees the incremental response in the chat UI.
+      await this.emitChat(state, response.content);
     } else {
-      console.error(`[Agent:Executor] Failed to generate response`);
+      agentError(this.name, 'Failed to generate response');
       state.metadata.error = 'Failed to generate response';
       state.metadata.llmFailureCount = llmFailureCount + 1;
       
       // If LLM has failed multiple times, break the loop
       if (llmFailureCount + 1 >= 3) {
-        console.error(`[Agent:Executor] LLM failed ${llmFailureCount + 1} times, breaking loop`);
+        agentError(this.name, `LLM failed ${llmFailureCount + 1} times, breaking loop`);
         state.metadata.response = 'I apologize, but I\'m having trouble connecting to the language model service. Please check that the model is running and try again.';
         state.metadata.executorCompleted = true;
         return { state, next: 'end' };
@@ -141,11 +146,11 @@ export class TacticalExecutorNode extends BaseNode {
     }
 
     const emit = state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined;
-    const milestone = state.metadata.activeMilestone;
+    const milestone = state.metadata.activeMilestone as { title?: string; generateKnowledgeBase?: boolean; kbSuggestedSlug?: string; kbSuggestedTags?: string[] } | undefined;
 
-    console.log(`[Agent:Executor] Executing tactical step: ${tacticalStep.action}`);
+    agentLog(this.name, `Executing tactical step: ${tacticalStep.action}`);
     if (milestone) {
-      console.log(`[Agent:Executor] For milestone: ${milestone.title}`);
+      agentLog(this.name, `For milestone: ${milestone.title}`);
     }
 
     emit?.({
@@ -154,6 +159,15 @@ export class TacticalExecutorNode extends BaseNode {
       data: { phase: 'tactical_step_start', step: tacticalStep.action, milestone: milestone?.title },
     });
 
+    // Canonical trigger: allow tactical plans to explicitly request KB generation.
+    if (String(tacticalStep.action).toLowerCase() === 'knowledge_base_generate') {
+      return this.executeKnowledgeBaseGeneration(state, milestone || {}, emit);
+    }
+
+    // Check if this milestone is a KnowledgeBase generation milestone
+    if (milestone?.generateKnowledgeBase === true) {
+      return this.executeKnowledgeBaseGeneration(state, milestone, emit);
+    }
 
     // Use LLM to decide what tools to call for this step
     const decision = await this.planTacticalStepExecution(state, tacticalStep);
@@ -216,7 +230,7 @@ export class TacticalExecutorNode extends BaseNode {
       const actionName = actionItem.action;
       const actionArgs = actionItem.args || {};
 
-      console.log(`[Agent:Executor] Executing tool: ${actionName}`);
+      agentLog(this.name, `Executing tool: ${actionName}`);
       emit?.({
         type: 'progress',
         threadId: state.threadId,
@@ -229,7 +243,11 @@ export class TacticalExecutorNode extends BaseNode {
         anyToolFailed = true;
         lastFailedAction = actionName;
         lastFailedError = result.error || 'Unknown error';
-        console.warn(`[Agent:Executor] Tool ${actionName} failed: ${lastFailedError}`);
+        agentWarn(this.name, `Tool ${actionName} failed: ${lastFailedError}`, {
+          tool: actionName,
+          error: lastFailedError,
+          args: actionArgs,
+        });
       }
     }
 
@@ -271,6 +289,115 @@ export class TacticalExecutorNode extends BaseNode {
   }
 
   /**
+   * Execute KnowledgeBase generation milestone synchronously
+   */
+  private async executeKnowledgeBaseGeneration(
+    state: ThreadState,
+    milestone: { title?: string; kbSuggestedSlug?: string; kbSuggestedTags?: string[] },
+    emit?: (event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void,
+  ): Promise<boolean> {
+    console.log(`[Agent:Executor] Executing KnowledgeBase generation milestone: ${milestone.title}`);
+
+    emit?.({
+      type: 'progress',
+      threadId: state.threadId,
+      data: { phase: 'knowledgebase_generation_start', milestone: milestone.title },
+    });
+
+    await this.emitChat(state, `Generating KnowledgeBase article: ${milestone.title || 'Documentation'}...`);
+
+    try {
+      const result = await getKnowledgeGraph().runSync({
+        threadId: state.threadId,
+        mode: 'sync',
+        messages: state.messages.map(m => ({ role: m.role, content: m.content })),
+      });
+
+      if (result.success) {
+        console.log(`[Agent:Executor] KnowledgeBase article created: ${result.slug}`);
+        await this.emitChat(state, `KnowledgeBase article created: **${result.title}** (${result.slug})`);
+
+        state.metadata.todoExecution = {
+          todoId: 0,
+          status: 'done',
+          summary: `KnowledgeBase article created: ${result.title}`,
+          actions: [],
+          actionsCount: 0,
+          markDone: true,
+        };
+
+        (state.metadata as any).knowledgeBaseGenerated = { slug: result.slug, title: result.title };
+      } else {
+        console.error(`[Agent:Executor] KnowledgeBase generation failed: ${result.error}`);
+        await this.emitChat(state, `KnowledgeBase generation failed: ${result.error}`);
+
+        state.metadata.todoExecution = {
+          todoId: 0,
+          status: 'failed',
+          summary: `KnowledgeBase generation failed: ${result.error}`,
+        };
+
+        // Force a retry path: do not consider the milestone complete.
+        state.metadata.requestPlanRevision = { reason: `KnowledgeBase article not created: ${result.error || 'unknown error'}` };
+      }
+
+      emit?.({
+        type: 'progress',
+        threadId: state.threadId,
+        data: { phase: 'knowledgebase_generation_end', success: result.success, slug: result.slug },
+      });
+
+      // Mark tactical step as done
+      if (state.metadata.tacticalPlan) {
+        const tacticalStep = state.metadata.activeTacticalStep as { id: string } | undefined;
+        if (tacticalStep) {
+          const step = state.metadata.tacticalPlan.steps.find(s => s.id === tacticalStep.id);
+          if (step) {
+            step.status = result.success ? 'done' : 'failed';
+          }
+        }
+      }
+
+      // Mark the KB milestone as complete ONLY on success. On failure keep it in_progress so we can retry.
+      const activeMilestone = state.metadata.activeMilestone as { id: string } | undefined;
+      if (activeMilestone && state.metadata.strategicPlan?.milestones) {
+        const m = state.metadata.strategicPlan.milestones.find(m => m.id === activeMilestone.id);
+        if (m) {
+          if (result.success) {
+            m.status = 'completed';
+          } else {
+            m.status = 'in_progress';
+          }
+        }
+      }
+
+      // Clear tactical plan and active milestone only on success so we don't prematurely exit.
+      if (result.success) {
+        delete state.metadata.tacticalPlan;
+        delete state.metadata.activeMilestone;
+        delete state.metadata.activeTacticalStep;
+      }
+
+      state.metadata.planHasRemainingTodos = this.hasRemainingTacticalWork(state);
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[Agent:Executor] KnowledgeBase generation error:`, err);
+      await this.emitChat(state, `KnowledgeBase generation error: ${msg}`);
+
+      state.metadata.todoExecution = {
+        todoId: 0,
+        status: 'failed',
+        summary: `KnowledgeBase generation error: ${msg}`,
+      };
+
+      state.metadata.requestPlanRevision = { reason: `KnowledgeBase article not created: ${msg}` };
+
+      return true;
+    }
+  }
+
+  /**
    * Check if there's remaining tactical work (steps or milestones)
    */
   private hasRemainingTacticalWork(state: ThreadState): boolean {
@@ -302,36 +429,58 @@ export class TacticalExecutorNode extends BaseNode {
     state: ThreadState,
     step: { id: string; action: string; description: string; toolHints?: string[] },
   ): Promise<{ actions: Array<{ action: string; args?: Record<string, unknown> }>; markDone: boolean; summary: string } | null> {
-    const basePrompt = `Based on the conversation above, execute this tactical step: ${step.action} — ${step.description}
+    const todoExecution = state.metadata.todoExecution as any;
+    const activeMilestone = (state.metadata.activeMilestone && typeof state.metadata.activeMilestone === 'object')
+      ? (state.metadata.activeMilestone as any)
+      : null;
+    const activeTacticalStep = (state.metadata.activeTacticalStep && typeof state.metadata.activeTacticalStep === 'object')
+      ? (state.metadata.activeTacticalStep as any)
+      : step;
+    const strategicPlan = (state.metadata.strategicPlan && typeof state.metadata.strategicPlan === 'object')
+      ? (state.metadata.strategicPlan as any)
+      : null;
+    const goal = strategicPlan?.goal ? String(strategicPlan.goal) : '';
+    const goalDescription = strategicPlan?.goalDescription ? String(strategicPlan.goalDescription) : '';
 
-You are the executor: a 25-year senior DevOps & security engineer running on the Primary User's primary machine.
+    const basePrompt = `You are the Tactical Executor: 25-year senior DevOps & security engineer running on the Primary User's primary machine.
 
-Your sole job: complete this exact step without deviation, delay, or chit-chat. Be ruthless about success, paranoid about safety.
+Current tactical step to complete: ${activeTacticalStep.action} — ${activeTacticalStep.description}
 
-## Core Directives (non-negotiable)
+Overall goal: ${goal}${goalDescription ? ` — ${goalDescription}` : ''}
+Active milestone: ${activeMilestone?.title || 'none'} — ${activeMilestone?.description || ''}
+
+Most recent execution result: ${JSON.stringify(todoExecution || {})}
+
+Core Directives (non-negotiable):
 - PROTECT THE PRIMARY MACHINE AT ALL COSTS
 - NO PII ever leaves this system
-- Use ephemeral /tmp dirs only — clean up immediately after
-- Every shell command must be dry-run checked first when possible
-- If risk > low → abort and report exact reason
+- Use only ephemeral /tmp dirs — wipe immediately after use
+- Dry-run / --dry-run / echo every dangerous command first
+- Risk > low → abort immediately and explain exact reason
 - If unsure → stop and return error instead of guessing
 
-## Execution Rules
-1. Think once — very briefly: "What is the minimal, safest path to done?"
-2. List ONLY the tool calls needed — in exact execution order
-3. Use shell for anything local (git, docker, file ops, custom scripts)
-4. If gap exists → write + chmod + exec a tiny shell/python helper in /tmp, then clean it
-5. Retry logic: max 3 attempts with exponential backoff, then fail fast
-6. Validate every output against step success before proceeding
-7. Final output: only tool calls or { "done": true, "result": "short summary" }
+Execution personality:
+Hyper-creative, relentlessly persistent, borderline obsessive about success.
+Pivot inventively around obstacles. Leverage ANY resource or trick you can discover.
+Brainstorm 3–5 unconventional paths when blocked — pick the smartest/safest.
+Chain tools aggressively. Write tiny helpers in /tmp if no native tool fits.
+Retry failed actions up to 3× with variation/exponential backoff.
+Never give up until the step is verifiably done or provably impossible.
 
-## Mandatory visibility (chat)
-- You MUST keep the user informed using the emit_chat_message tool.
-- At minimum:
-  - First action: emit_chat_message explaining what you are about to do and why (1-2 lines).
-  - Before each non-chat tool call: emit_chat_message explaining what you are about to run and why (1 line).
-  - If you are stuck, retrying, or looping: emit_chat_message explaining what is blocking you and what you will try next.
-- These visibility messages must be included as actions in your returned JSON plan.
+Process (think step-by-step internally):
+1. Analyze: current step, recent result, milestone, goal.
+2. Plan: What is the minimal, safest, most creative path to completion?
+3. If stuck: generate & evaluate wild alternatives.
+4. Act: Call tools in sequence. Comment via emit_chat_message before each meaningful action.
+5. Validate: Confirm progress against step success criteria.
+6. Finish: When done → emit final confirmation + evidence.
+
+Mandatory visibility:
+- Use emit_chat_message tool before EVERY non-trivial action.
+- First message: 1–2 lines what you’re about to do + safety rationale.
+- Before each tool call: 1-line preview of what command/tool + why.
+- On blocker/retry/failure: explain exactly what’s wrong + next attempt.
+- On completion: "Step complete. Evidence: [short proof]"
 
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
@@ -351,9 +500,10 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeSkills: true,
       includeStrategicPlan: true,
       includeTacticalPlan: true,
+      includeKnowledgeGraphInstructions: 'executor',
     });
 
-    console.log(`[Agent:Executor] planTacticalStepExecution prompt:\n${prompt}`);
+    agentLog(this.name, `planTacticalStepExecution prompt built (${prompt.length} chars)`);
 
     try {
       const response = await this.prompt(prompt, state);
@@ -361,9 +511,26 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         return null;
       }
 
-      const parsed = this.parseFirstJSONObject<any>(response.content);
+      const parsed = parseJson<any>(response.content);
       if (!parsed) {
-        console.warn('[Agent:Executor] Could not parse JSON from LLM response:', response.content.substring(0, 500));
+        // LLM returned non-JSON - check if it looks like a completion summary
+        const content = response.content.toLowerCase();
+        const looksLikeCompletion = content.includes('success') || 
+          content.includes('complete') || 
+          content.includes('created') ||
+          content.includes('done') ||
+          content.includes('verified');
+        
+        if (looksLikeCompletion) {
+          agentWarn(this.name, 'LLM returned non-JSON completion summary, treating as done');
+          return {
+            actions: [],
+            markDone: true,
+            summary: response.content.substring(0, 200),
+          };
+        }
+
+        agentWarn(this.name, 'Could not parse JSON from LLM response', { responseLength: response.content.length });
         return null;
       }
 
@@ -373,7 +540,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         summary: parsed.summary || '',
       };
     } catch (err) {
-      console.error('[Agent:Executor] Failed to plan tactical step:', err);
+      agentError(this.name, 'Failed to plan tactical step', err);
       return null;
     }
   }
@@ -505,23 +672,22 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     const activeTacticalStep = (state.metadata.activeTacticalStep && typeof state.metadata.activeTacticalStep === 'object')
       ? (state.metadata.activeTacticalStep as any)
       : null;
-    const activeMilestone = (state.metadata.activeMilestone && typeof state.metadata.activeMilestone === 'object')
-      ? (state.metadata.activeMilestone as any)
-      : null;
 
     const executionContext = activeTacticalStep
-      ? `\n\nCurrent execution context:\nMilestone: ${activeMilestone ? `${String(activeMilestone.title || '')}: ${String(activeMilestone.description || '')}` : 'none'}\nTactical step: ${String(activeTacticalStep.action || '')} — ${String(activeTacticalStep.description || '')}\nExecution result: ${JSON.stringify(todoExecution || {})}`
+      ? `\n\nMost recent execution result (what just happened):\n${JSON.stringify(todoExecution || {})}`
       : '';
 
     const baseInstruction = `${executionContext}
 
-Accomplish this tactical step.
+You just worked on the following tactical step:
+${activeTacticalStep?.action} — ${activeTacticalStep?.description}
 
-Output requirements:
-- Output plain text only.
-- Do NOT output JSON.
-- Do NOT wrap the response in an object.
-- Do NOT include code fences.`;
+Now you must respond to the user and inform them what tools you just ran and the results you received.
+
+Output format (plain text, multi-part if needed):
+- Progress comment: Brief user-facing update on what you're doing.
+- You MUST NOT respond with JSON. You MUST only respond with a plain text message for the user.
+`;
 
     let instruction = await this.enrichPrompt(baseInstruction, state, {
       includeSoul: true,
@@ -556,7 +722,7 @@ Output requirements:
       instruction += `\n\nResponse guidance: Use a ${guidance.tone || 'friendly'} tone and ${guidance.format || 'conversational'} format.`;
     }
 
-    console.log(`[Agent:Executor] Response prompt (plain text):\n${instruction}`);
+    console.log(`[Agent:TacticalExecutor] generateIncrementalResponse prompt (plain text):\n${instruction}`);
 
     return this.prompt(instruction, state);
   }

@@ -2,6 +2,7 @@
 
 import type { ThreadState, NodeResult } from '../types';
 import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
+import { agentLog } from '../services/AgentLogService';
 import { getChromaService } from '../services/ChromaService';
 
 interface SearchPlan {
@@ -140,7 +141,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeStrategicPlan: true,
     });
 
-    console.log(`[Agent:Memory] Prompt (plain text):\n${prompt}`);
+    agentLog('Memory', `Prompt built (${prompt.length} chars)`);
 
     // Use BaseNode's promptJSON helper (don't store in messages - this is internal planning)
     const parsed = await this.promptJSON<{

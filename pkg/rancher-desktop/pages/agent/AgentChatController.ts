@@ -4,6 +4,7 @@ import type { ComputedRef, Ref } from 'vue';
 import type { ConversationThread } from '@pkg/agent/ConversationThread';
 import { onGlobalEvent, offGlobalEvent } from '@pkg/agent/ConversationThread';
 import type { AgentResponse, SensoryInput, ThreadContext, AgentEvent } from '@pkg/agent/types';
+import { AbortService } from '@pkg/agent/services/AbortService';
 
 import type { StartupProgressController } from './StartupProgressController';
 
@@ -34,6 +35,8 @@ export class AgentChatController {
   readonly messages = ref<ChatMessage[]>([]);
   readonly transcriptEl = ref<HTMLElement | null>(null);
   readonly hasMessages: ComputedRef<boolean> = computed(() => this.messages.value.length > 0);
+
+  private activeAbort: AbortService | null = null;
 
   private readonly showInternalProgress = false;
   // !!((import.meta as any)?.env?.DEV ?? (typeof process !== 'undefined' && (process as any)?.env?.NODE_ENV !== 'production'));
@@ -228,18 +231,7 @@ export class AgentChatController {
       const id = `tool_${toolRunId}`;
       this.toolCardsByRunId.set(toolRunId, id);
 
-      this.messages.value.push({
-        id,
-        role: 'system',
-        kind: 'tool',
-        content: '',
-        toolCard: {
-          toolRunId,
-          toolName,
-          status: 'running',
-        },
-      });
-      this.maybeAutoScroll();
+      // Don't show "running" tool cards in the UI - only show results
       return;
     }
 
@@ -340,6 +332,16 @@ export class AgentChatController {
   private async processUserText(userText: string): Promise<void> {
     this.loading.value = true;
 
+    // New run: cancel any prior in-flight work
+    if (this.activeAbort) {
+      try {
+        this.activeAbort.abort();
+      } catch {
+        // ignore
+      }
+    }
+    this.activeAbort = new AbortService();
+
     try {
       const input = this.deps.sensory.createTextInput(userText);
 
@@ -356,7 +358,7 @@ export class AgentChatController {
       const thread = this.deps.getThread(threadId);
       await thread.initialize();
 
-      const agentResponse = await thread.process(input);
+      const agentResponse = await thread.process(input, { abort: this.activeAbort });
 
       this.deps.onAgentResponse?.(agentResponse);
 
@@ -369,6 +371,10 @@ export class AgentChatController {
       this.messages.value.push({ id: `${Date.now()}_assistant`, role: 'assistant', content: formatted });
       await this.maybeAutoScroll();
     } catch (err: unknown) {
+      // Swallow AbortError: user explicitly hit Stop.
+      if ((err instanceof Error && err.name === 'AbortError') || (this.activeAbort?.signal.aborted === true)) {
+        return;
+      }
       const message = err instanceof Error ? err.message : String(err);
 
       const recovered = await this.deps.startupProgress.handleOllamaMemoryError(message);
@@ -385,8 +391,22 @@ export class AgentChatController {
 
       await this.maybeAutoScroll();
     } finally {
+      this.activeAbort = null;
       this.loading.value = false;
     }
+  }
+
+  stop(): void {
+    if (this.activeAbort) {
+      try {
+        this.activeAbort.abort();
+      } catch {
+        // ignore
+      }
+    }
+    // Clear any queued prompts; user wants to send a different message.
+    this.pendingPrompts.splice(0, this.pendingPrompts.length);
+    this.loading.value = false;
   }
 
   private async drainPromptQueue(): Promise<void> {
