@@ -312,6 +312,9 @@ Example:
 The KnowledgeGraph will save the article.
 
 When to trigger the KnowledgeBase SOP:
+- When you're creating a new SOP
+- When you're storing anything in "memory"
+- When you want to save any information for later use
 - User explicitly asked for documentation
 - Complex workflow that should be preserved for future reference
 - New architecture decisions or patterns established

@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen overflow-y-auto bg-white text-[#0d0d0d] dark:bg-slate-900 dark:text-neutral-50 font-sans" :class="{ dark: isDark }">
-    <div class="flex min-h-screen flex-col">
+  <div class="h-screen overflow-hidden bg-white text-[#0d0d0d] dark:bg-slate-900 dark:text-neutral-50 font-sans" :class="{ dark: isDark }">
+    <div class="flex h-screen flex-col">
 
       <AgentHeader :is-dark="isDark" :toggle-theme="toggleTheme" />
 
@@ -67,18 +67,18 @@
     </div>
 
     <!-- Main agent interface -->
-    <div class="flex min-h-0 flex-1 overflow-hidden" :class="{ 'blur-sm pointer-events-none select-none': !systemReady && !hasEverBeenReady }">
-      <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div v-if="hasMessages" class="relative mx-auto flex w-full max-w-8xl flex-1 justify-center overflow-hidden sm:px-2 lg:px-8 xl:px-12">
+    <div ref="chatScrollContainer" id="chat-scroll-container" class="flex min-h-0 flex-1 overflow-y-auto" :class="{ 'blur-sm pointer-events-none select-none': !systemReady && !hasEverBeenReady }">
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div v-if="hasMessages" class="relative mx-auto flex w-full max-w-8xl flex-1 justify-center sm:px-2 lg:px-8 xl:px-12">
           <div class="hidden lg:relative lg:block lg:flex-none">
             <div class="absolute inset-y-0 right-0 w-[50vw] bg-slate-50 dark:hidden"></div>
             <div class="absolute top-16 right-0 bottom-0 hidden h-12 w-px bg-linear-to-t from-slate-800 dark:block"></div>
             <div class="absolute top-28 right-0 bottom-0 hidden w-px bg-slate-800 dark:block"></div>
-            <div class="sticky top-19 -ml-0.5 h-[calc(100vh-4.75rem)] w-64 overflow-x-hidden overflow-y-auto py-16 pr-8 pl-0.5 xl:w-72 xl:pr-16"></div>
+            <div class="sticky top-[5rem] -ml-0.5 h-[calc(100vh-5rem)] w-64 overflow-x-hidden overflow-y-auto py-16 pr-8 pl-0.5 xl:w-72 xl:pr-16"></div>
           </div>
 
           <div class="max-w-2xl min-w-0 flex-auto px-4 py-16 lg:max-w-none lg:pr-0 lg:pl-8 xl:px-16">
-            <div ref="transcriptEl" class="h-full overflow-y-auto pb-40">
+            <div ref="transcriptEl" id="chat-messages-list" class="pb-40">
               <div
                 v-for="m in messages"
                 :key="m.id"
@@ -91,7 +91,29 @@
                 </div>
 
                 <div v-else-if="m.kind === 'tool'" class="max-w-[min(760px,92%)]">
-                  <pre class="prism-code language-shell"><code><span class="token plain">{{ m.content }}</span>
+                  <div v-if="m.toolCard" class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+                    <div class="mb-2 flex items-center gap-2">
+                      <span class="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{{ m.toolCard.toolName }}</span>
+                      <span 
+                        class="rounded-full px-2 py-0.5 text-xs font-medium"
+                        :class="m.toolCard.status === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : m.toolCard.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'"
+                      >
+                        {{ m.toolCard.status }}
+                      </span>
+                    </div>
+                    <div v-if="m.toolCard.args && Object.keys(m.toolCard.args).length > 0" class="mb-2">
+                      <div class="text-xs font-semibold text-slate-600 dark:text-slate-400">Arguments:</div>
+                      <pre class="mt-1 overflow-x-auto rounded bg-slate-100 p-2 text-xs dark:bg-slate-900/50"><code>{{ JSON.stringify(m.toolCard.args, null, 2) }}</code></pre>
+                    </div>
+                    <div v-if="m.toolCard.result !== undefined" class="mb-2">
+                      <div class="text-xs font-semibold text-slate-600 dark:text-slate-400">Result:</div>
+                      <pre class="mt-1 overflow-x-auto rounded bg-slate-100 p-2 text-xs dark:bg-slate-900/50"><code>{{ typeof m.toolCard.result === 'string' ? m.toolCard.result : JSON.stringify(m.toolCard.result, null, 2) }}</code></pre>
+                    </div>
+                    <div v-if="m.toolCard.error" class="text-xs text-red-600 dark:text-red-400">
+                      Error: {{ m.toolCard.error }}
+                    </div>
+                  </div>
+                  <pre v-else class="prism-code language-shell"><code><span class="token plain">{{ m.content }}</span>
  </code></pre>
                 </div>
 
@@ -121,7 +143,7 @@
             </div>
           </div>
 
-          <div class="hidden xl:sticky xl:top-19 xl:-mr-6 xl:block xl:h-[calc(100vh-4.75rem)] xl:flex-none xl:overflow-y-auto xl:py-16 xl:pr-6">
+          <div class="hidden xl:sticky xl:top-0 xl:-mr-6 xl:block xl:h-screen xl:flex-none xl:overflow-y-auto xl:py-16 xl:pr-6">
             <div class="w-72">
               <div v-if="latestChatError" class="my-8 flex rounded-3xl p-6 bg-amber-50 dark:bg-slate-800/60 dark:ring-1 dark:ring-slate-300/10">
                 <svg aria-hidden="true" viewBox="0 0 32 32" fill="none" class="h-8 w-8 flex-none [--icon-foreground:var(--color-amber-900)] [--icon-background:var(--color-amber-100)]">
@@ -917,6 +939,24 @@ const {
   transcriptEl,
   hasMessages,
 } = chatController;
+
+const chatScrollContainer = ref<HTMLElement | null>(null);
+
+// Auto-scroll to bottom when messages change
+watch(() => messages.value.length, async () => {
+  await nextTick();
+  const container = chatScrollContainer.value;
+  if (container) {
+    console.log('[Auto-Scroll] Scrolling to bottom, messages count:', messages.value.length);
+    console.log('[Auto-Scroll] Container scrollHeight:', container.scrollHeight);
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: 'smooth'
+    });
+  } else {
+    console.warn('[Auto-Scroll] Container not found');
+  }
+}, { flush: 'post' });
 
 const latestChatError = computed(() => {
   for (let i = messages.value.length - 1; i >= 0; i--) {

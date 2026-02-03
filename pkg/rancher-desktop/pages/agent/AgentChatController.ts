@@ -47,9 +47,6 @@ export class AgentChatController {
   private readonly toolCardsByRunId = new Map<string, string>();
   private readonly toolCallArgsByRunId = new Map<string, Record<string, unknown>>();
 
-  private autoScrollEnabled = true;
-  private scrollListenerAttached = false;
-  private readonly autoScrollThresholdPx = 140;
 
   constructor(private readonly deps: {
     systemReady: Ref<boolean>;
@@ -124,7 +121,6 @@ export class AgentChatController {
         goal ? `Goal: ${goal}` : null,
       ].filter(Boolean).join('\n');
       this.messages.value.push({ id: `${Date.now()}_${phase}`, role: 'system', kind: 'planner', content: lines });
-      this.maybeAutoScroll();
       return;
     }
 
@@ -156,7 +152,6 @@ export class AgentChatController {
           image: { dataUrl, alt, contentType, path: filePath },
         });
       }
-      this.maybeAutoScroll();
       return;
     }
 
@@ -171,7 +166,6 @@ export class AgentChatController {
         kind: 'planner',
         content: `Todo created (plan=${planId} todo=${todoId}${orderIndex !== null && Number.isFinite(orderIndex) ? ` idx=${orderIndex}` : ''})\n${title}`,
       });
-      this.maybeAutoScroll();
       return;
     }
 
@@ -184,7 +178,6 @@ export class AgentChatController {
         kind: 'planner',
         content: `Todo deleted (plan=${planId} todo=${todoId})`,
       });
-      this.maybeAutoScroll();
       return;
     }
 
@@ -200,7 +193,6 @@ export class AgentChatController {
         kind: 'planner',
         content: `Todo updated (plan=${planId} todo=${todoId}${orderIndex !== null && Number.isFinite(orderIndex) ? ` idx=${orderIndex}` : ''})\n${title}${title ? '\n' : ''}${status}`,
       });
-      this.maybeAutoScroll();
       return;
     }
 
@@ -215,7 +207,6 @@ export class AgentChatController {
         kind: 'progress',
         content: `Todo status (plan=${planId} todo=${todoId})\n${title}${title ? '\n' : ''}${status}`,
       });
-      this.maybeAutoScroll();
       return;
     }
 
@@ -265,7 +256,6 @@ export class AgentChatController {
               error,
             },
           };
-          this.maybeAutoScroll();
           return;
         }
       }
@@ -288,7 +278,6 @@ export class AgentChatController {
       if (toolRunId) {
         this.toolCardsByRunId.set(toolRunId, id);
       }
-      this.maybeAutoScroll();
       return;
     }
 
@@ -304,7 +293,6 @@ export class AgentChatController {
         const kind = (typeof event.data.kind === 'string' ? (event.data.kind as any) : 'progress');
         this.messages.value.push({ id: `${Date.now()}_chat_message`, role: 'system', kind, content });
       }
-      this.maybeAutoScroll();
       return;
     }
 
@@ -315,7 +303,6 @@ export class AgentChatController {
       const decision = String(event.data.decision || '');
       const reason = String(event.data.reason || '');
       this.messages.value.push({ id: `${Date.now()}_critic`, role: 'system', kind: 'critic', content: `Critic: ${decision}${reason ? `\n${reason}` : ''}` });
-      this.maybeAutoScroll();
       return;
     }
 
@@ -325,7 +312,6 @@ export class AgentChatController {
       }
       const nodeName = String(event.data.nodeName || event.data.nodeId || 'node');
       this.messages.value.push({ id: `${Date.now()}_node_start`, role: 'system', kind: 'progress', content: `→ ${nodeName}` });
-      this.maybeAutoScroll();
     }
   }
 
@@ -369,7 +355,6 @@ export class AgentChatController {
 
       const formatted = this.deps.responseHandler.formatText(agentResponse) || '';
       this.messages.value.push({ id: `${Date.now()}_assistant`, role: 'assistant', content: formatted });
-      await this.maybeAutoScroll();
     } catch (err: unknown) {
       // Swallow AbortError: user explicitly hit Stop.
       if ((err instanceof Error && err.name === 'AbortError') || (this.activeAbort?.signal.aborted === true)) {
@@ -388,8 +373,6 @@ export class AgentChatController {
       } else {
         this.messages.value.push({ id: `${Date.now()}_error`, role: 'error', content: `Error: ${message}` });
       }
-
-      await this.maybeAutoScroll();
     } finally {
       this.activeAbort = null;
       this.loading.value = false;
@@ -435,7 +418,6 @@ export class AgentChatController {
     const userText = this.query.value;
     this.query.value = '';
     this.messages.value.push({ id: `${Date.now()}_user`, role: 'user', content: userText });
-    await this.maybeAutoScroll();
 
     if (this.loading.value) {
       this.pendingPrompts.push(userText);
@@ -446,27 +428,4 @@ export class AgentChatController {
     await this.drainPromptQueue();
   }
 
-  private attachScrollListenerIfNeeded(el: HTMLElement): void {
-    if (this.scrollListenerAttached) {
-      return;
-    }
-    this.scrollListenerAttached = true;
-    el.addEventListener('scroll', () => {
-      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      this.autoScrollEnabled = distanceFromBottom <= this.autoScrollThresholdPx;
-    }, { passive: true });
-  }
-
-  private async maybeAutoScroll(): Promise<void> {
-    await nextTick();
-    const el = this.transcriptEl.value;
-    if (!el) {
-      return;
-    }
-    this.attachScrollListenerIfNeeded(el);
-    if (!this.autoScrollEnabled) {
-      return;
-    }
-    el.scrollTop = el.scrollHeight;
-  }
 }

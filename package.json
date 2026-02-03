@@ -55,6 +55,7 @@
   "main": "dist/app/background.js",
   "dependencies": {
     "@docker/extension-api-client-types": "0.4.2",
+    "@hbilal_9/vue3-chat-scroll": "^0.0.4",
     "@kubernetes/client-node": "1.4.0",
     "@langchain/community": "^1.1.9",
     "@langchain/core": "^1.1.17",

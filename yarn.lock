@@ -2286,6 +2286,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@hbilal_9/vue3-chat-scroll@npm:^0.0.4":
+  version: 0.0.4
+  resolution: "@hbilal_9/vue3-chat-scroll@npm:0.0.4"
+  peerDependencies:
+    vue: ^3.3.11
+  checksum: 10c0/4ceb06bedb6080e8f031dc1c77c8d5781d5642a509ace566738546c0c01eaad3cda3d705bfea7e158bc47b4a02d33fe5fe9f46cbdf00f08608a441edef74d0d9
+  languageName: node
+  linkType: hard
+
 "@humanfs/core@npm:^0.19.1":
   version: 0.19.1
   resolution: "@humanfs/core@npm:0.19.1"
@@ -17137,6 +17146,7 @@ __metadata:
     "@electron/fuses": "npm:^2.0.0"
     "@electron/notarize": "npm:3.1.1"
     "@eslint/compat": "npm:2.0.1"
+    "@hbilal_9/vue3-chat-scroll": "npm:^0.0.4"
     "@kubernetes/client-node": "npm:1.4.0"
     "@langchain/community": "npm:^1.1.9"
     "@langchain/core": "npm:^1.1.17"
