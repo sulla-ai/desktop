@@ -14,6 +14,9 @@ export class AgentSettingsController {
   private readonly handleSettingsRead = (_event: unknown, settings: {
     experimental?: {
       sullaModel?: string;
+      soulPrompt?: string;
+      botName?: string;
+      primaryUserName?: string;
       modelMode?: 'local' | 'remote';
       remoteProvider?: string;
       remoteModel?: string;
@@ -31,6 +34,9 @@ export class AgentSettingsController {
     if (exp) {
       this.updateAgentConfigFull({
         sullaModel:            exp.sullaModel,
+        soulPrompt:            exp.soulPrompt,
+        botName:               exp.botName,
+        primaryUserName:       exp.primaryUserName,
         modelMode:             exp.modelMode,
         remoteProvider:        exp.remoteProvider,
         remoteModel:           exp.remoteModel,

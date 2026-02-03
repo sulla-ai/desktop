@@ -3,10 +3,16 @@ import { defineComponent } from 'vue';
 
 import { ipcRenderer } from '@pkg/utils/ipcRenderer';
 
+// @ts-ignore - raw-loader import
+import soulPromptRaw from '../agent/prompts/soul.md';
+// @ts-ignore - raw-loader import
+import heartbeatPromptRaw from '../agent/prompts/heartbeat.md';
+
 // Nav items for the Language Model Settings sidebar
 const navItems = [
   { id: 'overview', name: 'Overview' },
   { id: 'models', name: 'Models' },
+  { id: 'soul', name: 'Soul' },
   { id: 'heartbeat', name: 'Heartbeat' },
 ];
 
@@ -113,6 +119,9 @@ export default defineComponent({
   name: 'language-model-settings',
 
   data() {
+    const defaultSoulPrompt = (typeof soulPromptRaw === 'string' ? soulPromptRaw : soulPromptRaw.default) || '';
+    const defaultHeartbeatPrompt = (typeof heartbeatPromptRaw === 'string' ? heartbeatPromptRaw : heartbeatPromptRaw.default) || '';
+
     return {
       currentNav:       'overview' as string,
       navItems,
@@ -151,8 +160,16 @@ export default defineComponent({
       // Heartbeat settings
       heartbeatEnabled:     true,
       heartbeatDelayMinutes: 30,
-      heartbeatPrompt:      'This is the time for you to accomplish your goals',
+      defaultHeartbeatPrompt,
+      heartbeatPrompt:      '',
       heartbeatModel:       'default' as string, // 'default' or specific model like 'local:tinyllama:latest' or 'remote:grok:grok-4-1-fast-reasoning'
+
+      // Soul prompt settings
+      defaultSoulPrompt,
+      soulPrompt: '',
+      botName: 'Sulla',
+      primaryUserName: '',
+
       // Activation state
       activating:           false,
       activationError:      '' as string,
@@ -163,6 +180,24 @@ export default defineComponent({
   computed: {
     currentNavItem(): { id: string; name: string } {
       return this.navItems.find(item => item.id === this.currentNav) || this.navItems[0];
+    },
+    soulPromptEditor: {
+      get(): string {
+        const override = String(this.soulPrompt || '');
+        return override.trim() ? override : String(this.defaultSoulPrompt || '');
+      },
+      set(val: string) {
+        this.soulPrompt = String(val || '');
+      },
+    },
+    heartbeatPromptEditor: {
+      get(): string {
+        const override = String(this.heartbeatPrompt || '');
+        return override.trim() ? override : String(this.defaultHeartbeatPrompt || '');
+      },
+      set(val: string) {
+        this.heartbeatPrompt = String(val || '');
+      },
     },
     availableModels(): Array<{ name: string; displayName: string; size: string; description: string }> {
       return OLLAMA_MODELS;
@@ -208,12 +243,17 @@ export default defineComponent({
     ipcRenderer.on('settings-read', (_event: unknown, settings: {
       experimental?: {
         sullaModel?: string;
+        soulPrompt?: string;
+        botName?: string;
+        primaryUserName?: string;
         modelMode?: 'local' | 'remote';
         remoteProvider?: string;
         remoteModel?: string;
         remoteApiKey?: string;
         remoteRetryCount?: number;
         remoteTimeoutSeconds?: number;
+        localTimeoutSeconds?: number;
+        localRetryCount?: number;
         heartbeatEnabled?: boolean;
         heartbeatDelayMinutes?: number;
         heartbeatPrompt?: string;
@@ -223,6 +263,15 @@ export default defineComponent({
       if (settings.experimental?.sullaModel) {
         this.activeModel = settings.experimental.sullaModel;
         this.pendingModel = settings.experimental.sullaModel;
+      }
+      if (settings.experimental?.soulPrompt !== undefined) {
+        this.soulPrompt = settings.experimental.soulPrompt;
+      }
+      if (settings.experimental?.botName !== undefined) {
+        this.botName = settings.experimental.botName;
+      }
+      if (settings.experimental?.primaryUserName !== undefined) {
+        this.primaryUserName = settings.experimental.primaryUserName;
       }
       if (settings.experimental?.modelMode) {
         this.activeMode = settings.experimental.modelMode;
@@ -255,7 +304,7 @@ export default defineComponent({
       if (settings.experimental?.heartbeatDelayMinutes !== undefined) {
         this.heartbeatDelayMinutes = settings.experimental.heartbeatDelayMinutes;
       }
-      if (settings.experimental?.heartbeatPrompt) {
+      if (settings.experimental?.heartbeatPrompt !== undefined) {
         this.heartbeatPrompt = settings.experimental.heartbeatPrompt;
       }
       if (settings.experimental?.heartbeatModel) {
@@ -611,6 +660,9 @@ export default defineComponent({
         experimental: {
           ...extra,
           sullaModel:            this.pendingModel,
+          soulPrompt:            this.soulPrompt,
+          botName:               this.botName,
+          primaryUserName:       this.primaryUserName,
           remoteProvider:        this.selectedProvider,
           remoteModel:           this.selectedRemoteModel,
           remoteApiKey:          this.apiKey,
@@ -1045,6 +1097,66 @@ export default defineComponent({
           </template>
         </div>
 
+        <!-- Soul Tab -->
+        <div
+          v-if="currentNav === 'soul'"
+          class="tab-content"
+        >
+          <h2>Soul</h2>
+          <p class="description">
+            Configure the agent's identity and system prompt. The bot name and user name will be prefixed to the soul prompt.
+          </p>
+
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">Bot Name</label>
+            <input
+              v-model="botName"
+              type="text"
+              class="text-input"
+              placeholder="Sulla"
+              style="max-width: 400px;"
+            >
+            <p class="setting-description">
+              The name of the AI assistant (default: Sulla)
+            </p>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 2rem;">
+            <label class="form-label">Primary User Name</label>
+            <input
+              v-model="primaryUserName"
+              type="text"
+              class="text-input"
+              placeholder="Enter your name (optional)"
+              style="max-width: 400px;"
+            >
+            <p class="setting-description">
+              Your name (optional) - helps personalize interactions
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Soul Prompt</label>
+            <textarea
+              v-model="soulPromptEditor"
+              class="soul-textarea"
+              spellcheck="false"
+            />
+            <p class="setting-description">
+              The system prompt that shapes the agent's personality and behavior. Leave blank to use the built-in default.
+            </p>
+            <div class="soul-actions">
+              <button
+                class="btn role-secondary"
+                type="button"
+                @click="soulPrompt = ''"
+              >
+                Reset to default
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Heartbeat Tab -->
         <div
           v-if="currentNav === 'heartbeat'"
@@ -1083,7 +1195,6 @@ export default defineComponent({
                 class="text-input"
                 min="1"
                 max="1440"
-                :disabled="!heartbeatEnabled"
                 style="width: 120px;"
               >
             </div>
@@ -1098,7 +1209,6 @@ export default defineComponent({
             <select
               v-model="heartbeatModel"
               class="model-select"
-              :disabled="!heartbeatEnabled"
             >
               <option value="default">
                 Use System Default
@@ -1131,19 +1241,26 @@ export default defineComponent({
             </p>
           </div>
 
-          <!-- Prompt Setting -->
+          <!-- Instructions Setting -->
           <div class="setting-group">
-            <label class="setting-label">Heartbeat Prompt</label>
+            <label class="setting-label">Heartbeat Instructions</label>
             <textarea
-              v-model="heartbeatPrompt"
-              class="prompt-textarea"
-              rows="6"
-              :disabled="!heartbeatEnabled"
-              placeholder="Enter the prompt that will be sent to the agent on each heartbeat..."
+              v-model="heartbeatPromptEditor"
+              class="soul-textarea"
+              spellcheck="false"
             />
             <p class="setting-description">
-              This message will be sent to the agent each time the heartbeat triggers.
+              Instructions sent to the agent each time the heartbeat triggers. Leave blank to use the built-in default.
             </p>
+            <div class="soul-actions">
+              <button
+                class="btn role-secondary"
+                type="button"
+                @click="heartbeatPrompt = ''"
+              >
+                Reset to default
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1502,6 +1619,7 @@ export default defineComponent({
     color: var(--muted);
     font-size: 0.875rem;
     margin-top: 0.5rem;
+    opacity: 0.6;
     margin-bottom: 0.5rem;
   }
 }
@@ -1551,6 +1669,32 @@ export default defineComponent({
     opacity: 0.6;
     cursor: not-allowed;
   }
+}
+
+.soul-textarea {
+  width: 100%;
+  max-width: 900px;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--input-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  resize: vertical;
+  min-height: 520px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+}
+
+.soul-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.75rem;
 }
 
 .text-input {

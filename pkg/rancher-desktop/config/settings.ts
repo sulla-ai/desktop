@@ -135,6 +135,12 @@ export const defaultSettings = {
     kubernetes:      { options: { spinkube: false } },
     /** Selected Ollama model for Sulla AI */
     sullaModel:      'tinyllama:latest',
+    /** Override for agent/prompts/soul.md (empty string uses default soul.md). */
+    soulPrompt:      '',
+    /** Bot name (default: Sulla) */
+    botName:         'Sulla',
+    /** Primary user name (optional) */
+    primaryUserName: '',
     /** Model mode: local (Ollama) or remote (API) */
     modelMode:       'local' as 'local' | 'remote',
     /** Remote API provider (grok, openai, anthropic, google) */
@@ -146,6 +152,10 @@ export const defaultSettings = {
     /** Number of retries before falling back to local LLM */
     remoteRetryCount: 3,
     remoteTimeoutSeconds: 60,
+    /** Local Ollama timeout in seconds */
+    localTimeoutSeconds: 120,
+    /** Local Ollama retry count */
+    localRetryCount: 2,
     /** Heartbeat settings */
     heartbeatEnabled: true,
     heartbeatDelayMinutes: 30,

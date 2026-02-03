@@ -11,6 +11,9 @@ const OLLAMA_BASE = 'http://127.0.0.1:30114';
 interface AgentConfig {
   ollamaModel: string;
   ollamaBase: string;
+  soulPrompt: string;
+  botName: string;
+  primaryUserName: string;
   // LLM mode settings
   modelMode: 'local' | 'remote';
   // Local Ollama settings
@@ -50,6 +53,9 @@ export function getAgentConfig(): AgentConfig {
       cachedConfig = {
         ollamaModel:      config.sullaModel || DEFAULT_MODEL,
         ollamaBase:       OLLAMA_BASE,
+        soulPrompt:       config.soulPrompt || '',
+        botName:          config.botName || 'Sulla',
+        primaryUserName:  config.primaryUserName || '',
         modelMode:        config.modelMode || 'local',
         localTimeoutSeconds: config.localTimeoutSeconds ?? 120,
         localRetryCount: config.localRetryCount ?? 2,
@@ -74,6 +80,9 @@ export function getAgentConfig(): AgentConfig {
   return {
     ollamaModel:      DEFAULT_MODEL,
     ollamaBase:       OLLAMA_BASE,
+    soulPrompt:       '',
+    botName:          'Sulla',
+    primaryUserName:  '',
     modelMode:        'local',
     localTimeoutSeconds: 120,
     localRetryCount: 2,
@@ -95,6 +104,9 @@ export function getAgentConfig(): AgentConfig {
  */
 export function updateAgentConfigFull(settings: {
   sullaModel?: string;
+  soulPrompt?: string;
+  botName?: string;
+  primaryUserName?: string;
   modelMode?: 'local' | 'remote';
   localTimeoutSeconds?: number;
   localRetryCount?: number;
@@ -111,6 +123,9 @@ export function updateAgentConfigFull(settings: {
   cachedConfig = {
     ollamaModel:      settings.sullaModel || DEFAULT_MODEL,
     ollamaBase:       OLLAMA_BASE,
+    soulPrompt:       settings.soulPrompt || '',
+    botName:          settings.botName || 'Sulla',
+    primaryUserName:  settings.primaryUserName || '',
     modelMode:        settings.modelMode || 'local',
     localTimeoutSeconds: settings.localTimeoutSeconds ?? 120,
     localRetryCount: settings.localRetryCount ?? 2,

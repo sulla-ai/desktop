@@ -7,6 +7,7 @@ import type { ChatMessage } from '../services/ILLMService';
 import { getLLMService, getCurrentMode } from '../services/LLMServiceFactory';
 import { getOllamaService } from '../services/OllamaService';
 import { getAwarenessService } from '../services/AwarenessService';
+import { getAgentConfig } from '../services/ConfigService';
 import type { AbortService } from '../services/AbortService';
 
 // Import soul.md via raw-loader (configured in vue.config.mjs)
@@ -14,9 +15,33 @@ import type { AbortService } from '../services/AbortService';
 import soulPromptRaw from '../prompts/soul.md';
 
 function getSoulPrompt(): string {
-  // raw-loader may return { default: string } or string depending on config
-  const content = typeof soulPromptRaw === 'string' ? soulPromptRaw : soulPromptRaw.default;
-  return (content || '').trim();
+  let config;
+  try {
+    config = getAgentConfig();
+  } catch {
+    config = { soulPrompt: '', botName: 'Sulla', primaryUserName: '' };
+  }
+
+  const override = config.soulPrompt || '';
+  const botName = config.botName || 'Sulla';
+  const primaryUserName = config.primaryUserName || '';
+
+  // Build prefix with bot name and optional user name
+  const prefix = primaryUserName.trim()
+    ? `Bot Name: ${botName}\nPrimary User: ${primaryUserName}\n\n`
+    : `Bot Name: ${botName}\n\n`;
+
+  // Use override if present, otherwise fall back to bundled soul.md
+  let soulContent: string;
+  if (override.trim()) {
+    soulContent = override.trim();
+  } else {
+    // raw-loader may return { default: string } or string depending on config
+    const content = typeof soulPromptRaw === 'string' ? soulPromptRaw : soulPromptRaw.default;
+    soulContent = (content || '').trim();
+  }
+
+  return prefix + soulContent;
 }
 
 export interface LLMOptions {
