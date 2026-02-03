@@ -8,6 +8,7 @@ import type { ILLMService } from './ILLMService';
 import { getLLMService, getCurrentMode } from './LLMServiceFactory';
 import fs from 'fs';
 import path from 'path';
+import { load as yamlLoad } from 'js-yaml';
 
 // Collection names
 const COLLECTIONS = {
@@ -59,6 +60,32 @@ export class MemoryPedia {
   private isProcessing = false;
   private chroma = getChromaService();
 
+  private slugifySeedPart(input: string): string {
+    return String(input || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9_-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^[-_]+|[-_]+$/g, '');
+  }
+
+  private splitSeedFrontmatter(markdown: string): { meta: Record<string, unknown> | null; body: string } {
+    const raw = String(markdown || '');
+    const match = raw.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n?([\s\S]*)$/);
+    if (!match) {
+      return { meta: null, body: raw };
+    }
+
+    try {
+      const parsed = yamlLoad(match[1]) as unknown;
+      const meta = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+      return { meta, body: String(match[2] || '') };
+    } catch {
+      return { meta: null, body: raw };
+    }
+  }
+
   private async getSeedMarkdownFiles(dir: string): Promise<string[]> {
     const out: string[] = [];
     try {
@@ -96,30 +123,97 @@ export class MemoryPedia {
         continue;
       }
 
-      const pageId = path.basename(filePath, path.extname(filePath));
-      if (!pageId) {
+      const { meta: seedMeta, body: markdownBody } = this.splitSeedFrontmatter(content);
+
+      const relativePath = path.relative(seedDir, filePath);
+      const parts = relativePath.split(path.sep).filter(Boolean);
+      const filename = parts[parts.length - 1] || '';
+      const folderParts = parts.slice(0, -1);
+
+      const baseName = path.basename(filename, path.extname(filename));
+      if (!baseName) {
         continue;
       }
 
-      const existing = await this.getPage(pageId);
-      const relatedThreads = existing
-        ? [...new Set([...existing.relatedThreads, 'seed'])]
-        : ['seed'];
+      const tag = folderParts[0] || 'Uncategorized';
+      const slugPrefix = folderParts.length ? folderParts.map(p => this.slugifySeedPart(p)).filter(Boolean).join('-') : '';
+      const defaultSlug = [slugPrefix, this.slugifySeedPart(baseName)].filter(Boolean).join('-');
+      const defaultTitle = baseName.replace(/[_-]+/g, ' ').trim() || defaultSlug;
 
+      const metaSlugRaw = seedMeta && (typeof seedMeta.slug === 'string') ? String(seedMeta.slug).trim() : '';
+      const metaTitleRaw = seedMeta && (typeof seedMeta.title === 'string' || typeof seedMeta.Title === 'string')
+        ? String((seedMeta.title || seedMeta.Title) as string).trim()
+        : '';
+
+      const slug = this.slugifySeedPart(metaSlugRaw) || defaultSlug;
+      const title = metaTitleRaw || defaultTitle;
+
+      const metaTags = seedMeta && Array.isArray(seedMeta.tags)
+        ? seedMeta.tags.map(String).map(s => s.trim()).filter(Boolean)
+        : (seedMeta && Array.isArray(seedMeta.Tags)
+          ? seedMeta.Tags.map(String).map(s => s.trim()).filter(Boolean)
+          : []);
+      const tags = metaTags.length ? metaTags : [tag];
+
+      const metaOrderRaw = seedMeta && (typeof seedMeta.order === 'number' || typeof seedMeta.order === 'string')
+        ? Number(seedMeta.order)
+        : 0;
+      const order = Number.isFinite(metaOrderRaw) ? metaOrderRaw : 0;
+
+      const metaLockedRaw = seedMeta && (typeof seedMeta.locked === 'boolean' || typeof seedMeta.locked === 'string')
+        ? (seedMeta.locked === true || seedMeta.locked === 'true')
+        : false;
+
+      const nowIso = new Date().toISOString();
+      const createdAt = seedMeta && typeof seedMeta.created_at === 'string'
+        ? String(seedMeta.created_at)
+        : (seedMeta && typeof seedMeta.createdAt === 'string' ? String(seedMeta.createdAt) : nowIso);
+      const updatedAt = seedMeta && typeof seedMeta.updated_at === 'string'
+        ? String(seedMeta.updated_at)
+        : (seedMeta && typeof seedMeta.updatedAt === 'string' ? String(seedMeta.updatedAt) : createdAt);
+
+      const author = seedMeta && typeof seedMeta.author === 'string' ? String(seedMeta.author) : undefined;
+
+      const page = {
+        schemaversion: 1,
+        slug,
+        title,
+        tags,
+        order,
+        locked: metaLockedRaw,
+        author,
+        created_at: createdAt,
+        updated_at: updatedAt,
+        sections: [
+          {
+            section_id: 'main',
+            title: '',
+            content: markdownBody || '',
+            order: 0,
+          },
+        ],
+      };
+
+      const document = JSON.stringify(page);
       const success = await this.chroma.upsert(
         COLLECTIONS.PAGES,
-        [pageId],
-        [content],
+        [slug],
+        [document],
         [{
-          title:          pageId,
-          pageType:       'seed',
-          relatedThreads: relatedThreads.join(','),
-          lastUpdated:    Date.now(),
+          schemaversion: 1,
+          slug,
+          title,
+          tags: tags.join(','),
+          order,
+          locked: metaLockedRaw,
+          author,
+          created_at: createdAt,
+          updated_at: updatedAt,
         }],
       );
 
       if (!success) {
-        console.warn(`[MemoryPedia] Failed to seed page: ${pageId}`);
+        console.warn(`[MemoryPedia] Failed to seed page: ${slug}`);
       }
     }
   }
