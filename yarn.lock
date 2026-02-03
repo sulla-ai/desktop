@@ -12859,12 +12859,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jsonrepair@npm:3.13.0":
-  version: 3.13.0
-  resolution: "jsonrepair@npm:3.13.0"
+"jsonrepair@npm:3.13.2":
+  version: 3.13.2
+  resolution: "jsonrepair@npm:3.13.2"
   bin:
     jsonrepair: bin/cli.js
-  checksum: 10c0/054206c07492fe3c90d85131859c5336128880915d0a8dca444ce10055613f041eee8a56af62bfc156d96d6e7e46bdee7caf72b28aafeb5e56543e9bde2cbce3
+  checksum: 10c0/36cbb1c047d705b73d2027fe4189ca21323c420113c5ad45e6df753168d1b105472727dcb7aeb6b4b7cc76c141d27aa74e5e9614238a9e481a3929ceea6d2237
   languageName: node
   linkType: hard
 
@@ -17228,7 +17228,7 @@ __metadata:
     json-repair-js: "npm:^1.0.0"
     json5: "npm:^2.2.3"
     jsonpath: "npm:1.1.1"
-    jsonrepair: "npm:3.13.0"
+    jsonrepair: "npm:3.13.2"
     lodash: "npm:4.17.21"
     marked: "npm:17.0.1"
     mustache: "npm:4.2.0"

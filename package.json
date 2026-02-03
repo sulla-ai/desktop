@@ -90,7 +90,7 @@
     "json-repair-js": "^1.0.0",
     "json5": "^2.2.3",
     "jsonpath": "1.1.1",
-    "jsonrepair": "3.13.0",
+    "jsonrepair": "3.13.2",
     "lodash": "4.17.21",
     "marked": "17.0.1",
     "native-reg": "1.1.1",
