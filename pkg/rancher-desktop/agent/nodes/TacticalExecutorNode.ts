@@ -13,6 +13,89 @@ export class TacticalExecutorNode extends BaseNode {
     super('tactical_executor', 'Tactical Executor');
   }
 
+  private async handleNoPlanResponse(state: ThreadState): Promise<void> {
+    const lastUser = [...state.messages].reverse().find(m => m.role === 'user');
+    const userText = lastUser?.content ? String(lastUser.content) : '';
+
+    const basePrompt = `You are the Tactical Executor: a 25-year senior DevOps & security engineer running on the Primary User's primary machine.
+
+You are responding directly to the user. Think through the problem before answering — you are handling this request ad-hoc.
+
+Your job:
+1. Think through the user's request carefully before responding.
+2. Consider what information you have, what you might need, and the best way to help.
+3. If the request requires running tools (shell commands, file operations, etc.), call them.
+4. If the request is ambiguous, ask 1-3 crisp clarifying questions via emit_chat_message.
+5. If the request implies multi-step work, recommend creating a plan to tackle it systematically.
+
+Core Directives (non-negotiable):
+- PROTECT THE PRIMARY MACHINE AT ALL COSTS
+- NO PII ever leaves this system
+- Use only ephemeral /tmp dirs — wipe immediately after use
+- Dry-run / --dry-run / echo every dangerous command first
+- Risk > low → abort immediately and explain exact reason
+- If unsure → stop and return error instead of guessing
+
+Mandatory visibility:
+- Use emit_chat_message tool before EVERY non-trivial action.
+- Before each tool call: 1-line preview of what command/tool + why.
+- On completion: confirm what was done with evidence.
+
+${JSON_ONLY_RESPONSE_INSTRUCTIONS}
+{
+  "actions": [
+    { "action": "tool_name", "args": { "arg1": "value1" } }
+  ],
+  "markDone": true,
+  "summary": "Brief description of what was done or response to user"
+}`;
+
+    const prompt = await this.enrichPrompt(basePrompt, state, {
+      includeSoul: true,
+      includeAwareness: true,
+      includeMemory: true,
+      includeTools: true,
+      toolDetail: 'tactical',
+      includeSkills: true,
+      includeStrategicPlan: false,
+      includeTacticalPlan: false,
+      includeKnowledgeGraphInstructions: undefined,
+    });
+
+    try {
+      const response = await this.prompt(prompt, state);
+      const content = response?.content ? String(response.content) : '';
+      const parsed = parseJson<any>(content);
+
+      if (!parsed) {
+        agentWarn(this.name, 'handleNoPlanResponse: Could not parse JSON from LLM response');
+        return;
+      }
+
+      const actions = Array.isArray(parsed.actions) ? parsed.actions : [];
+
+      // Execute any tool actions
+      for (const actionItem of actions) {
+        const actionName = actionItem.action;
+        const actionArgs = actionItem.args || {};
+
+        agentLog(this.name, `[NoPlan] Executing tool: ${actionName}`);
+        const result = await this.executeSingleToolAction(state, actionName, actionArgs);
+
+        if (result && result.success === false) {
+          agentWarn(this.name, `[NoPlan] Tool ${actionName} failed: ${result.error || 'Unknown error'}`);
+        }
+      }
+
+      // If no actions were taken and there's a summary, emit it as a chat message
+      if (actions.length === 0 && parsed.summary) {
+        await this.emitChat(state, parsed.summary);
+      }
+    } catch (err) {
+      agentError(this.name, 'handleNoPlanResponse failed', err);
+    }
+  }
+
   private appendToolResultMessage(state: ThreadState, action: string, result: ToolResult): void {
     const content = JSON.stringify(
       {
@@ -104,6 +187,7 @@ export class TacticalExecutorNode extends BaseNode {
     
     if (!executed) {
       console.log('[Agent:Executor] No active task to execute, generating response...');
+      await this.handleNoPlanResponse(state);
     }
 
     // TacticalExecutor does not generate a second, user-facing LLM response.

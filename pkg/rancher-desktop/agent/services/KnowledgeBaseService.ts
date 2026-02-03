@@ -54,13 +54,27 @@ export class KnowledgeBaseService {
     await this.chroma.ensureCollection(COLLECTION_NAME);
     await this.chroma.refreshCollections();
 
-    const data = await this.chroma.get(COLLECTION_NAME, undefined, { limit, include: ['metadatas'] });
+    const data = await this.chroma.get(COLLECTION_NAME, undefined, { limit, include: ['metadatas', 'documents'] });
 
     const ids = data?.ids || [];
     const metadatas = data?.metadatas || [];
+    const documents = data?.documents || [];
 
     return ids.map((id, i) => {
       const md = (metadatas[i] || {}) as Record<string, unknown>;
+      const rawDocument = documents[i] ? String(documents[i]) : '';
+      let parsedTitle = '';
+      if (rawDocument) {
+        try {
+          const parsed = JSON.parse(rawDocument) as { title?: unknown };
+          if (parsed && typeof parsed.title === 'string') {
+            parsedTitle = parsed.title;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       const tagsRaw = md.tags;
       let tags: string[] = [];
       if (typeof tagsRaw === 'string') {
@@ -71,7 +85,7 @@ export class KnowledgeBaseService {
 
       return {
         slug: String(md.slug || id),
-        title: String(md.title || id),
+        title: String(md.title || parsedTitle || id),
         tags,
         order: Number(md.order) || 0,
         locked: md.locked === true || md.locked === 'true',

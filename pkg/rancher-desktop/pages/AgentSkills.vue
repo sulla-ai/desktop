@@ -1,131 +1,69 @@
 <template>
-  <div class="h-screen bg-white text-sm text-[#0d0d0d] dark:bg-neutral-950 dark:text-neutral-50 font-sans" :class="{ dark: isDark }">
-    <div class="flex h-screen min-h-0 flex-col">
-      <div class="sticky top-0 z-40 border-b border-black/10 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-neutral-950/70">
-        <div class="flex items-center justify-between px-4 py-3">
-          <div class="text-sm font-semibold tracking-tight text-[#0d0d0d]/80 dark:text-white/80">
-            Sulla
-          </div>
+  <div class="min-h-screen bg-white text-sm text-[#0d0d0d] dark:bg-slate-900 dark:text-neutral-50 font-sans" :class="{ dark: isDark }">
+    <div class="flex min-h-screen flex-col">
+      <AgentHeader :is-dark="isDark" :toggle-theme="toggleTheme" />
 
-          <nav class="absolute left-1/2 -translate-x-1/2 flex items-center gap-x-6">
-            <router-link
-              to="/Chat"
-              class="text-sm font-semibold"
-              :class="route.path === '/Chat' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-            >
-              Chat
-            </router-link>
-            <router-link
-              to="/Calendar"
-              class="text-sm font-semibold"
-              :class="route.path === '/Calendar' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-            >
-              Calendar
-            </router-link>
-            <router-link
-              to="/KnowledgeBase"
-              class="text-sm font-semibold"
-              :class="route.path === '/KnowledgeBase' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-            >
-              KnowledgeBase
-            </router-link>
-            <router-link
-              to="/Skills"
-              class="text-sm font-semibold"
-              :class="route.path === '/Skills' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-            >
-              Skills
-            </router-link>
-          </nav>
+      <div class="flex w-full flex-col">
+        <div class="overflow-hidden bg-slate-900 dark:-mt-19 dark:-mb-32 dark:pt-19 dark:pb-32">
+          <div class="py-16 sm:px-2 lg:relative lg:px-0 lg:py-20">
+            <div class="mx-auto grid max-w-6xl grid-cols-1 items-center gap-x-8 gap-y-10 px-4 lg:grid-cols-2 lg:px-8 xl:gap-x-16">
+              <div class="relative z-10 md:text-center lg:text-left">
+                <div class="relative">
+                  <p class="inline bg-linear-to-r from-indigo-200 via-sky-400 to-indigo-200 bg-clip-text font-display text-5xl tracking-tight text-transparent">
+                    Skills marketplace.
+                  </p>
+                  <p class="mt-3 text-2xl tracking-tight text-slate-400">
+                    Browse and install skills for Sulla to use during tasks.
+                  </p>
+                </div>
+              </div>
 
-          <div class="flex items-center gap-2">
-            <a
-              class="flex h-10 w-10 items-center justify-center border border-black/10 bg-white/70 text-[#0d0d0d] shadow-sm backdrop-blur hover:bg-white/90 dark:border-white/10 dark:bg-neutral-950/70 dark:text-white dark:hover:bg-neutral-950/90"
-              href="https://github.com/sulla-ai/desktop"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Open GitHub repository"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor">
-                <path d="M12 .5C5.73.5.75 5.66.75 12.02c0 5.12 3.29 9.46 7.86 10.99.58.11.79-.26.79-.57 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.57-3.87-1.57-.53-1.36-1.29-1.72-1.29-1.72-1.05-.73.08-.72.08-.72 1.16.08 1.77 1.22 1.77 1.22 1.03 1.8 2.69 1.28 3.35.98.1-.77.4-1.28.72-1.57-2.55-.3-5.23-1.31-5.23-5.83 0-1.29.45-2.35 1.19-3.18-.12-.3-.52-1.52.11-3.17 0 0 .97-.32 3.18 1.21.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.53 3.17-1.21 3.17-1.21.63 1.65.23 2.87.12 3.17.74.83 1.19 1.89 1.19 3.18 0 4.53-2.69 5.53-5.25 5.82.41.36.78 1.08.78 2.19 0 1.58-.02 2.86-.02 3.25 0 .31.21.68.8.56 4.56-1.53 7.84-5.87 7.84-10.98C23.25 5.66 18.27.5 12 .5z" />
-              </svg>
-            </a>
+              <div class="relative">
+                <div class="flex flex-col gap-4">
+                  <div class="relative">
+                    <svg aria-hidden="true" viewBox="0 0 20 20" class="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 fill-slate-400 dark:fill-slate-500">
+                      <path d="M16.293 17.707a1 1 0 0 0 1.414-1.414l-1.414 1.414ZM9 14a5 5 0 0 1-5-5H2a7 7 0 0 0 7 7v-2ZM4 9a5 5 0 0 1 5-5V2a7 7 0 0 0-7 7h2Zm5-5a5 5 0 0 1 5 5h2a7 7 0 0 0-7-7v2Zm8.707 12.293-3.757-3.757-1.414 1.414 3.757 3.757 1.414-1.414ZM14 9a4.98 4.98 0 0 1-1.464 3.536l1.414 1.414A6.98 6.98 0 0 0 16 9h-2Zm-1.464 3.536A4.98 4.98 0 0 1 9 14v2a6.98 6.98 0 0 0 4.95-2.05l-1.414-1.414Z"></path>
+                    </svg>
 
-            <button
-              type="button"
-              class="flex h-10 w-10 items-center justify-center border border-black/10 bg-white/70 text-[#0d0d0d] shadow-sm backdrop-blur hover:bg-white/90 dark:border-white/10 dark:bg-neutral-950/70 dark:text-white dark:hover:bg-neutral-950/90"
-              :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-              @click="toggleTheme"
-            >
-              <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2" />
-                <path d="M12 20v2" />
-                <path d="m4.93 4.93 1.41 1.41" />
-                <path d="m17.66 17.66 1.41 1.41" />
-                <path d="M2 12h2" />
-                <path d="M20 12h2" />
-                <path d="m6.34 17.66-1.41 1.41" />
-                <path d="m19.07 4.93-1.41 1.41" />
-              </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" />
-              </svg>
-            </button>
+                    <input
+                      v-model="search"
+                      type="text"
+                      placeholder="Search skills"
+                      class="h-11 w-full rounded-lg bg-white/95 pr-4 pl-12 text-sm text-slate-900 ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/50 dark:bg-slate-800/75 dark:text-slate-100 dark:ring-white/5 dark:ring-inset"
+                    >
+                    <kbd class="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 font-medium text-slate-400 md:block dark:text-slate-500">
+                      <kbd class="font-sans">⌘</kbd><kbd class="font-sans">K</kbd>
+                    </kbd>
+                  </div>
+
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      class="flex h-6 rounded-full p-px text-xs font-medium"
+                      :class="activeTag === null ? 'bg-linear-to-r from-sky-400/30 via-sky-400 to-sky-400/30 text-sky-300' : 'text-slate-500 bg-slate-800/60 ring-1 ring-white/5'"
+                      @click="activeTag = null"
+                    >
+                      <span class="flex items-center rounded-full px-2.5" :class="activeTag === null ? 'bg-slate-800' : ''">All</span>
+                    </button>
+                    <button
+                      v-for="tag in topTags"
+                      :key="tag"
+                      type="button"
+                      class="flex h-6 rounded-full p-px text-xs font-medium"
+                      :class="activeTag === tag ? 'bg-linear-to-r from-sky-400/30 via-sky-400 to-sky-400/30 text-sky-300' : 'text-slate-500 bg-slate-800/60 ring-1 ring-white/5'"
+                      @click="activeTag = tag"
+                    >
+                      <span class="flex items-center rounded-full px-2.5" :class="activeTag === tag ? 'bg-slate-800' : ''">{{ tag }}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="flex-1">
-        <div class="mx-auto h-full max-w-6xl px-4 py-6">
-          <div class="flex flex-col gap-4">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <div class="text-2xl font-semibold tracking-tight">Skills</div>
-                <div class="mt-1 text-sm text-[#0d0d0d]/60 dark:text-white/60">
-                  Browse and install skills for Sulla to use during tasks.
-                </div>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div class="relative w-full sm:max-w-lg">
-                <input
-                  v-model="search"
-                  type="text"
-                  class="h-11 w-full border border-black/10 bg-white/70 px-4 pr-10 text-sm shadow-sm backdrop-blur placeholder:text-[#0d0d0d]/40 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:border-white/10 dark:bg-neutral-950/70 dark:placeholder:text-white/40"
-                  placeholder="Search skills"
-                >
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-[#0d0d0d]/40 dark:text-white/40">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="11" cy="11" r="8" />
-                    <path d="m21 21-4.3-4.3" />
-                  </svg>
-                </div>
-              </div>
-
-              <div class="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  class="h-9 border px-3 text-sm font-semibold shadow-sm"
-                  :class="activeTag === null ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-black/10 bg-white/70 text-[#0d0d0d] hover:bg-white/90 dark:border-white/10 dark:bg-neutral-950/70 dark:text-white dark:hover:bg-neutral-950/90'"
-                  @click="activeTag = null"
-                >
-                  All
-                </button>
-                <button
-                  v-for="tag in topTags"
-                  :key="tag"
-                  type="button"
-                  class="h-9 border px-3 text-sm font-semibold shadow-sm"
-                  :class="activeTag === tag ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-black/10 bg-white/70 text-[#0d0d0d] hover:bg-white/90 dark:border-white/10 dark:bg-neutral-950/70 dark:text-white dark:hover:bg-neutral-950/90'"
-                  @click="activeTag = tag"
-                >
-                  {{ tag }}
-                </button>
-              </div>
-            </div>
-
+        <div class="flex-1 overflow-auto">
+          <div class="mx-auto max-w-6xl px-4 py-6">
             <div class="overflow-auto">
               <div
                 v-if="filteredSkills.length === 0"
@@ -142,61 +80,53 @@
                   v-for="skill in filteredSkills"
                   :key="skill.id"
                   :to="`/Skills/${skill.id}`"
-                  class="block cursor-pointer border border-black/10 bg-white/70 p-4 shadow-sm backdrop-blur hover:border-black/50 hover:bg-white/90 dark:border-white/10 dark:bg-neutral-950/70 dark:hover:border-white/50 dark:hover:bg-neutral-950/90"
+                  class="group relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/10 transition hover:shadow-md hover:ring-black/20 dark:bg-[#0A101F]/80 dark:ring-white/10 dark:hover:ring-white/20 dark:shadow-none dark:hover:shadow-none"
                 >
-                  <div class="min-w-0">
-                    <div class="flex items-start justify-between gap-3">
-                      <div class="min-w-0">
-                        <div class="flex items-center gap-2">
-                          <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden text-sm font-semibold text-[#0d0d0d]/70 dark:text-white/70">
-                            <img
-                              v-if="skill.icon"
-                              :src="skill.icon"
-                              :alt="skill.name"
-                              class="h-full w-full object-cover"
-                            >
-                            <span v-else>{{ skill.name.slice(0, 2).toUpperCase() }}</span>
-                          </div>
-                          <div class="truncate text-[18px] font-medium">{{ skill.name }}</div>
-                        </div>
+                  <div class="absolute -top-px right-11 left-20 h-[2px] bg-linear-to-r from-sky-300/0 via-sky-300/70 to-sky-300/0"></div>
+                  <div class="absolute right-20 -bottom-px left-11 h-[2px] bg-linear-to-r from-blue-400/0 via-blue-400 to-blue-400/0"></div>
 
-                        <div class="mt-0.5 text-sm text-[#0d0d0d]/60 dark:text-white/60">
-                          By {{ skill.publisher }}
-                        </div>
+                  <div class="pt-4 pl-4">
+                    <svg aria-hidden="true" viewBox="0 0 42 10" fill="none" class="h-2.5 w-auto stroke-slate-500/30">
+                      <circle cx="5" cy="5" r="4.5"></circle>
+                      <circle cx="21" cy="5" r="4.5"></circle>
+                      <circle cx="37" cy="5" r="4.5"></circle>
+                    </svg>
+
+                    <div class="mt-4 flex items-center gap-3 pr-4">
+                      <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-700 ring-1 ring-black/10 dark:bg-slate-800 dark:text-slate-200 dark:ring-white/10">
+                        <img
+                          v-if="skill.icon"
+                          :src="skill.icon"
+                          :alt="skill.name"
+                          class="h-full w-full object-cover"
+                        >
+                        <span v-else>{{ skill.name.slice(0, 2).toUpperCase() }}</span>
                       </div>
+
+                      <div class="min-w-0 flex-1">
+                        <div class="font-display text-3xl tracking-tight text-slate-900 dark:text-white">{{ skill.name }}</div>
+                        <div class="text-xs text-slate-600 dark:text-slate-400">By {{ skill.publisher }}</div>
+                      </div>
+
+                      <div class="shrink-0 text-xs font-semibold text-slate-600 dark:text-slate-300">{{ skill.rating.toFixed(1) }}</div>
                     </div>
 
-                    <div class="mt-3 line-clamp-3 text-sm text-[#0d0d0d]/80 dark:text-white/80">
-                      {{ skill.shortDescription }}
-                    </div>
-
-                    <div class="mt-3 flex flex-wrap gap-2">
-                      <span
+                    <div class="mt-4 flex flex-wrap gap-2 text-xs">
+                      <div
                         v-for="tag in skill.tags"
                         :key="tag"
-                        class="border border-black/10 bg-white/70 px-2.5 py-1 text-sm font-semibold text-[#0d0d0d]/70 dark:border-white/10 dark:bg-neutral-950/70 dark:text-white/70"
+                        class="flex h-6 rounded-full bg-linear-to-r from-sky-400/30 via-sky-400 to-sky-400/30 p-px font-medium text-sky-700 dark:text-sky-300"
                       >
-                        {{ tag }}
-                      </span>
-                    </div>
-
-                    <div class="mt-4 grid grid-cols-3 gap-2 text-sm text-[#0d0d0d]/60 dark:text-white/60">
-                      <div>
-                        <div class="font-semibold text-[#0d0d0d]/80 dark:text-white/80">{{ skill.rating.toFixed(1) }}</div>
-                        <div>Rating</div>
-                      </div>
-                      <div>
-                        <div class="font-semibold text-[#0d0d0d]/80 dark:text-white/80">{{ formatInstalls(skill.activeInstalls) }}</div>
-                        <div>Active</div>
-                      </div>
-                      <div>
-                        <div class="font-semibold text-[#0d0d0d]/80 dark:text-white/80">{{ skill.version }}</div>
-                        <div>Version</div>
+                        <div class="flex items-center rounded-full px-2.5 bg-white/90 ring-1 ring-black/10 dark:bg-slate-800 dark:ring-white/10">{{ tag }}</div>
                       </div>
                     </div>
 
-                    <div class="mt-3 text-sm text-[#0d0d0d]/60 dark:text-white/60">
-                      Updated {{ skill.lastUpdated }}
+                    <div class="mt-6 flex items-start px-1 text-sm">
+                      <div aria-hidden="true" class="border-r border-slate-200 pr-4 font-mono text-slate-400 select-none dark:border-slate-300/5 dark:text-slate-600">
+                        <div v-for="n in (4 + getDescriptionLines(skill.shortDescription).length)" :key="n">{{ pad2(n) }}</div>
+                      </div>
+
+                      <pre class="skills-codeblock prism-code language-javascript block overflow-x-hidden overflow-y-auto pb-2"><code class="whitespace-pre-wrap break-words"><div class="token-line"><span class="token keyword module">Skill By</span><span class="token plain"> </span><span class="token keyword module">{{ skill.publisher }}</span><span class="token plain"> </span><span class="token punctuation">{</span></div><div class="token-line" v-for="(descLine, idx) in getDescriptionLines(skill.shortDescription)" :key="`desc-${idx}`"><template v-if="idx === 0"><span class="token plain">  </span><span class="token literal-property property">description</span><span class="token operator">:</span><span class="token plain"> </span><span class="token string">'{{ descLine }}'</span></template><template v-else><span class="token plain">  </span><span class="token string">'{{ descLine }}'</span></template></div><div class="token-line"><span class="token plain">  </span><span class="token literal-property property">updated</span><span class="token operator">:</span><span class="token plain"> </span><span class="token string">'{{ skill.lastUpdated }}'</span></div><div class="token-line"><span class="token punctuation">}</span></div></code></pre>
                     </div>
                   </div>
                 </router-link>
@@ -210,13 +140,12 @@
 </template>
 
 <script setup lang="ts">
+import AgentHeader from './agent/AgentHeader.vue';
+
 import { computed, onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
 
 import type { SkillCatalogEntry } from '@pkg/agent/services/SkillService';
 import { getSkillService } from '@pkg/agent/services/SkillService';
-
-const route = useRoute();
 
 const THEME_STORAGE_KEY = 'agentTheme';
 const isDark = ref(false);
@@ -278,6 +207,13 @@ const toggleTheme = () => {
   localStorage.setItem(THEME_STORAGE_KEY, isDark.value ? 'dark' : 'light');
 };
 
+const getDescriptionLines = (desc: string): string[] => {
+  const lines = String(desc ?? '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  return lines.length ? lines : [''];
+};
+
+const pad2 = (n: number): string => String(n).padStart(2, '0');
+
 onMounted(() => {
   try {
     const saved = localStorage.getItem(THEME_STORAGE_KEY);
@@ -295,3 +231,40 @@ onMounted(() => {
   });
 });
 </script>
+
+<style scoped>
+ .skills-codeblock {
+   scrollbar-width: thin;
+   scrollbar-color: rgba(100, 116, 139, 0.25) transparent;
+ }
+
+ .dark .skills-codeblock {
+   scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+ }
+
+ .skills-codeblock::-webkit-scrollbar {
+   height: 6px;
+   width: 6px;
+ }
+
+ .skills-codeblock::-webkit-scrollbar-track {
+   background: transparent;
+ }
+
+ .skills-codeblock::-webkit-scrollbar-thumb {
+   background-color: rgba(100, 116, 139, 0.18);
+   border-radius: 9999px;
+ }
+
+ .dark .skills-codeblock::-webkit-scrollbar-thumb {
+   background-color: rgba(148, 163, 184, 0.18);
+ }
+
+ .skills-codeblock::-webkit-scrollbar-thumb:hover {
+   background-color: rgba(100, 116, 139, 0.28);
+ }
+
+ .dark .skills-codeblock::-webkit-scrollbar-thumb:hover {
+   background-color: rgba(148, 163, 184, 0.28);
+ }
+ </style>

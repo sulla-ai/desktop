@@ -1,7 +1,7 @@
 # copyright needs to stay in sync with message in About panel in background.ts
 copyright: Copyright © 2026 Jonathon Byrdziak
 productName: Sulla Desktop
-icon: ./resources/icons/logo-square-512.png
+icon: ./pkg/rancher-desktop/pages/agent/sulla-icon.png
 appId: io.sulla.desktop
 asar: true
 asarUnpack:
@@ -24,13 +24,14 @@ mac:
   darkModeSupport: true
   hardenedRuntime: true
   gatekeeperAssess: false
-  icon: ./resources/icons/mac-icon.png
+  icon: ./pkg/rancher-desktop/pages/agent/sulla-icon.png
   target: [ dmg, zip ]
   identity: ~ # We sign in a separate step
   extraFiles:
   - build/signing-config-mac.yaml
   - { from: dist/electron-builder.yaml, to: electron-builder.yml }
 win:
+  icon: ./pkg/rancher-desktop/pages/agent/sulla-icon.ico
   target: [ zip ]
   signtoolOptions:
     signingHashAlgorithms: [ sha256 ] # We only support Windows 10 + WSL2

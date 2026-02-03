@@ -367,7 +367,7 @@ export class AgentChatController {
         throw new Error(err || 'Unknown error');
       }
 
-      const formatted = this.deps.responseHandler.formatText(agentResponse) || 'No response from model';
+      const formatted = this.deps.responseHandler.formatText(agentResponse) || '';
       this.messages.value.push({ id: `${Date.now()}_assistant`, role: 'assistant', content: formatted });
       await this.maybeAutoScroll();
     } catch (err: unknown) {

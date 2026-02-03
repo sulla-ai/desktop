@@ -1,6 +1,6 @@
 <template>
-  <div class="h-screen overflow-hidden bg-white text-base text-[#0d0d0d] dark:bg-neutral-950 dark:text-neutral-50 font-sans" :class="{ dark: isDark }">
-    <div class="flex h-screen min-h-0 flex-col">
+  <div class="min-h-screen overflow-hidden bg-white text-base text-[#0d0d0d] dark:bg-slate-900 dark:text-neutral-50 font-sans" :class="{ dark: isDark }">
+    <div class="flex min-h-screen flex-col">
       <div class="sticky top-0 z-40 border-b border-black/10 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-neutral-950/70">
         <div class="flex items-center justify-between px-4 py-3">
           <div class="text-base font-semibold tracking-tight text-[#0d0d0d]/80 dark:text-white/80">
@@ -69,7 +69,9 @@
         </div>
       </div>
 
-      <div class="flex-1 overflow-auto">
+      <div class="flex-1 overflow-auto"><img alt="" width="530" height="530" decoding="async" data-nimg="1" class="absolute -top-64 -right-64"
+                    style="color:transparent" src="./agent/splash.png">
+                  
         <div class="mx-auto max-w-6xl px-4 py-6">
           <div v-if="!skill" class="border border-black/10 bg-white/70 p-6 text-base text-[#0d0d0d]/70 shadow-sm backdrop-blur dark:border-white/10 dark:bg-neutral-950/70 dark:text-white/70">
             Skill not found.

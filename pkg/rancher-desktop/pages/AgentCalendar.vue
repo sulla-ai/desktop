@@ -1,90 +1,19 @@
 <template>
-  <div class="h-screen overflow-hidden bg-white text-[#0d0d0d] dark:bg-neutral-950 dark:text-neutral-50 font-sans" :class="{ dark: isDark }">
-    <div class="flex h-screen min-h-0 flex-col">
-      <div class="sticky top-0 z-40 border-b border-black/10 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-neutral-950/70">
-        <div class="flex items-center justify-between px-4 py-3">
-          <div class="text-sm font-semibold tracking-tight text-[#0d0d0d]/80 dark:text-white/80">
-            Sulla
-          </div>
+  <div class="min-h-screen overflow-y-auto bg-white text-[#0d0d0d] dark:bg-slate-900 dark:text-neutral-50 font-sans" :class="{ dark: isDark }">
+    <div class="flex min-h-screen flex-col">
+      <AgentHeader :is-dark="isDark" :toggle-theme="toggleTheme" />
 
-          <nav class="absolute left-1/2 -translate-x-1/2 flex items-center gap-x-6">
-            <router-link
-              to="/Chat"
-              class="text-sm font-semibold"
-              :class="route.path === '/Chat' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-            >
-              Chat
-            </router-link>
-            <router-link
-              to="/Calendar"
-              class="text-sm font-semibold"
-              :class="route.path === '/Calendar' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-            >
-              Calendar
-            </router-link>
-            <router-link
-              to="/KnowledgeBase"
-              class="text-sm font-semibold"
-              :class="route.path === '/KnowledgeBase' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-            >
-              KnowledgeBase
-            </router-link>
-            <router-link
-              to="/Skills"
-              class="text-sm font-semibold"
-              :class="route.path === '/Skills' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-            >
-              Skills
-            </router-link>
-          </nav>
-
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="flex h-10 items-center gap-2 rounded-full border border-black/10 bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
-              @click="showAddEventModal = true"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Add Event
-            </button>
-
-            <a
-              class="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white/70 text-[#0d0d0d] shadow-sm backdrop-blur hover:bg-white/90 dark:border-white/10 dark:bg-neutral-950/70 dark:text-white dark:hover:bg-neutral-950/90"
-              href="https://github.com/sulla-ai/desktop"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Open GitHub repository"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor">
-                <path d="M12 .5C5.73.5.75 5.66.75 12.02c0 5.12 3.29 9.46 7.86 10.99.58.11.79-.26.79-.57 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.57-3.87-1.57-.53-1.36-1.29-1.72-1.29-1.72-1.05-.73.08-.72.08-.72 1.16.08 1.77 1.22 1.77 1.22 1.03 1.8 2.69 1.28 3.35.98.1-.77.4-1.28.72-1.57-2.55-.3-5.23-1.31-5.23-5.83 0-1.29.45-2.35 1.19-3.18-.12-.3-.52-1.52.11-3.17 0 0 .97-.32 3.18 1.21.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.53 3.17-1.21 3.17-1.21.63 1.65.23 2.87.12 3.17.74.83 1.19 1.89 1.19 3.18 0 4.53-2.69 5.53-5.25 5.82.41.36.78 1.08.78 2.19 0 1.58-.02 2.86-.02 3.25 0 .31.21.68.8.56 4.56-1.53 7.84-5.87 7.84-10.98C23.25 5.66 18.27.5 12 .5z" />
-              </svg>
-            </a>
-
-            <button
-              type="button"
-              class="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white/70 text-[#0d0d0d] shadow-sm backdrop-blur hover:bg-white/90 dark:border-white/10 dark:bg-neutral-950/70 dark:text-white dark:hover:bg-neutral-950/90"
-              :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-              @click="toggleTheme"
-            >
-              <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2" />
-                <path d="M12 20v2" />
-                <path d="m4.93 4.93 1.41 1.41" />
-                <path d="m17.66 17.66 1.41 1.41" />
-                <path d="M2 12h2" />
-                <path d="M20 12h2" />
-                <path d="m6.34 17.66-1.41 1.41" />
-                <path d="m19.07 4.93-1.41 1.41" />
-              </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" />
-              </svg>
-            </button>
-          </div>
-        </div>
+      <div class="flex items-center justify-end px-4 py-3">
+        <button
+          type="button"
+          class="flex h-10 items-center gap-2 rounded-full border border-black/10 bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+          @click="showAddEventModal = true"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Add Event
+        </button>
       </div>
 
       <div class="flex-1 overflow-hidden">
@@ -337,16 +266,15 @@
 </template>
 
 <script setup lang="ts">
+import AgentHeader from './agent/AgentHeader.vue';
+
 import { ref, onMounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
 import { ScheduleXCalendar } from '@schedule-x/vue';
 import { createCalendar, createViewMonthGrid, createViewMonthAgenda, createViewWeek, createViewDay } from '@schedule-x/calendar';
 import { createEventsServicePlugin } from '@schedule-x/events-service';
 import '@schedule-x/theme-default/dist/index.css';
 import 'temporal-polyfill/global';
 import { getCalendarService } from '@pkg/agent/services/CalendarService';
-
-const route = useRoute();
 const calendarService = getCalendarService();
 
 const THEME_STORAGE_KEY = 'agentTheme';
@@ -386,6 +314,7 @@ const savingEditEvent = ref(false);
 const toggleTheme = () => {
   isDark.value = !isDark.value;
   localStorage.setItem(THEME_STORAGE_KEY, isDark.value ? 'dark' : 'light');
+  calendar.setTheme(isDark.value ? 'dark' : 'light');
 };
 
 const eventsService = createEventsServicePlugin();
@@ -496,6 +425,8 @@ onMounted(async () => {
   } catch {
     isDark.value = false;
   }
+
+  calendar.setTheme(isDark.value ? 'dark' : 'light');
 
   await loadEvents();
 
@@ -732,6 +663,25 @@ const deleteEvent = async () => {
 div.sx__calendar,.sx__calendar,
 .sx-vue-calendar-wrapper .sx-calendar {
   border: none;
+}
+
+.dark div.sx__calendar,
+.dark .sx__calendar,
+.dark .sx-vue-calendar-wrapper .sx-calendar {
+  background-color: color-mix(in oklab, var(--color-slate-900) 75%, transparent);
+}
+
+div.sx__calendar,
+.sx__calendar,
+.dark div.sx__calendar,
+.dark .sx__calendar,
+.dark .sx-vue-calendar-wrapper {
+  --sx-color-primary: var(--color-sky-300);
+  --sx-color-on-primary: var(--color-slate-900);
+  --sx-color-primary-container: color-mix(in oklab, var(--color-sky-300) 25%, transparent);
+  --sx-color-on-primary-container: var(--color-sky-100);
+  --sx-color-neutral: var(--color-slate-400);
+  --sx-color-neutral-variant: var(--color-slate-400);
 }
 
 </style>

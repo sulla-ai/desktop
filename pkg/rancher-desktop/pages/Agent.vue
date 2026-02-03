@@ -1,80 +1,8 @@
 <template>
-  <div class="h-screen overflow-hidden bg-white text-[#0d0d0d] dark:bg-neutral-950 dark:text-neutral-50 font-sans" :class="{ dark: isDark }">
-    <div class="flex h-screen min-h-0 flex-col">
-      <div class="sticky top-0 z-40 border-b border-black/10 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-neutral-950/70">
-        <div class="flex items-center justify-between px-4 py-3">
-          <div class="text-sm font-semibold tracking-tight text-[#0d0d0d]/80 dark:text-white/80">
-            Sulla
-          </div>
+  <div class="min-h-screen overflow-y-auto bg-white text-[#0d0d0d] dark:bg-slate-900 dark:text-neutral-50 font-sans" :class="{ dark: isDark }">
+    <div class="flex min-h-screen flex-col">
 
-          <nav class="absolute left-1/2 -translate-x-1/2 flex items-center gap-x-6">
-              <router-link
-                to="/Chat"
-                class="text-sm font-semibold"
-                :class="route.path === '/Chat' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-              >
-                Chat
-              </router-link>
-              <router-link
-                to="/Calendar"
-                class="text-sm font-semibold"
-                :class="route.path === '/Calendar' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-              >
-                Calendar
-              </router-link>
-              <router-link
-                to="/KnowledgeBase"
-                class="text-sm font-semibold"
-                :class="route.path === '/KnowledgeBase' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-              >
-                KnowledgeBase
-              </router-link>
-              <router-link
-                to="/Skills"
-                class="text-sm font-semibold"
-                :class="route.path === '/Skills' ? 'text-[#0d0d0d] dark:text-white' : 'text-[#0d0d0d]/60 hover:text-[#0d0d0d] dark:text-white/60 dark:hover:text-white'"
-              >
-                Skills
-              </router-link>
-          </nav>
-
-          <div class="flex items-center gap-2">
-            <a
-              class="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white/70 text-[#0d0d0d] shadow-sm backdrop-blur hover:bg-white/90 dark:border-white/10 dark:bg-neutral-950/70 dark:text-white dark:hover:bg-neutral-950/90"
-              href="https://github.com/sulla-ai/desktop"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Open GitHub repository"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor">
-                <path d="M12 .5C5.73.5.75 5.66.75 12.02c0 5.12 3.29 9.46 7.86 10.99.58.11.79-.26.79-.57 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.57-3.87-1.57-.53-1.36-1.29-1.72-1.29-1.72-1.05-.73.08-.72.08-.72 1.16.08 1.77 1.22 1.77 1.22 1.03 1.8 2.69 1.28 3.35.98.1-.77.4-1.28.72-1.57-2.55-.3-5.23-1.31-5.23-5.83 0-1.29.45-2.35 1.19-3.18-.12-.3-.52-1.52.11-3.17 0 0 .97-.32 3.18 1.21.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.53 3.17-1.21 3.17-1.21.63 1.65.23 2.87.12 3.17.74.83 1.19 1.89 1.19 3.18 0 4.53-2.69 5.53-5.25 5.82.41.36.78 1.08.78 2.19 0 1.58-.02 2.86-.02 3.25 0 .31.21.68.8.56 4.56-1.53 7.84-5.87 7.84-10.98C23.25 5.66 18.27.5 12 .5z" />
-              </svg>
-            </a>
-
-            <button
-              type="button"
-              class="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white/70 text-[#0d0d0d] shadow-sm backdrop-blur hover:bg-white/90 dark:border-white/10 dark:bg-neutral-950/70 dark:text-white dark:hover:bg-neutral-950/90"
-              :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-              @click="toggleTheme"
-            >
-              <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2" />
-                <path d="M12 20v2" />
-                <path d="m4.93 4.93 1.41 1.41" />
-                <path d="m17.66 17.66 1.41 1.41" />
-                <path d="M2 12h2" />
-                <path d="M20 12h2" />
-                <path d="m6.34 17.66-1.41 1.41" />
-                <path d="m19.07 4.93-1.41 1.41" />
-              </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
+      <AgentHeader :is-dark="isDark" :toggle-theme="toggleTheme" />
 
     <!-- Loading overlay while system boots -->
     <div
@@ -140,297 +68,395 @@
 
     <!-- Main agent interface -->
     <div class="flex min-h-0 flex-1 overflow-hidden" :class="{ 'blur-sm pointer-events-none select-none': !systemReady && !hasEverBeenReady }">
-      <div
-        v-if="hasMessages"
-        class="hidden w-72 shrink-0 overflow-y-auto border-r border-black/10 bg-black/2 px-4 py-6 dark:border-white/10 dark:bg-white/5 md:block"
-      >
-        <div v-if="activePlanGoal" class="mb-3">
-          <div class="text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">Goal</div>
-          <div class="mt-1 text-sm font-semibold text-[#0d0d0d] dark:text-white">{{ activePlanGoal }}</div>
-        </div>
-
-        <div v-else class="mb-3 text-sm text-[#0d0d0d]/60 dark:text-white/60">
-          No active plan
-        </div>
-
-        <div class="space-y-1">
-          <div
-            v-for="t in activePlanTodos"
-            :key="t.key"
-            class="group flex items-start gap-2 rounded-xl px-2 py-2"
-            :class="t.status === 'in_progress' ? 'bg-black/5 dark:bg-white/10' : t.status === 'done' ? 'opacity-70' : 'hover:bg-black/5 dark:hover:bg-white/10'"
-          >
-            <span
-              class="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-              :class="t.status === 'done' ? 'bg-emerald-500' : t.status === 'in_progress' ? 'bg-amber-500' : t.status === 'blocked' ? 'bg-red-500' : 'bg-neutral-400/70 dark:bg-neutral-500/70'"
-            />
-
-            <div
-              v-if="t.status === 'done'"
-              class="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border border-emerald-500/40 bg-emerald-500/15"
-            >
-              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" class="text-emerald-700 dark:text-emerald-200" aria-hidden="true">
-                <path d="M16.5 5.5L8.25 13.75L3.5 9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </div>
-            <button
-              v-else
-              type="button"
-              class="mt-0.5 h-4 w-4 shrink-0 rounded border border-black/20 bg-white dark:border-white/20 dark:bg-neutral-950"
-            />
-
-            <div class="min-w-0 flex-1">
-              <div
-                class="whitespace-normal break-words text-xs font-normal"
-                :class="t.status === 'done' ? 'line-through text-[#0d0d0d]/70 dark:text-white/70' : 'text-[#0d0d0d] dark:text-white'"
-              >
-                {{ t.title }}
-              </div>
-              <div class="mt-0.5 whitespace-normal break-words text-xs text-[#0d0d0d]/60 dark:text-white/60">
-                {{ t.statusLabel }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div
-          v-if="hasMessages"
-          ref="transcriptEl"
-          class="flex-1 overflow-y-auto px-6 py-6"
-        >
-          <div
-            v-for="m in messages"
-            :key="m.id"
-            class="mb-3 flex"
-            :style="m.kind === 'tool' ? 'margin-bottom: 0px;' : ''"
-            :class="m.role === 'user' ? 'justify-end' : 'justify-start'"
-          >
-            <div
-              v-if="m.role === 'system'"
-              class="max-w-[min(760px,92%)] rounded-2xl px-4 py-3 text-xs leading-5 border"
-              :class="m.kind === 'tool'
-                ? 'bg-blue-500/10 border-blue-500/20 text-[#0d0d0d] dark:bg-blue-500/10 dark:border-blue-400/20 dark:text-neutral-50'
-                : m.kind === 'planner'
-                  ? 'bg-purple-500/10 border-purple-500/20 text-[#0d0d0d] dark:bg-purple-500/10 dark:border-purple-400/20 dark:text-neutral-50'
-                  : m.kind === 'critic'
-                    ? 'bg-amber-500/10 border-amber-500/20 text-[#0d0d0d] dark:bg-amber-500/10 dark:border-amber-400/20 dark:text-neutral-50'
-                    : 'bg-black/3 border-black/10 text-neutral-900 dark:bg-white/5 dark:border-white/10 dark:text-neutral-100'"
-              :style="m.kind === 'tool' ? 'padding: 0px 6px; border-radius: 8px; line-height: 15px; height: 15px;' : ''"
-            >
-              <div v-if="m.image" class="space-y-2">
-                <img
-                  :src="m.image.dataUrl"
-                  :alt="m.image.alt || ''"
-                  class="block h-auto max-w-full rounded-xl border border-black/10 dark:border-white/10"
-                >
-                <div v-if="m.image.alt" class="text-[11px] text-[#0d0d0d]/60 dark:text-white/60">
-                  {{ m.image.alt }}
-                </div>
-              </div>
-              <div v-if="m.kind === 'tool' && m.toolCard" class="flex h-[15px] min-h-[15px] items-center gap-2 overflow-hidden">
-                <span
-                  class="h-1.5 w-1.5 shrink-0 rounded-full"
-                  :class="m.toolCard.status === 'running'
-                    ? 'bg-amber-500'
-                    : m.toolCard.status === 'success'
-                      ? 'bg-emerald-500'
-                      : 'bg-red-500'"
-                />
-                <div class="min-w-0 truncate text-[11px] font-medium">
-                  {{ m.toolCard.toolName }}
-                  <span v-if="m.toolCard.args && Object.keys(m.toolCard.args).length" class="text-[#0d0d0d]/60 dark:text-white/60">
-                    {{ ' ' + JSON.stringify(m.toolCard.args) }}
-                  </span>
-                </div>
-                <div class="shrink-0 text-[11px] text-[#0d0d0d]/50 dark:text-white/50">
-                  {{ m.toolCard.status }}
-                </div>
-              </div>
-              <div v-else-if="m.kind === 'tool'" class="whitespace-pre-wrap">{{ m.content }}</div>
-              <div v-else class="prose prose-sm dark:prose-invert max-w-none" v-html="renderMarkdown(m.content)" />
-            </div>
+        <div v-if="hasMessages" class="relative mx-auto flex w-full max-w-8xl flex-1 justify-center overflow-hidden sm:px-2 lg:px-8 xl:px-12">
+          <div class="hidden lg:relative lg:block lg:flex-none">
+            <div class="absolute inset-y-0 right-0 w-[50vw] bg-slate-50 dark:hidden"></div>
+            <div class="absolute top-16 right-0 bottom-0 hidden h-12 w-px bg-linear-to-t from-slate-800 dark:block"></div>
+            <div class="absolute top-28 right-0 bottom-0 hidden w-px bg-slate-800 dark:block"></div>
+            <div class="sticky top-19 -ml-0.5 h-[calc(100vh-4.75rem)] w-64 overflow-x-hidden overflow-y-auto py-16 pr-8 pl-0.5 xl:w-72 xl:pr-16"></div>
+          </div>
 
-            <div
-              v-else
-              class="max-w-[min(760px,92%)] rounded-2xl px-4 py-3 text-sm leading-6 border"
-              :class="m.role === 'user'
-                ? 'bg-black/5 border-black/10 text-[#0d0d0d] dark:bg-white/10 dark:border-white/10 dark:text-neutral-50'
-                : 'bg-black/3 border-black/10 text-neutral-900 dark:bg-white/5 dark:border-white/10 dark:text-neutral-100'"
-            >
-              <div v-if="m.role === 'user'" class="whitespace-pre-wrap">{{ m.content }}</div>
-              <div v-else-if="m.image" class="space-y-2">
-                <img
-                  :src="m.image.dataUrl"
-                  :alt="m.image.alt || ''"
-                  class="block h-auto max-w-full rounded-xl border border-black/10 dark:border-white/10"
-                >
-                <div v-if="m.image.alt" class="text-xs text-[#0d0d0d]/60 dark:text-white/60">
-                  {{ m.image.alt }}
+          <div class="max-w-2xl min-w-0 flex-auto px-4 py-16 lg:max-w-none lg:pr-0 lg:pl-8 xl:px-16">
+            <div ref="transcriptEl" class="h-full overflow-y-auto pb-40">
+              <div
+                v-for="m in messages"
+                :key="m.id"
+                class="mb-8"
+              >
+                <div v-if="m.role === 'user'" class="flex justify-end">
+                  <div class="max-w-[min(760px,92%)] rounded-3xl p-6 bg-sky-50 dark:bg-slate-800/60 dark:ring-1 dark:ring-slate-300/10">
+                    <div class="whitespace-pre-wrap text-sky-900 dark:text-slate-100">{{ m.content }}</div>
+                  </div>
+                </div>
+
+                <div v-else-if="m.kind === 'tool'" class="max-w-[min(760px,92%)]">
+                  <pre class="prism-code language-shell"><code><span class="token plain">{{ m.content }}</span>
+ </code></pre>
+                </div>
+
+                <div v-else class="max-w-[min(760px,92%)]">
+                  <div v-if="m.image" class="space-y-2">
+                    <img
+                      :src="m.image.dataUrl"
+                      :alt="m.image.alt || ''"
+                      class="block h-auto max-w-full rounded-xl border border-black/10 dark:border-white/10"
+                    >
+                    <div v-if="m.image.alt" class="text-xs text-[#0d0d0d]/60 dark:text-white/60">
+                      {{ m.image.alt }}
+                    </div>
+                  </div>
+                  <div v-else class="prose max-w-none prose-slate dark:text-slate-400 dark:prose-invert" v-html="renderMarkdown(m.content)" />
                 </div>
               </div>
-              <div v-else class="prose prose-sm dark:prose-invert max-w-none" v-html="renderMarkdown(m.content)" />
+              <div
+                v-if="loading"
+                class="mb-3 flex justify-start"
+              >
+                <div class="relative max-w-[min(760px,92%)] whitespace-pre-wrap rounded-xl px-4 py-3 text-sm leading-6 text-neutral-900 dark:text-neutral-100">
+                  <div class="absolute -inset-px rounded-xl border-2 border-transparent [background:linear-gradient(var(--quick-links-hover-bg,var(--color-sky-50)),var(--quick-links-hover-bg,var(--color-sky-50)))_padding-box,linear-gradient(to_top,var(--color-indigo-400),var(--color-cyan-400),var(--color-sky-500))_border-box] dark:[--quick-links-hover-bg:var(--color-slate-800)]"></div>
+                  <div class="relative">Thinking...</div>
+                </div>
+              </div>
             </div>
           </div>
-          <div
-            v-if="loading"
-            class="mb-3 flex justify-start"
-          >
-            <div class="max-w-[min(760px,92%)] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6 bg-black/3 border border-black/10 text-neutral-900 dark:bg-white/5 dark:border-white/10 dark:text-neutral-100">
-              Thinking...
+
+          <div class="hidden xl:sticky xl:top-19 xl:-mr-6 xl:block xl:h-[calc(100vh-4.75rem)] xl:flex-none xl:overflow-y-auto xl:py-16 xl:pr-6">
+            <div class="w-72">
+              <div v-if="latestChatError" class="my-8 flex rounded-3xl p-6 bg-amber-50 dark:bg-slate-800/60 dark:ring-1 dark:ring-slate-300/10">
+                <svg aria-hidden="true" viewBox="0 0 32 32" fill="none" class="h-8 w-8 flex-none [--icon-foreground:var(--color-amber-900)] [--icon-background:var(--color-amber-100)]">
+                  <defs>
+                    <radialGradient cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" id="_ChatWarn-gradient" gradientTransform="rotate(65.924 1.519 20.92) scale(25.7391)">
+                      <stop stop-color="#FDE68A" offset=".08"></stop>
+                      <stop stop-color="#F59E0B" offset=".837"></stop>
+                    </radialGradient>
+                    <radialGradient cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" id="_ChatWarn-gradient-dark" gradientTransform="matrix(0 24.5 -24.5 0 16 5.5)">
+                      <stop stop-color="#FDE68A" offset=".08"></stop>
+                      <stop stop-color="#F59E0B" offset=".837"></stop>
+                    </radialGradient>
+                  </defs>
+                  <g class="dark:hidden">
+                    <circle cx="20" cy="20" r="12" fill="url(#_ChatWarn-gradient)"></circle>
+                    <path d="M3 16c0 7.18 5.82 13 13 13s13-5.82 13-13S23.18 3 16 3 3 8.82 3 16Z" fill-opacity="0.5" class="fill-(--icon-background) stroke-(--icon-foreground)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="m15.408 16.509-1.04-5.543a1.66 1.66 0 1 1 3.263 0l-1.039 5.543a.602.602 0 0 1-1.184 0Z" class="fill-(--icon-foreground) stroke-(--icon-foreground)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M16 23a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" fill-opacity="0.5" stroke="currentColor" class="fill-(--icon-background) stroke-(--icon-foreground)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </g>
+                  <g class="hidden dark:inline">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M2 16C2 8.268 8.268 2 16 2s14 6.268 14 14-6.268 14-14 14S2 23.732 2 16Zm11.386-4.85a2.66 2.66 0 1 1 5.228 0l-1.039 5.543a1.602 1.602 0 0 1-3.15 0l-1.04-5.543ZM16 20a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z" fill="url(#_ChatWarn-gradient-dark)"></path>
+                  </g>
+                </svg>
+                <div class="ml-4 flex-auto">
+                  <p class="not-prose font-display text-xl text-amber-900 dark:text-amber-500">Oh no! Something bad happened!</p>
+                  <div class="prose mt-2.5 text-amber-800 [--tw-prose-underline:var(--color-amber-400)] [--tw-prose-background:var(--color-amber-50)] prose-a:text-amber-900 prose-code:text-amber-900 dark:text-slate-300 dark:[--tw-prose-underline:var(--color-sky-700)] dark:prose-code:text-slate-300">
+                    <p>{{ latestChatError }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <nav class="text-base lg:text-sm">
+                <div class="mb-3">
+                  <h2 class="font-display font-medium text-slate-900 dark:text-white">Goals & plan</h2>
+                  <div v-if="activePlanGoal" class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                    {{ activePlanGoal }}
+                  </div>
+                  <div v-else class="mt-2 text-sm text-slate-500 dark:text-slate-400">No active plan.</div>
+                </div>
+
+                <ul role="list" class="mt-2 space-y-2 border-l-2 border-slate-100 lg:mt-4 lg:space-y-4 lg:border-slate-200 dark:border-slate-800">
+                  <li v-for="t in activePlanTodos" :key="t.key" class="relative">
+                    <div
+                      class="block w-full pl-3.5 before:pointer-events-none before:absolute before:top-1/2 before:-left-1 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rounded-full"
+                      :class="t.status === 'in_progress'
+                        ? 'font-semibold text-sky-500 before:bg-sky-500'
+                        : t.status === 'done'
+                          ? 'text-slate-500 line-through before:bg-slate-300 dark:text-slate-500 dark:before:bg-slate-700'
+                          : 'text-slate-500 before:hidden before:bg-slate-300 hover:text-slate-600 hover:before:block dark:text-slate-400 dark:before:bg-slate-700 dark:hover:text-slate-300'"
+                    >
+                      {{ t.title }}
+                      <div class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{{ t.statusLabel }}</div>
+                    </div>
+                  </li>
+                </ul>
+              </nav>
             </div>
           </div>
         </div>
 
         <div
-          :class="hasMessages ? 'sticky bottom-0 border-t border-black/10 bg-white/75 backdrop-blur dark:border-white/10 dark:bg-neutral-950/80' : 'flex flex-1 items-center justify-center bg-white dark:bg-neutral-950'"
+          :class="hasMessages ? 'fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/80 pt-6 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80' : 'flex flex-1 items-center justify-center bg-white dark:bg-slate-900'"
         >
-          <div class="w-full px-4" :class="hasMessages ? 'py-3' : ''">
-            <div
-              class="flex h-full flex-col items-center"
-              :class="hasMessages ? '' : 'justify-center'"
-            >
-            <form
-              class="group/composer mx-auto mb-3 w-full max-w-3xl"
-              :data-empty="!query.trim()"
-              :data-running="loading"
-              @submit.prevent
-            >
-              <div class="overflow-visible rounded-[32px] bg-[#f8f8f8] shadow-sm ring-1 ring-[#e5e5e5] ring-inset transition-shadow focus-within:ring-[#d0d0d0] dark:bg-neutral-900/70 dark:ring-white/10 dark:focus-within:ring-white/20">
-                <div class="flex flex-wrap items-end gap-1 p-2">
-                  <button
-                    type="button"
-                    class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#0d0d0d] transition-colors hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
-                    aria-label="Attach"
-                    :disabled="!systemReady"
+          <div v-if="hasMessages" class="relative mx-auto flex w-full max-w-8xl justify-center sm:px-2 lg:px-8 xl:px-12">
+            <div class="max-w-2xl min-w-0 flex-auto px-4 lg:max-w-none lg:pr-0 lg:pl-8 xl:px-16">
+              <div class="pb-3">
+                <div class="flex h-full flex-col items-center">
+                  <form
+                    class="group/composer mx-auto mb-3 w-full"
+                    :data-empty="!query.trim()"
+                    :data-running="loading"
+                    @submit.prevent
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" />
-                    </svg>
-                  </button>
-
-                  <textarea
-                    ref="composerTextareaEl"
-                    v-model="query"
-                    name="input"
-                    placeholder="What do you want to know?"
-                    class="my-2 h-6 max-h-[400px] min-w-0 flex-1 resize-none bg-transparent text-[#0d0d0d] text-base leading-6 outline-none placeholder:text-[#9a9a9a] dark:text-white dark:placeholder:text-neutral-500"
-                    :class="isComposerMultiline ? 'basis-full order-2' : 'order-2'"
-                    @input="updateComposerLayout"
-                    @keydown.enter.exact.prevent="sendOrStop"
-                  />
-
-                  <div
-                    class="mb-0.5 flex items-center gap-2"
-                    :class="isComposerMultiline ? 'order-3 w-full justify-between' : 'order-3'"
-                  >
-                    <div class="relative mb-0.5" ref="modelSelector.modelMenuEl">
-                      <button
-                        type="button"
-                        class="flex h-9 shrink-0 items-center gap-2 rounded-full px-2.5 text-[#0d0d0d] hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
-                        aria-label="Model select"
-                        :disabled="!systemReady"
-                        @click="modelSelector.toggleModelMenu"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
-                          <path d="M12 8V4" />
-                          <path d="M8 4h8" />
-                          <rect x="6" y="8" width="12" height="10" rx="2" />
-                          <path d="M9 18v2" />
-                          <path d="M15 18v2" />
-                          <path d="M9.5 12h.01" />
-                          <path d="M14.5 12h.01" />
-                          <path d="M10 15h4" />
-                        </svg>
-                        <div class="flex items-center gap-1 overflow-hidden">
-                          <span class="whitespace-nowrap font-semibold text-sm">{{ modelSelector.activeModelLabelValue }}</span>
-                          <svg width="16" height="16" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true">
-                            <path d="M3.13523 6.15803C3.3241 5.95657 3.64052 5.94637 3.84197 6.13523L7.5 9.56464L11.158 6.13523C11.3595 5.94637 11.6759 5.95657 11.8648 6.15803C12.0536 6.35949 12.0434 6.67591 11.842 6.86477L7.84197 10.6148C7.64964 10.7951 7.35036 10.7951 7.15803 10.6148L3.15803 6.86477C2.95657 6.67591 2.94637 6.35949 3.13523 6.15803Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
-                          </svg>
-                        </div>
-                      </button>
-
-                      <div
-                        v-if="modelSelector.showModelMenuValue"
-                        class="agent-model-selector-menu absolute bottom-12 right-0 z-50 w-72 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-neutral-950"
-                      >
-                      <div class="px-3 py-2 text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">
-                        Local
-                      </div>
-
-                      <div v-if="modelSelector.loadingLocalModelsValue" class="px-3 py-2 text-sm text-[#0d0d0d]/70 dark:text-white/70">
-                        Loading...
-                      </div>
-                      <button
-                        v-for="m in modelSelector.localModelOptionsValue"
-                        :key="m.value"
-                        type="button"
-                        class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-[#0d0d0d] hover:bg-[#f4f4f4] dark:text-white dark:hover:bg-white/10"
-                        @click="modelSelector.selectModel(m)"
-                      >
-                        <span class="min-w-0 flex-1 truncate">{{ m.label }}</span>
-                        <span v-if="m.isActive" class="shrink-0 text-xs font-semibold text-[#0d0d0d]/60 dark:text-white/60">Active</span>
-                      </button>
-
-                      <div class="border-t border-black/10 dark:border-white/10" />
-
-                      <div class="px-3 py-2 text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">
-                        Remote
-                      </div>
-                      <div v-if="!modelSelector.remoteOptionValue" class="px-3 py-2 text-sm text-[#0d0d0d]/70 dark:text-white/70">
-                        No validated remote provider
-                      </div>
-                      <button
-                        v-else
-                        type="button"
-                        class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-[#0d0d0d] hover:bg-[#f4f4f4] dark:text-white dark:hover:bg-white/10"
-                        @click="modelSelector.remoteOptionValue && modelSelector.selectModel(modelSelector.remoteOptionValue)"
-                      >
-                        <span class="min-w-0 flex-1 truncate">{{ modelSelector.remoteOptionValue?.label }}</span>
-                        <span v-if="modelSelector.remoteOptionValue?.isActive" class="shrink-0 text-xs font-semibold text-[#0d0d0d]/60 dark:text-white/60">Active</span>
-                      </button>
-                      </div>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <div class="relative h-9 w-9 shrink-0 rounded-full bg-[#0d0d0d] text-white dark:bg-white dark:text-[#0d0d0d]">
+                    <div class="relative overflow-visible overflow-hidden rounded-lg bg-white/95 shadow-sm ring-1 ring-slate-200 transition-shadow focus-within:ring-slate-300 dark:bg-slate-800/75 dark:ring-white/5 dark:ring-inset dark:focus-within:ring-white/20">
+                      <div class="absolute -top-px right-11 left-20 h-[2px] bg-linear-to-r from-sky-300/0 via-sky-300/70 to-sky-300/0"></div>
+                      <div class="absolute right-20 -bottom-px left-11 h-[2px] bg-linear-to-r from-blue-400/0 via-blue-400 to-blue-400/0"></div>
+                      <div class="flex flex-wrap items-end gap-1 p-2">
                         <button
                           type="button"
-                          class="absolute inset-0 flex items-center justify-center"
-                          aria-label="Voice mode"
+                          class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#0d0d0d] transition-colors hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
+                          aria-label="Attach"
                           :disabled="!systemReady"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" />
+                          </svg>
+                        </button>
+
+                        <textarea
+                          ref="composerTextareaEl"
+                          v-model="query"
+                          name="input"
+                          placeholder="What do you want to know?"
+                          class="my-2 h-6 max-h-[400px] min-w-0 flex-1 resize-none bg-transparent text-[#0d0d0d] text-base leading-6 outline-none placeholder:text-[#9a9a9a] dark:text-white dark:placeholder:text-neutral-500"
+                          :class="isComposerMultiline ? 'basis-full order-2' : 'order-2'"
+                          @input="updateComposerLayout"
+                          @keydown.enter.exact.prevent="sendOrStop"
+                        />
+
+                        <div
+                          class="mb-0.5 flex items-center gap-2"
+                          :class="isComposerMultiline ? 'order-3 w-full justify-between' : 'order-3'"
+                        >
+                          <div class="relative mb-0.5" ref="modelSelector.modelMenuEl">
+                            <button
+                              type="button"
+                              class="flex h-9 shrink-0 items-center gap-2 rounded-full px-2.5 text-[#0d0d0d] hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
+                              aria-label="Model select"
+                              :disabled="!systemReady"
+                              @click="modelSelector.toggleModelMenu"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
+                                <path d="M12 8V4" />
+                                <path d="M8 4h8" />
+                                <rect x="6" y="8" width="12" height="10" rx="2" />
+                                <path d="M9 18v2" />
+                                <path d="M15 18v2" />
+                                <path d="M9.5 12h.01" />
+                                <path d="M14.5 12h.01" />
+                                <path d="M10 15h4" />
+                              </svg>
+                              <div class="flex items-center gap-1 overflow-hidden">
+                                <span class="whitespace-nowrap font-semibold text-sm">{{ modelSelector.activeModelLabelValue }}</span>
+                                <svg width="16" height="16" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true">
+                                  <path d="M3.13523 6.15803C3.3241 5.95657 3.64052 5.94637 3.84197 6.13523L7.5 9.56464L11.158 6.13523C11.3595 5.94637 11.6759 5.95657 11.8648 6.15803C12.0536 6.35949 12.0434 6.67591 11.842 6.86477L7.84197 10.6148C7.64964 10.7951 7.35036 10.7951 7.15803 10.6148L3.15803 6.86477C2.95657 6.67591 2.94637 6.35949 3.13523 6.15803Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                                </svg>
+                              </div>
+                            </button>
+
+                            <div
+                              v-if="modelSelector.showModelMenuValue"
+                              class="agent-model-selector-menu absolute bottom-12 right-0 z-50 w-72 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900"
+                            >
+                            <div class="px-3 py-2 text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">
+                              Local
+                            </div>
+
+                            <div v-if="modelSelector.loadingLocalModelsValue" class="px-3 py-2 text-sm text-[#0d0d0d]/70 dark:text-white/70">
+                              Loading...
+                            </div>
+                            <button
+                              v-for="m in modelSelector.localModelOptionsValue"
+                              :key="m.value"
+                              type="button"
+                              class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-[#0d0d0d] hover:bg-[#f4f4f4] dark:text-white dark:hover:bg-white/10"
+                              @click="modelSelector.selectModel(m)"
+                            >
+                              <span class="min-w-0 flex-1 truncate">{{ m.label }}</span>
+                              <span v-if="m.isActive" class="shrink-0 text-xs font-semibold text-[#0d0d0d]/60 dark:text-white/60">Active</span>
+                            </button>
+
+                            <div class="border-t border-black/10 dark:border-white/10" />
+
+                            <div class="px-3 py-2 text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">
+                              Remote
+                            </div>
+                            <div v-if="!modelSelector.remoteOptionValue" class="px-3 py-2 text-sm text-[#0d0d0d]/70 dark:text-white/70">
+                              No validated remote provider
+                            </div>
+                            <button
+                              v-else
+                              type="button"
+                              class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-[#0d0d0d] hover:bg-[#f4f4f4] dark:text-white dark:hover:bg-white/10"
+                              @click="modelSelector.remoteOptionValue && modelSelector.selectModel(modelSelector.remoteOptionValue)"
+                            >
+                              <span class="min-w-0 flex-1 truncate">{{ modelSelector.remoteOptionValue?.label }}</span>
+                              <span v-if="modelSelector.remoteOptionValue?.isActive" class="shrink-0 text-xs font-semibold text-[#0d0d0d]/60 dark:text-white/60">Active</span>
+                            </button>
+                            </div>
+                          </div>
+
+                          <div class="flex items-center gap-2">
+                            <button
+                              type="button"
+                              class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
+                              :aria-label="loading ? 'Stop' : (query.trim() ? 'Send' : 'Voice')"
+                              :disabled="!systemReady || (!loading && false)"
+                              @click="handlePrimaryAction"
+                            >
+                              <svg v-if="loading" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />
+                              </svg>
+                              <svg v-else-if="query.trim()" width="18" height="18" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M7.14645 2.14645C7.34171 1.95118 7.65829 1.95118 7.85355 2.14645L11.8536 6.14645C12.0488 6.34171 12.0488 6.65829 11.8536 6.85355C11.6583 7.04882 11.3417 7.04882 11.1464 6.85355L8 3.70711L8 12.5C8 12.7761 7.77614 13 7.5 13C7.22386 13 7 12.7761 7 12.5L7 3.70711L3.85355 6.85355C3.65829 7.04882 3.34171 7.04882 3.14645 6.85355C2.95118 6.65829 2.95118 6.34171 3.14645 6.14645L7.14645 2.14645Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                              </svg>
+                              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M12 19v3" />
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                <rect x="9" y="2" width="6" height="13" rx="3" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="w-full px-4">
+            <div class="flex h-full flex-col items-center justify-center">
+              <form
+                class="group/composer mx-auto mb-3 w-full max-w-3xl"
+                :data-empty="!query.trim()"
+                :data-running="loading"
+                @submit.prevent
+              >
+                <div class="relative overflow-visible overflow-hidden rounded-lg bg-white/95 shadow-sm ring-1 ring-slate-200 transition-shadow focus-within:ring-slate-300 dark:bg-slate-800/75 dark:ring-white/5 dark:ring-inset dark:focus-within:ring-white/20">
+                  <div class="absolute -top-px right-11 left-20 h-[2px] bg-linear-to-r from-sky-300/0 via-sky-300/70 to-sky-300/0"></div>
+                  <div class="absolute right-20 -bottom-px left-11 h-[2px] bg-linear-to-r from-blue-400/0 via-blue-400 to-blue-400/0"></div>
+                  <div class="flex flex-wrap items-end gap-1 p-2">
+                    <button
+                      type="button"
+                      class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#0d0d0d] transition-colors hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
+                      aria-label="Attach"
+                      :disabled="!systemReady"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" />
+                      </svg>
+                    </button>
+
+                    <textarea
+                      ref="composerTextareaEl"
+                      v-model="query"
+                      name="input"
+                      placeholder="What do you want to know?"
+                      class="my-2 h-6 max-h-[400px] min-w-0 flex-1 resize-none bg-transparent text-[#0d0d0d] text-base leading-6 outline-none placeholder:text-[#9a9a9a] dark:text-white dark:placeholder:text-neutral-500"
+                      :class="isComposerMultiline ? 'basis-full order-2' : 'order-2'"
+                      @input="updateComposerLayout"
+                      @keydown.enter.exact.prevent="sendOrStop"
+                    />
+
+                    <div
+                      class="mb-0.5 flex items-center gap-2"
+                      :class="isComposerMultiline ? 'order-3 w-full justify-between' : 'order-3'"
+                    >
+                      <div class="relative mb-0.5" ref="modelSelector.modelMenuEl">
+                        <button
+                          type="button"
+                          class="flex h-9 shrink-0 items-center gap-2 rounded-full px-2.5 text-[#0d0d0d] hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
+                          aria-label="Model select"
+                          :disabled="!systemReady"
+                          @click="modelSelector.toggleModelMenu"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
+                            <path d="M12 8V4" />
+                            <path d="M8 4h8" />
+                            <rect x="6" y="8" width="12" height="10" rx="2" />
+                            <path d="M9 18v2" />
+                            <path d="M15 18v2" />
+                            <path d="M9.5 12h.01" />
+                            <path d="M14.5 12h.01" />
+                            <path d="M10 15h4" />
+                          </svg>
+                          <div class="flex items-center gap-1 overflow-hidden">
+                            <span class="whitespace-nowrap font-semibold text-sm">{{ modelSelector.activeModelLabelValue }}</span>
+                            <svg width="16" height="16" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true">
+                              <path d="M3.13523 6.15803C3.3241 5.95657 3.64052 5.94637 3.84197 6.13523L7.5 9.56464L11.158 6.13523C11.3595 5.94637 11.6759 5.95657 11.8648 6.15803C12.0536 6.35949 12.0434 6.67591 11.842 6.86477L7.84197 10.6148C7.64964 10.7951 7.35036 10.7951 7.15803 10.6148L3.15803 6.86477C2.95657 6.67591 2.94637 6.35949 3.13523 6.15803Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                            </svg>
+                          </div>
+                        </button>
+
+                        <div
+                          v-if="modelSelector.showModelMenuValue"
+                          class="agent-model-selector-menu absolute bottom-12 right-0 z-50 w-72 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900"
+                        >
+                        <div class="px-3 py-2 text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">
+                          Local
+                        </div>
+
+                        <div v-if="modelSelector.loadingLocalModelsValue" class="px-3 py-2 text-sm text-[#0d0d0d]/70 dark:text-white/70">
+                          Loading...
+                        </div>
+                        <button
+                          v-for="m in modelSelector.localModelOptionsValue"
+                          :key="m.value"
+                          type="button"
+                          class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-[#0d0d0d] hover:bg-[#f4f4f4] dark:text-white dark:hover:bg-white/10"
+                          @click="modelSelector.selectModel(m)"
+                        >
+                          <span class="min-w-0 flex-1 truncate">{{ m.label }}</span>
+                          <span v-if="m.isActive" class="shrink-0 text-xs font-semibold text-[#0d0d0d]/60 dark:text-white/60">Active</span>
+                        </button>
+
+                        <div class="border-t border-black/10 dark:border-white/10" />
+
+                        <div class="px-3 py-2 text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">
+                          Remote
+                        </div>
+                        <div v-if="!modelSelector.remoteOptionValue" class="px-3 py-2 text-sm text-[#0d0d0d]/70 dark:text-white/70">
+                          No validated remote provider
+                        </div>
+                        <button
+                          v-else
+                          type="button"
+                          class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-[#0d0d0d] hover:bg-[#f4f4f4] dark:text-white dark:hover:bg-white/10"
+                          @click="modelSelector.remoteOptionValue && modelSelector.selectModel(modelSelector.remoteOptionValue)"
+                        >
+                          <span class="min-w-0 flex-1 truncate">{{ modelSelector.remoteOptionValue?.label }}</span>
+                          <span v-if="modelSelector.remoteOptionValue?.isActive" class="shrink-0 text-xs font-semibold text-[#0d0d0d]/60 dark:text-white/60">Active</span>
+                        </button>
+                        </div>
+                      </div>
+
+                      <div class="flex items-center gap-2">
+                        <button
+                          type="button"
+                          class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
+                          :aria-label="loading ? 'Stop' : (query.trim() ? 'Send' : 'Voice')"
+                          :disabled="!systemReady || (!loading && false)"
+                          @click="handlePrimaryAction"
+                        >
+                          <svg v-if="loading" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />
+                          </svg>
+                          <svg v-else-if="query.trim()" width="18" height="18" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M7.14645 2.14645C7.34171 1.95118 7.65829 1.95118 7.85355 2.14645L11.8536 6.14645C12.0488 6.34171 12.0488 6.65829 11.8536 6.85355C11.6583 7.04882 11.3417 7.04882 11.1464 6.85355L8 3.70711L8 12.5C8 12.7761 7.77614 13 7.5 13C7.22386 13 7 12.7761 7 12.5L7 3.70711L3.85355 6.85355C3.65829 7.04882 3.34171 7.04882 3.14645 6.85355C2.95118 6.65829 2.95118 6.34171 3.14645 6.14645L7.14645 2.14645Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                          </svg>
+                          <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M12 19v3" />
                             <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                             <rect x="9" y="2" width="6" height="13" rx="3" />
                           </svg>
                         </button>
                       </div>
-
-                      <button
-                        type="button"
-                        class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
-                        aria-label="Submit"
-                        :disabled="!systemReady || (!loading && !query.trim())"
-                        @click="sendOrStop"
-                      >
-                        <svg v-if="loading" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                          <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />
-                        </svg>
-                        <svg v-else width="18" height="18" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                          <path d="M7.14645 2.14645C7.34171 1.95118 7.65829 1.95118 7.85355 2.14645L11.8536 6.14645C12.0488 6.34171 12.0488 6.65829 11.8536 6.85355C11.6583 7.04882 11.3417 7.04882 11.1464 6.85355L8 3.70711L8 12.5C8 12.7761 7.77614 13 7.5 13C7.22386 13 7 12.7761 7 12.5L7 3.70711L3.85355 6.85355C3.65829 7.04882 3.34171 7.04882 3.14645 6.85355C2.95118 6.65829 2.95118 6.34171 3.14645 6.14645L7.14645 2.14645Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
-                        </svg>
-                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </div>
     </div>
@@ -438,6 +464,8 @@
 </template>
 
 <script setup lang="ts">
+import AgentHeader from './agent/AgentHeader.vue';
+
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import DOMPurify from 'dompurify';
@@ -478,6 +506,7 @@ const composerTextareaEl = ref<HTMLTextAreaElement | null>(null);
 const isComposerMultiline = ref(false);
 
 let composerMirrorEl: HTMLDivElement | null = null;
+let composerMeasureCanvas: HTMLCanvasElement | null = null;
 
 function getComposerMirrorEl(): HTMLDivElement {
   if (composerMirrorEl) {
@@ -509,6 +538,15 @@ function updateComposerLayout(): void {
   const paddingBottom = Number.parseFloat(style.paddingBottom || '0');
   const singleLineHeight = Math.ceil(lineHeight + paddingTop + paddingBottom);
 
+  if (!composerMeasureCanvas) {
+    composerMeasureCanvas = document.createElement('canvas');
+  }
+  const ctx = composerMeasureCanvas.getContext('2d');
+  const font = style.font ? style.font : `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  if (ctx) {
+    ctx.font = font;
+  }
+
   const mirror = getComposerMirrorEl();
   mirror.style.boxSizing = style.boxSizing;
   mirror.style.fontFamily = style.fontFamily;
@@ -526,7 +564,11 @@ function updateComposerLayout(): void {
   mirror.textContent = `${el.value || ''}\n`;
   const measuredHeight = mirror.scrollHeight;
 
-  const multiline = measuredHeight > (singleLineHeight + 1) || el.value.includes('\n');
+  const typed = el.value || '';
+  const typedWidthPx = ctx ? ctx.measureText(typed).width : 0;
+  const earlyMultiline = typedWidthPx > (el.clientWidth * 0.5);
+
+  const multiline = measuredHeight > (singleLineHeight + 1) || typed.includes('\n') || earlyMultiline;
   isComposerMultiline.value = multiline;
 
   const maxPx = 400;
@@ -537,7 +579,8 @@ function updateComposerLayout(): void {
 
   // Now allow it to expand to fit content (capped).
   el.style.height = 'auto';
-  const nextHeight = Math.min(el.scrollHeight, maxPx);
+  const minMultilineHeight = Math.ceil(singleLineHeight * 2);
+  const nextHeight = Math.min(Math.max(el.scrollHeight, minMultilineHeight), maxPx);
   el.style.height = `${nextHeight}px`;
 }
 
@@ -875,6 +918,16 @@ const {
   hasMessages,
 } = chatController;
 
+const latestChatError = computed(() => {
+  for (let i = messages.value.length - 1; i >= 0; i--) {
+    const m = messages.value[i];
+    if (m.role === 'error') {
+      return m.content;
+    }
+  }
+  return '';
+});
+
 const modelSelector = new AgentModelSelectorController({
   systemReady,
   loading,
@@ -933,6 +986,20 @@ const sendOrStop = () => {
     return;
   }
   chatController.send();
+};
+
+const handlePrimaryAction = () => {
+  if (loading.value) {
+    sendOrStop();
+    return;
+  }
+
+  if (query.value.trim()) {
+    sendOrStop();
+    return;
+  }
+
+  // Voice mode is a UI affordance for now; actual voice wiring can be added later.
 };
 
 watch(query, async () => {
