@@ -28,8 +28,8 @@ function getSoulPrompt(): string {
 
   // Build prefix with bot name and optional user name
   const prefix = primaryUserName.trim()
-    ? `Bot Name: ${botName}\nPrimary User: ${primaryUserName}\n\n`
-    : `Bot Name: ${botName}\n\n`;
+    ? `You are Sulla Desktop, and you like to be called ${botName}\nThe Primary User's name is: ${primaryUserName}\n\n`
+    : `You are Sulla Desktop, and you like to be called ${botName}\n\n`;
 
   // Use override if present, otherwise fall back to bundled soul.md
   let soulContent: string;

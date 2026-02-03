@@ -217,7 +217,7 @@
                     :data-running="loading"
                     @submit.prevent
                   >
-                    <div class="relative overflow-visible overflow-hidden rounded-lg bg-white/95 shadow-sm ring-1 ring-slate-200 transition-shadow focus-within:ring-slate-300 dark:bg-slate-800/75 dark:ring-white/5 dark:ring-inset dark:focus-within:ring-white/20">
+                    <div class="relative overflow-visible rounded-lg bg-white/95 shadow-sm ring-1 ring-slate-200 transition-shadow focus-within:ring-slate-300 dark:bg-slate-800/75 dark:ring-white/5 dark:ring-inset dark:focus-within:ring-white/20">
                       <div class="absolute -top-px right-11 left-20 h-[2px] bg-linear-to-r from-sky-300/0 via-sky-300/70 to-sky-300/0"></div>
                       <div class="absolute right-20 -bottom-px left-11 h-[2px] bg-linear-to-r from-blue-400/0 via-blue-400 to-blue-400/0"></div>
                       <div class="flex flex-wrap items-end gap-1 p-2">
@@ -275,10 +275,22 @@
 
                             <div
                               v-if="modelSelector.showModelMenuValue"
-                              class="agent-model-selector-menu absolute bottom-12 right-0 z-50 w-72 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900"
+                              class="agent-model-selector-menu absolute bottom-12 right-0 z-[9999] w-72 overflow-visible rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900"
                             >
-                            <div class="px-3 py-2 text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">
-                              Local
+                            <div class="flex items-center justify-between px-3 py-2">
+                              <div class="text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">
+                                Local
+                              </div>
+                              <button
+                                type="button"
+                                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[#0d0d0d]/60 hover:bg-[#f4f4f4] hover:text-[#0d0d0d] dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
+                                @click="modelSelector.hideModelMenu"
+                                aria-label="Close model selector"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
+                                  <path d="M11.7816 4.03157C12.0724 3.74081 12.0724 3.25991 11.7816 2.96915C11.4909 2.67839 11.0099 2.67839 10.7192 2.96915L7.50005 6.18827L4.28091 2.96915C3.99015 2.67839 3.50925 2.67839 3.21849 2.96915C2.92773 3.25991 2.92773 3.74081 3.21849 4.03157L6.43761 7.25071L3.21849 10.4698C2.92773 10.7606 2.92773 11.2415 3.21849 11.5323C3.50925 11.823 3.99015 11.823 4.28091 11.5323L7.50005 8.31315L10.7192 11.5323C11.0099 11.823 11.4909 11.823 11.7816 11.5323C12.0724 11.2415 12.0724 10.7606 11.7816 10.4698L8.56248 7.25071L11.7816 4.03157Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                                </svg>
+                              </button>
                             </div>
 
                             <div v-if="modelSelector.loadingLocalModelsValue" class="px-3 py-2 text-sm text-[#0d0d0d]/70 dark:text-white/70">
@@ -353,7 +365,7 @@
                 :data-running="loading"
                 @submit.prevent
               >
-                <div class="relative overflow-visible overflow-hidden rounded-lg bg-white/95 shadow-sm ring-1 ring-slate-200 transition-shadow focus-within:ring-slate-300 dark:bg-slate-800/75 dark:ring-white/5 dark:ring-inset dark:focus-within:ring-white/20">
+                <div class="relative overflow-visible rounded-lg bg-white/95 shadow-sm ring-1 ring-slate-200 transition-shadow focus-within:ring-slate-300 dark:bg-slate-800/75 dark:ring-white/5 dark:ring-inset dark:focus-within:ring-white/20 z-10">
                   <div class="absolute -top-px right-11 left-20 h-[2px] bg-linear-to-r from-sky-300/0 via-sky-300/70 to-sky-300/0"></div>
                   <div class="absolute right-20 -bottom-px left-11 h-[2px] bg-linear-to-r from-blue-400/0 via-blue-400 to-blue-400/0"></div>
                   <div class="flex flex-wrap items-end gap-1 p-2">
@@ -411,10 +423,22 @@
 
                         <div
                           v-if="modelSelector.showModelMenuValue"
-                          class="agent-model-selector-menu absolute bottom-12 right-0 z-50 w-72 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900"
+                          class="agent-model-selector-menu absolute bottom-12 right-0 z-[9999] w-72 overflow-visible rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900"
                         >
-                        <div class="px-3 py-2 text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">
-                          Local
+                        <div class="flex items-center justify-between px-3 py-2">
+                          <div class="text-xs font-semibold tracking-wide text-[#0d0d0d]/60 dark:text-white/60">
+                            Local
+                          </div>
+                          <button
+                            type="button"
+                            class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[#0d0d0d]/60 hover:bg-[#f4f4f4] hover:text-[#0d0d0d] dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
+                            @click="modelSelector.hideModelMenu"
+                            aria-label="Close model selector"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
+                              <path d="M11.7816 4.03157C12.0724 3.74081 12.0724 3.25991 11.7816 2.96915C11.4909 2.67839 11.0099 2.67839 10.7192 2.96915L7.50005 6.18827L4.28091 2.96915C3.99015 2.67839 3.50925 2.67839 3.21849 2.96915C2.92773 3.25991 2.92773 3.74081 3.21849 4.03157L6.43761 7.25071L3.21849 10.4698C2.92773 10.7606 2.92773 11.2415 3.21849 11.5323C3.50925 11.823 3.99015 11.823 4.28091 11.5323L7.50005 8.31315L10.7192 11.5323C11.0099 11.823 11.4909 11.823 11.7816 11.5323C12.0724 11.2415 12.0724 10.7606 11.7816 10.4698L8.56248 7.25071L11.7816 4.03157Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                            </svg>
+                          </button>
                         </div>
 
                         <div v-if="modelSelector.loadingLocalModelsValue" class="px-3 py-2 text-sm text-[#0d0d0d]/70 dark:text-white/70">

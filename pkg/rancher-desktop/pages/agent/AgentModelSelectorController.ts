@@ -96,7 +96,7 @@ export class AgentModelSelectorController {
   }
 
   async toggleModelMenu(): Promise<void> {
-    if (this.deps.loading.value || !this.deps.systemReady.value) {
+    if (!this.deps.systemReady.value) {
       return;
     }
 
@@ -105,6 +105,10 @@ export class AgentModelSelectorController {
       await this.refreshInstalledLocalModels();
       ipcRenderer.send('settings-read');
     }
+  }
+
+  hideModelMenu(): void {
+    this.showModelMenu.value = false;
   }
 
   async selectModel(option: ModelOption): Promise<void> {
