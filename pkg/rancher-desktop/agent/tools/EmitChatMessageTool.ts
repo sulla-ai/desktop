@@ -37,7 +37,7 @@ export class EmitChatMessageTool extends BaseTool {
       const wsService = getWebSocketClientService();
       wsService.send(connectionId, {
         type: 'assistant_message',
-        payload: { role, content, kind },
+        data: { role, content, kind },
         timestamp: Date.now(),
       });
 

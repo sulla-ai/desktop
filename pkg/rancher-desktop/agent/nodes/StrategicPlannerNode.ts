@@ -119,17 +119,6 @@ export class StrategicPlannerNode extends BaseNode {
             if (revised) {
               console.log(`[Agent:StrategicPlanner] Plan revised: planId=${revised.planId} revision=${revised.revision}`);
               state.metadata.activePlanId = revised.planId;
-              
-              // Emit todo_created events for new todos via WebSocket
-              for (const t of revised.todosCreated) {
-                this.emitPlanUpdate(state, 'todo_created', {
-                  planId: revised.planId,
-                  todoId: t.todoId,
-                  title: t.title,
-                  orderIndex: t.orderIndex,
-                  status: t.status,
-                });
-              }
             }
           } else {
             // Create new plan
@@ -143,18 +132,6 @@ export class StrategicPlannerNode extends BaseNode {
             if (createdPlanId) {
               console.log(`[Agent:StrategicPlanner] Plan created: planId=${createdPlanId}`);
               state.metadata.activePlanId = createdPlanId;
-              
-              // Get the created todos from strategicState and emit todo_created events via WebSocket
-              const snapshot = strategicState.getSnapshot();
-              for (const t of snapshot.todos) {
-                this.emitPlanUpdate(state, 'todo_created', {
-                  planId: createdPlanId,
-                  todoId: t.id,
-                  title: t.title,
-                  orderIndex: t.orderIndex,
-                  status: t.status,
-                });
-              }
             }
           }
 
@@ -206,11 +183,6 @@ export class StrategicPlannerNode extends BaseNode {
 
         state.metadata.planHasRemainingTodos = strategicStateForMapping.hasRemainingTodos();
 
-        this.emitPlanUpdate(state, 'strategic_plan_created', {
-          goal: strategicPlan.goal,
-          milestones: strategicPlan.milestones.map(m => m.title),
-        });
-
       } else {
         // Simple query - no strategic plan needed
         console.log(`[Agent:StrategicPlanner] No strategic plan needed for this query`);
@@ -256,7 +228,7 @@ export class StrategicPlannerNode extends BaseNode {
     state: ThreadState,
     revisionReason?: string,
   ): Promise<StrategicPlan | null> {
-    const basePrompt = `You are a strategic planner. Your only job is to create a strategic plan for the user's request, not to reply to user requests directly. If the request is simple and does not require a strategic plan, you need to pass on the task to the tactical planner by returning planNeeded: false.
+    const basePrompt = `You are a strategic planner. Your only job is to create a strategic plan, with milestones (aka todos/tasks/steps) for the user's request, not to reply to user requests directly. If the request is simple and does not require a strategic plan, you need to pass on the task to the tactical planner by returning planNeeded: false.
 
 You are an expert strategic planner with 20+ years across industries—tech (e.g., Amazon's predictive scaling for 40% efficiency gains), retail (Zappos' personalization driving 30% repeats), nonprofits (SWOT-led 25% donation boosts). Avoid novice pitfalls like generic steps; craft high-leverage, low-risk plans from battle-tested tactics that deliver 2-5x results. Expose blind spots, rethink assumptions, use foresight for lifelike overdelivery.
 

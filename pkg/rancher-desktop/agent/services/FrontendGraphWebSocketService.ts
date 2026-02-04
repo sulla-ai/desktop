@@ -64,19 +64,19 @@ export class FrontendGraphWebSocketService {
       return;
     }
 
-    const payload = typeof msg.payload === 'string' ? { content: msg.payload } : (msg.payload as any);
-    const content = typeof payload?.content === 'string' ? payload.content : '';
+    const data = typeof msg.data === 'string' ? { content: msg.data } : (msg.data as any);
+    const content = typeof data?.content === 'string' ? data.content : '';
 
     if (!content.trim()) {
       return;
     }
 
     // Send scheduler acknowledgement if message originated from scheduler
-    const metadata = payload?.metadata;
+    const metadata = data?.metadata;
     if (metadata?.origin === 'scheduler' && typeof metadata?.eventId === 'number') {
       this.wsService.send('chat-controller', {
         type: 'scheduler_ack',
-        payload: { eventId: metadata.eventId },
+        data: { eventId: metadata.eventId },
         timestamp: Date.now(),
       });
     }
@@ -132,7 +132,7 @@ export class FrontendGraphWebSocketService {
   private emitAssistantMessage(content: string): void {
     this.wsService.send('chat-controller', {
       type: 'assistant_message',
-      payload: {
+      data: {
         role: 'assistant',
         content,
       },
@@ -143,7 +143,7 @@ export class FrontendGraphWebSocketService {
   private emitSystemMessage(content: string): void {
     this.wsService.send('chat-controller', {
       type: 'system_message',
-      payload: content,
+      data: content,
       timestamp: Date.now(),
     });
   }

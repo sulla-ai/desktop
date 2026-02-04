@@ -767,7 +767,7 @@ When to trigger KB generation:
     // Send via WebSocket
     const sent = this.dispatchToWebSocket(connectionId, {
       type: 'chat_message',
-      payload: {
+      data: {
         content: content.trim(),
         role,
         kind,
@@ -777,40 +777,6 @@ When to trigger KB generation:
 
     if (!sent) {
       console.warn(`[Agent:${this.name}] Failed to send chat message via WebSocket`);
-    }
-
-    return sent;
-  }
-
-  /**
-   * Emit a plan update event via WebSocket
-   * @param state ThreadState containing the connection ID in metadata
-   * @param phase Plan event phase (plan_created, plan_revised, todo_created, etc.)
-   * @param data Plan event data
-   * @returns true if message was sent via WebSocket
-   */
-  protected emitPlanUpdate(
-    state: ThreadState,
-    phase: string,
-    data: Record<string, unknown>,
-  ): boolean {
-    const connectionId = (state.metadata.wsConnectionId as string) || 'chat-controller';
-
-    if (!this.isWebSocketConnected(connectionId)) {
-      this.connectWebSocket(connectionId);
-    }
-
-    const sent = this.dispatchToWebSocket(connectionId, {
-      type: 'plan_update',
-      payload: {
-        phase,
-        ...data,
-        timestamp: Date.now(),
-      },
-    });
-
-    if (!sent) {
-      console.warn(`[Agent:${this.name}] Failed to send plan update via WebSocket`);
     }
 
     return sent;
@@ -836,7 +802,7 @@ When to trigger KB generation:
 
     const sent = this.dispatchToWebSocket(connectionId, {
       type: 'progress',
-      payload: {
+      data: {
         phase,
         nodeId: this.id,
         nodeName: this.name,

@@ -50,7 +50,7 @@ export class OverLordPlannerNode extends BaseNode {
       const decisionPrompt = `${enrichedprompt}\n\n${JSON_ONLY_RESPONSE_INSTRUCTIONS}\n{\n  "action": "trigger_hierarchical" | "stop",\n  "reason": "optional"\n}`;
 
       // Emit via WebSocket
-      this.dispatchToWebSocket(WS_CONNECTION_ID, { type: 'progress', payload: { phase: 'overlord_llm' } });
+      this.dispatchToWebSocket(WS_CONNECTION_ID, { type: 'progress', data: { phase: 'overlord_llm' } });
 
       const response = await this.prompt(decisionPrompt, state, true);
 
@@ -70,7 +70,7 @@ export class OverLordPlannerNode extends BaseNode {
         // Emit decision via WebSocket
         this.dispatchToWebSocket(WS_CONNECTION_ID, {
           type: 'chat_message',
-          payload: {
+          data: {
             role: 'system',
             content: `OverLord: Triggering hierarchical planning (${parsed?.reason || 'no reason provided'})`,
           },
@@ -86,7 +86,7 @@ export class OverLordPlannerNode extends BaseNode {
       // Emit decision via WebSocket
       this.dispatchToWebSocket(WS_CONNECTION_ID, {
         type: 'chat_message',
-        payload: {
+        data: {
           role: 'system',
           content: `OverLord: Stopping (${parsed?.reason || 'no reason provided'})`,
         },
@@ -101,7 +101,7 @@ export class OverLordPlannerNode extends BaseNode {
       // Emit error via WebSocket
       this.dispatchToWebSocket(WS_CONNECTION_ID, {
         type: 'error',
-        payload: {
+        data: {
           role: 'error',
           content: `OverLord failed: ${err.message}`,
         },

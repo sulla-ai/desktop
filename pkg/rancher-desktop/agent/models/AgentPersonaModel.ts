@@ -124,7 +124,7 @@ export class AgentPersonaService {
 
     const sent = this.wsService.send(agentId, {
       type: 'user_message',
-      payload: {
+      data: {
         role: 'user',
         content,
       },
@@ -205,12 +205,14 @@ export class AgentPersonaService {
   }
 
   private handleWebSocketMessage(agentId: string, msg: WebSocketMessage): void {
-    const payloadPreview = msg.payload
-      ? (typeof msg.payload === 'string'
-        ? msg.payload.substring(0, 50)
-        : JSON.stringify(msg.payload).substring(0, 50))
+    const dataPreview = msg.data
+      ? (typeof msg.data === 'string'
+        ? msg.data.substring(0, 50)
+        : JSON.stringify(msg.data).substring(0, 50))
       : 'undefined';
-    console.log('[AgentPersonaModel] WebSocket message received:', msg.type, 'for agent:', agentId, 'payload:', payloadPreview);
+
+    console.log('[AgentPersonaModel] WebSocket message received:', msg.type, 'for agent:', agentId, 'data:', dataPreview);
+    
     switch (msg.type) {
       case 'chat_message':
       case 'assistant_message':
@@ -222,28 +224,28 @@ export class AgentPersonaService {
           return;
         }
 
-        if (typeof msg.payload === 'string') {
+        if (typeof msg.data === 'string') {
           const message: ChatMessage = {
             id: `${Date.now()}_ws_${msg.type}`,
             channelId: agentId,
             role: msg.type === 'system_message' ? 'system' : 'assistant',
-            content: msg.payload,
+            content: msg.data,
           };
           this.messages.push(message);
-          console.log('[AgentPersonaModel] Message stored (string payload). Total messages:', this.messages.length, 'Message:', message);
+          console.log('[AgentPersonaModel] Message stored (string data). Total messages:', this.messages.length, 'Message:', message);
           return;
         }
 
-        const payload = (msg.payload && typeof msg.payload === 'object') ? (msg.payload as any) : null;
-        const content = payload?.content !== undefined ? String(payload.content) : '';
+        const data = (msg.data && typeof msg.data === 'object') ? (msg.data as any) : null;
+        const content = data?.content !== undefined ? String(data.content) : '';
         if (!content.trim()) {
           console.log('[AgentPersonaModel] Skipping message - empty content');
           return;
         }
 
-        const roleRaw = payload?.role !== undefined ? String(payload.role) : (msg.type === 'system_message' ? 'system' : 'assistant');
+        const roleRaw = data?.role !== undefined ? String(data.role) : (msg.type === 'system_message' ? 'system' : 'assistant');
         const role = (roleRaw === 'user' || roleRaw === 'assistant' || roleRaw === 'system' || roleRaw === 'error') ? roleRaw : 'assistant';
-        const kind = (typeof payload?.kind === 'string') ? payload.kind : undefined;
+        const kind = (typeof data?.kind === 'string') ? data.kind : undefined;
 
         const message: ChatMessage = {
           id: `${Date.now()}_ws_${msg.type}`,
@@ -253,7 +255,7 @@ export class AgentPersonaService {
           content,
         };
         this.messages.push(message);
-        console.log('[AgentPersonaModel] Message stored (object payload). Total messages:', this.messages.length, 'Message:', message);
+        console.log('[AgentPersonaModel] Message stored (object data). Total messages:', this.messages.length, 'Message:', message);
         // Turn off loading when assistant responds
         if (role === 'assistant') {
           this.registry.setLoading(agentId, false);
@@ -263,14 +265,15 @@ export class AgentPersonaService {
       case 'progress':
       case 'plan_update': {
         // Progress and plan_update messages contain plan updates, tool calls, etc.
-        const payload = (msg.payload && typeof msg.payload === 'object') ? (msg.payload as any) : null;
-        const phase = payload?.phase;
+        // StrategicStateService sends: { type: 'progress', threadId, data: { phase, ... } }
+        const data = (msg.data && typeof msg.data === 'object') ? (msg.data as any) : null;
+        const phase = data?.phase;
         console.log('[AgentPersonaModel] Progress/plan event:', phase, 'for agent:', agentId, 'type:', msg.type);
         
         // Handle plan-related progress events
         if (phase === 'plan_created' || phase === 'plan_revised' || phase === 'strategic_plan_created') {
-          const planId = payload?.planId ? Number(payload.planId) : null;
-          const goal = typeof payload?.goal === 'string' ? payload.goal : null;
+          const planId = data?.planId ? Number(data.planId) : null;
+          const goal = typeof data?.goal === 'string' ? data.goal : null;
           if (planId) {
             this.resetPlan(planId, goal);
             console.log('[AgentPersonaModel] Plan reset. planId:', planId, 'goal:', goal?.substring(0, 50), 'todos count:', this.planState.todos.size);
@@ -279,19 +282,19 @@ export class AgentPersonaService {
         
         // Handle todo-related progress events
         if (phase === 'todo_created' || phase === 'todo_updated') {
-          const todoId = payload?.todoId ? Number(payload.todoId) : null;
-          const title = typeof payload?.title === 'string' ? payload.title : '';
-          const orderIndex = payload?.orderIndex !== undefined ? Number(payload.orderIndex) : 0;
-          const status = typeof payload?.status === 'string' ? payload.status as TodoStatus : 'pending';
+          const todoId = data?.todoId ? Number(data.todoId) : null;
+          const title = typeof data?.title === 'string' ? data.title : '';
+          const orderIndex = data?.orderIndex !== undefined ? Number(data.orderIndex) : 0;
+          const status = typeof data?.status === 'string' ? data.status as TodoStatus : 'pending';
           if (todoId) {
             this.upsertTodo(todoId, title, orderIndex, status);
           }
         }
         
-        if (phase === 'todo_status' || phase === 'tactical_step_status') {
-          const todoId = payload?.todoId ? Number(payload.todoId) : null;
-          const stepId = payload?.stepId ? String(payload.stepId) : null;
-          const status = typeof payload?.status === 'string' ? payload.status as TodoStatus : undefined;
+        if (phase === 'todo_status') {
+          const todoId = data?.todoId ? Number(data.todoId) : null;
+          const stepId = data?.stepId ? String(data.stepId) : null;
+          const status = typeof data?.status === 'string' ? data.status as TodoStatus : undefined;
           if (todoId && status) {
             this.updateTodoStatus(todoId, status);
           }
@@ -303,9 +306,9 @@ export class AgentPersonaService {
 
         // Handle tool_call progress events - create tool card message
         if (phase === 'tool_call') {
-          const toolRunId = typeof payload?.toolRunId === 'string' ? payload.toolRunId : null;
-          const toolName = typeof payload?.toolName === 'string' ? payload.toolName : 'unknown';
-          const args = payload?.args && typeof payload.args === 'object' ? payload.args : {};
+          const toolRunId = typeof data?.toolRunId === 'string' ? data.toolRunId : null;
+          const toolName = typeof data?.toolName === 'string' ? data.toolName : 'unknown';
+          const args = data?.args && typeof data.args === 'object' ? data.args : {};
           
           // Skip tool cards for chat message tools - they emit directly as chat messages
           if (toolName === 'emit_chat_message' || toolName === 'emit_chat_image') {
@@ -335,10 +338,10 @@ export class AgentPersonaService {
 
         // Handle tool_result progress events - update tool card status
         if (phase === 'tool_result') {
-          const toolRunId = typeof payload?.toolRunId === 'string' ? payload.toolRunId : null;
-          const success = payload?.success === true;
-          const error = typeof payload?.error === 'string' ? payload.error : null;
-          const result = payload?.result;
+          const toolRunId = typeof data?.toolRunId === 'string' ? data.toolRunId : null;
+          const success = data?.success === true;
+          const error = typeof data?.error === 'string' ? data.error : null;
+          const result = data?.result;
           
           if (toolRunId) {
             const messageId = this.toolRunIdToMessageId.get(toolRunId);
@@ -360,18 +363,18 @@ export class AgentPersonaService {
       }
       case 'chat_image': {
         // Handle chat image messages from EmitChatImageTool
-        const payload = (msg.payload && typeof msg.payload === 'object') ? (msg.payload as any) : null;
-        const dataUrl = typeof payload?.dataUrl === 'string' ? payload.dataUrl : '';
-        const alt = typeof payload?.alt === 'string' ? payload.alt : '';
-        const contentType = typeof payload?.contentType === 'string' ? payload.contentType : '';
-        const filePath = typeof payload?.path === 'string' ? payload.path : '';
+        const data = (msg.data && typeof msg.data === 'object') ? (msg.data as any) : null;
+        const dataUrl = typeof data?.dataUrl === 'string' ? data.dataUrl : '';
+        const alt = typeof data?.alt === 'string' ? data.alt : '';
+        const contentType = typeof data?.contentType === 'string' ? data.contentType : '';
+        const filePath = typeof data?.path === 'string' ? data.path : '';
         
         if (!dataUrl) {
           console.log('[AgentPersonaModel] Skipping chat_image - empty dataUrl');
           return;
         }
         
-        const roleRaw = payload?.role !== undefined ? String(payload.role) : 'assistant';
+        const roleRaw = data?.role !== undefined ? String(data.role) : 'assistant';
         const role = (roleRaw === 'user' || roleRaw === 'assistant' || roleRaw === 'system' || roleRaw === 'error') ? roleRaw : 'assistant';
         
         const message: ChatMessage = {

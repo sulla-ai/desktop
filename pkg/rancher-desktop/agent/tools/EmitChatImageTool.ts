@@ -104,7 +104,7 @@ export class EmitChatImageTool extends BaseTool {
     const wsService = getWebSocketClientService();
     wsService.send(connectionId, {
       type: 'chat_image',
-      payload: {
+      data: {
         role,
         alt,
         contentType,

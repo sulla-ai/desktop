@@ -3,8 +3,8 @@
 
 export interface WebSocketMessage {
   type: string;
-  payload: unknown;
-  timestamp: number;
+  data: unknown;
+  timestamp?: number;
 }
 
 export type WebSocketMessageHandler = (message: WebSocketMessage) => void;
@@ -72,7 +72,7 @@ class WebSocketConnection {
           console.warn('[WebSocket] Failed to parse message as JSON, wrapping as raw:', parseErr);
           const msg: WebSocketMessage = {
             type: 'raw',
-            payload: event.data,
+            data: event.data,
             timestamp: Date.now(),
           };
           this.messageHandlers.forEach((handler) => {

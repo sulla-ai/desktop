@@ -31,8 +31,8 @@ export class BackendGraphWebSocketService {
       return;
     }
 
-    const payload = typeof msg.payload === 'string' ? { content: msg.payload } : (msg.payload as any);
-    const content = typeof payload?.content === 'string' ? payload.content : '';
+    const data = typeof msg.data === 'string' ? { content: msg.data } : (msg.data as any);
+    const content = typeof data?.content === 'string' ? data.content : '';
 
     if (!content.trim()) {
       return;

@@ -1,8 +1,7 @@
 import type { ThreadState } from '../types';
 import { getAwarenessService } from './AwarenessService';
 import { getPlanService, type PlanRecord, type PlanTodoRecord, type PlanEventRecord, type TodoStatus } from './PlanService';
-
-type EmitFn = (event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void;
+import { getWebSocketClientService } from './WebSocketClientService';
 
 export interface StrategicMilestone {
   id: string;
@@ -25,15 +24,17 @@ export interface StrategicPlanData {
 
 export class StrategicStateService {
   private initialized = false;
-  private emit?: EmitFn;
+  private wsConnectionId: string = 'chat-controller';
 
   private activePlanId: number | null = null;
   private plan: PlanRecord | null = null;
   private todos: PlanTodoRecord[] = [];
   private events: PlanEventRecord[] = [];
 
-  constructor(private readonly threadId: string, emit?: EmitFn) {
-    this.emit = emit;
+  constructor(private readonly threadId: string, wsConnectionId?: string) {
+    if (wsConnectionId) {
+      this.wsConnectionId = wsConnectionId;
+    }
   }
 
   async initialize(): Promise<void> {
@@ -85,13 +86,18 @@ export class StrategicStateService {
 
     await this.refresh();
 
-    this.emit?.({
+    this.emitWebSocketPlanUpdate({
       type: 'progress',
       threadId: this.threadId,
       data: { phase: 'revision_requested', planId, reason },
     });
 
     return true;
+  }
+
+  private emitWebSocketPlanUpdate(event: { type: string; threadId: string; data: unknown }): void {
+    const wsService = getWebSocketClientService();
+    wsService.send(this.wsConnectionId, event);
   }
 
   getActivePlanId(): number | null {
@@ -153,14 +159,16 @@ export class StrategicStateService {
     this.activePlanId = created.planId;
     await this.refresh();
 
-    this.emit?.({
+    // Internal event for backward compatibility
+    this.emitWebSocketPlanUpdate({
       type: 'progress',
       threadId: this.threadId,
       data: { phase: 'plan_created', planId: created.planId, goal: params.data.goal },
     });
 
+    // Emit todo_created events AFTER plan_created
     for (const t of created.todos) {
-      this.emit?.({
+      this.emitWebSocketPlanUpdate({
         type: 'progress',
         threadId: this.threadId,
         data: {
@@ -209,7 +217,7 @@ export class StrategicStateService {
     this.activePlanId = revised.planId;
     await this.refresh();
 
-    this.emit?.({
+    this.emitWebSocketPlanUpdate({
       type: 'progress',
       threadId: this.threadId,
       data: {
@@ -221,7 +229,7 @@ export class StrategicStateService {
     });
 
     for (const t of revised.todosCreated) {
-      this.emit?.({
+      this.emitWebSocketPlanUpdate({
         type: 'progress',
         threadId: this.threadId,
         data: {
@@ -236,7 +244,7 @@ export class StrategicStateService {
     }
 
     for (const t of revised.todosUpdated) {
-      this.emit?.({
+      this.emitWebSocketPlanUpdate({
         type: 'progress',
         threadId: this.threadId,
         data: {
@@ -251,7 +259,7 @@ export class StrategicStateService {
     }
 
     for (const todoId of revised.todosDeleted) {
-      this.emit?.({
+      this.emitWebSocketPlanUpdate({
         type: 'progress',
         threadId: this.threadId,
         data: { phase: 'todo_deleted', planId: revised.planId, todoId },
@@ -293,13 +301,11 @@ export class StrategicStateService {
 
     await this.refresh();
 
-    if (params.title) {
-      this.emit?.({
-        type: 'progress',
-        threadId: this.threadId,
-        data: { phase: 'todo_status', planId, todoId: params.todoId, title: params.title, status: params.status },
-      });
-    }
+    this.emitWebSocketPlanUpdate({
+      type: 'progress',
+      threadId: this.threadId,
+      data: { phase: 'todo_status', planId, todoId: params.todoId, title: params.title, status: params.status },
+    });
 
     return true;
   }
@@ -316,7 +322,7 @@ export class StrategicStateService {
     await planService.addPlanEvent(planId, 'plan_completed', { reason });
     await planService.updatePlanStatus(planId, 'completed');
 
-    this.emit?.({
+    this.emitWebSocketPlanUpdate({
       type: 'progress',
       threadId: this.threadId,
       data: { phase: 'plan_completed', planId },
@@ -341,7 +347,7 @@ export class StrategicStateService {
   }
 
   static fromThreadState(state: ThreadState): StrategicStateService {
-    const emit = state.metadata.__emitAgentEvent as EmitFn | undefined;
-    return new StrategicStateService(state.threadId, emit);
+    const wsConnectionId = (state.metadata.wsConnectionId as string) || 'chat-controller';
+    return new StrategicStateService(state.threadId, wsConnectionId);
   }
 }

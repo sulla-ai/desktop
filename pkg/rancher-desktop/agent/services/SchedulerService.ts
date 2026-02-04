@@ -133,8 +133,8 @@ export class SchedulerService {
         return;
       }
 
-      const payload = (msg.payload && typeof msg.payload === 'object') ? (msg.payload as any) : null;
-      const eventId = Number(payload?.eventId);
+      const data = (msg.data && typeof msg.data === 'object') ? (msg.data as any) : null;
+      const eventId = Number(data?.eventId);
       if (!Number.isFinite(eventId)) {
         return;
       }
@@ -155,7 +155,7 @@ export class SchedulerService {
   private buildEventPayload(event: CalendarEvent, prompt: string) {
     return {
       type: 'user_message',
-      payload: {
+      data: {
         role: 'user',
         content: prompt,
         metadata: {
