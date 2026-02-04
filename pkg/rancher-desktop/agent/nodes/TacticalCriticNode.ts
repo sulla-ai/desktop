@@ -29,7 +29,6 @@ export class TacticalCriticNode extends BaseNode {
       activeTodo: state.metadata.activeTodo,
       todoExecution: state.metadata.todoExecution,
     });
-    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
 
     // Check for LLM failure count to prevent infinite loops
     const llmFailureCount = ((state.metadata.llmFailureCount as number) || 0);
@@ -99,11 +98,7 @@ export class TacticalCriticNode extends BaseNode {
       state.metadata.criticDecision = 'approve';
       state.metadata.criticReason = 'Max revisions reached';
 
-      emit?.({
-        type:     'progress',
-        threadId: state.threadId,
-        data:     { phase: 'critic_decision', decision: 'approve', reason: 'Max revisions reached' },
-      });
+      this.emitProgress(state, 'critic_decision', { decision: 'approve', reason: 'Max revisions reached' });
 
       return { state, next: 'continue' };
     }
@@ -113,11 +108,7 @@ export class TacticalCriticNode extends BaseNode {
       state.metadata.criticDecision = 'approve';
       state.metadata.criticReason = 'No active plan/todo to critique';
 
-      emit?.({
-        type:     'progress',
-        threadId: state.threadId,
-        data:     { phase: 'critic_decision', decision: 'approve', reason: 'No active plan/todo to critique' },
-      });
+      this.emitProgress(state, 'critic_decision', { decision: 'approve', reason: 'No active plan/todo to critique' });
 
       return { state, next: 'continue' };
     }
@@ -187,11 +178,7 @@ export class TacticalCriticNode extends BaseNode {
       state.metadata.criticDecision = 'approve';
       state.metadata.criticReason = llmDecision.reason;
 
-      emit?.({
-        type:     'progress',
-        threadId: state.threadId,
-        data:     { phase: 'critic_decision', decision: 'approve', reason: llmDecision.reason },
-      });
+      this.emitProgress(state, 'critic_decision', { decision: 'approve', reason: llmDecision.reason });
 
       return { state, next: 'continue' };
     }
@@ -225,11 +212,7 @@ export class TacticalCriticNode extends BaseNode {
       toolResults: state.metadata.toolResults,
     });
 
-    emit?.({
-      type:     'progress',
-      threadId: state.threadId,
-      data:     { phase: 'critic_decision', decision: 'revise', reason },
-    });
+    this.emitProgress(state, 'critic_decision', { decision: 'revise', reason });
 
     return { state, next: 'tactical_planner' };
   }

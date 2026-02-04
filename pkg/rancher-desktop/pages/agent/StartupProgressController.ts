@@ -25,11 +25,6 @@ export class StartupProgressController {
     };
   }
 
-  public progressPercent = computed(() => {
-    if (this.state.progressMax.value <= 0) return 0;
-    return Math.round((this.state.progressCurrent.value / this.state.progressMax.value) * 100);
-  });
-
   private readonly OLLAMA_BASE = 'http://127.0.0.1:30114';
   private readinessInterval: ReturnType<typeof setInterval> | null = null;
   private k8sReady = false;

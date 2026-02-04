@@ -177,9 +177,11 @@ export abstract class BaseNode implements GraphNode {
 
         parts.push([
           'Tooling constraints (mandatory):',
-          '- You may ONLY use tool actions that appear in the "Available tools" list below.',
-          '- Tool action names must match EXACTLY (case-sensitive).',
-          '- Do NOT invent tools or actions. Any unknown tool/action will fail and you will be forced to revise.',
+          '- You may ONLY use tools that appear in the "Available tools" list below.',
+          '- Tool names must match EXACTLY (case-sensitive).',
+          '- Do NOT invent tools. Any unknown tool will fail and you will be forced to revise.',
+          '- Use EXEC FORM format: ["tool_name", "arg1", "arg2", ...]',
+          '- Example: ["kubectl", "get", "pods"] calls kubectl in the command line',
         ].join('\n'));
 
         if (detail === 'tactical') {
@@ -781,11 +783,107 @@ When to trigger KB generation:
   }
 
   /**
+   * Emit a plan update event via WebSocket
+   * @param state ThreadState containing the connection ID in metadata
+   * @param phase Plan event phase (plan_created, plan_revised, todo_created, etc.)
+   * @param data Plan event data
+   * @returns true if message was sent via WebSocket
+   */
+  protected emitPlanUpdate(
+    state: ThreadState,
+    phase: string,
+    data: Record<string, unknown>,
+  ): boolean {
+    const connectionId = (state.metadata.wsConnectionId as string) || 'chat-controller';
+
+    if (!this.isWebSocketConnected(connectionId)) {
+      this.connectWebSocket(connectionId);
+    }
+
+    const sent = this.dispatchToWebSocket(connectionId, {
+      type: 'plan_update',
+      payload: {
+        phase,
+        ...data,
+        timestamp: Date.now(),
+      },
+    });
+
+    if (!sent) {
+      console.warn(`[Agent:${this.name}] Failed to send plan update via WebSocket`);
+    }
+
+    return sent;
+  }
+
+  /**
+   * Emit a progress event via WebSocket
+   * @param state ThreadState containing the connection ID in metadata
+   * @param phase Progress phase (node_start, tool_call, tool_result, etc.)
+   * @param data Progress event data
+   * @returns true if message was sent via WebSocket
+   */
+  protected emitProgress(
+    state: ThreadState,
+    phase: string,
+    data: Record<string, unknown> = {},
+  ): boolean {
+    const connectionId = (state.metadata.wsConnectionId as string) || 'chat-controller';
+
+    if (!this.isWebSocketConnected(connectionId)) {
+      this.connectWebSocket(connectionId);
+    }
+
+    const sent = this.dispatchToWebSocket(connectionId, {
+      type: 'progress',
+      payload: {
+        phase,
+        nodeId: this.id,
+        nodeName: this.name,
+        ...data,
+        timestamp: Date.now(),
+      },
+    });
+
+    if (!sent) {
+      console.warn(`[Agent:${this.name}] Failed to send progress event via WebSocket`);
+    }
+
+    return sent;
+  }
+
+  /**
    * Check if chat message emission via WebSocket is available
    * @param state ThreadState containing the connection ID in metadata
    */
   protected canEmitChatMessage(state: ThreadState): boolean {
     const connectionId = (state.metadata.wsConnectionId as string) || 'chat-controller';
     return this.isWebSocketConnected(connectionId);
+  }
+
+  /**
+   * Normalize tool calls from exec form arrays
+   * Exec form: ["tool_name", "arg1", "arg2"]
+   * Tool name is used directly from the first element (must match tool.name exactly)
+   * @param tools Raw tools array from LLM response (parsed.tools)
+   * @returns Normalized actions with toolName and args
+   */
+  protected normalizeToolCalls(tools: unknown[]): Array<{ toolName: string; args: { args: unknown[] } }> {
+    const result: Array<{ toolName: string; args: { args: unknown[] } }> = [];
+
+    for (const item of tools) {
+      // Exec form: array like ["kubectl", "get", "pods"] or ["emit_chat_message", "message"]
+      if (Array.isArray(item) && item.length > 0) {
+        const toolName = String(item[0]);
+        const execArgs = item.slice(1);
+
+        result.push({
+          toolName,
+          args: { args: execArgs },
+        });
+      }
+    }
+
+    return result;
   }
 }

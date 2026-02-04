@@ -1,6 +1,7 @@
 import type { ThreadState, ToolResult } from '../types';
 import type { ToolContext } from './BaseTool';
 import { BaseTool } from './BaseTool';
+import { getWebSocketClientService } from '../services/WebSocketClientService';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -68,15 +69,19 @@ export class EmitChatImageTool extends BaseTool {
 
   async execute(state: ThreadState, context: ToolContext): Promise<ToolResult> {
     const args = (context.args && typeof context.args === 'object') ? context.args : {};
-    const rawPath = typeof (args as any).path === 'string' ? String((args as any).path) : '';
+    // Support both 'path' and 'image_path' for compatibility
+    const rawPath = typeof (args as any).path === 'string' 
+      ? String((args as any).path) 
+      : (typeof (args as any).image_path === 'string' ? String((args as any).image_path) : '');
     const alt = typeof (args as any).alt === 'string' ? String((args as any).alt) : '';
     const role = typeof (args as any).role === 'string' ? String((args as any).role) : 'assistant';
 
-    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
+    // Get connection ID from state metadata or use default
+    const connectionId = (state.metadata?.wsConnectionId as string) || 'chat-controller';
 
     const filePath = expandHome(rawPath);
     if (!filePath) {
-      return { toolName: this.name, success: false, error: 'Missing args.path' };
+      return { toolName: this.name, success: false, error: 'Missing args.path (or args.image_path)' };
     }
 
     const contentType = guessContentType(filePath);
@@ -95,17 +100,18 @@ export class EmitChatImageTool extends BaseTool {
     const base64 = buf.toString('base64');
     const dataUrl = `data:${contentType};base64,${base64}`;
 
-    emit?.({
-      type: 'progress',
-      threadId: state.threadId,
-      data: {
-        phase: 'chat_image',
+    // Send via WebSocket instead of __emitAgentEvent
+    const wsService = getWebSocketClientService();
+    wsService.send(connectionId, {
+      type: 'chat_image',
+      payload: {
         role,
         alt,
         contentType,
         dataUrl,
         path: filePath,
       },
+      timestamp: Date.now(),
     });
 
     return { toolName: this.name, success: true, result: { emitted: true, contentType } };

@@ -43,8 +43,8 @@ Mandatory visibility:
 
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
-  "actions": [
-    { "action": "tool_name", "args": { "arg1": "value1" } }
+  "tools": [
+    ["tool_name", "arg1", "arg2"]
   ],
   "markDone": true,
   "summary": "Brief description of what was done or response to user"
@@ -72,7 +72,8 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         return;
       }
 
-      const actions = Array.isArray(parsed.actions) ? parsed.actions : [];
+      const normalized = this.normalizeToolCalls(Array.isArray(parsed.tools) ? parsed.tools : []);
+      const actions = normalized.map(n => ({ action: n.toolName, args: n.args }));
 
       // Execute any tool actions
       for (const actionItem of actions) {
@@ -92,7 +93,10 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         await this.emitChat(state, parsed.summary);
       }
     } catch (err) {
-      agentError(this.name, 'handleNoPlanResponse failed', err);
+      const errorMsg = err instanceof Error ? err.message : String(err ?? 'unknown error');
+      const errorStack = err instanceof Error ? err.stack : undefined;
+      agentError(this.name, `handleNoPlanResponse failed: ${errorMsg}`, errorStack);
+      console.error('[Agent:TacticalExecutor] handleNoPlanResponse error:', err);
     }
   }
 
@@ -207,7 +211,6 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       return false;
     }
 
-    const emit = state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined;
     const milestone = state.metadata.activeMilestone as { title?: string; generateKnowledgeBase?: boolean; kbSuggestedSlug?: string; kbSuggestedTags?: string[] } | undefined;
 
     agentLog(this.name, `Executing tactical step: ${tacticalStep.action}`);
@@ -215,20 +218,16 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       agentLog(this.name, `For milestone: ${milestone.title}`);
     }
 
-    emit?.({
-      type: 'progress',
-      threadId: state.threadId,
-      data: { phase: 'tactical_step_start', step: tacticalStep.action, milestone: milestone?.title },
-    });
+    this.emitProgress(state, 'tactical_step_start', { step: tacticalStep.action, milestone: milestone?.title });
 
     // Canonical trigger: allow tactical plans to explicitly request KB generation.
     if (String(tacticalStep.action).toLowerCase() === 'knowledge_base_generate') {
-      return this.executeKnowledgeBaseGeneration(state, milestone || {}, emit);
+      return this.executeKnowledgeBaseGeneration(state, milestone || {});
     }
 
     // Check if this milestone is a KnowledgeBase generation milestone
     if (milestone?.generateKnowledgeBase === true) {
-      return this.executeKnowledgeBaseGeneration(state, milestone, emit);
+      return this.executeKnowledgeBaseGeneration(state, milestone);
     }
 
     // Use LLM to decide what tools to call for this step
@@ -253,7 +252,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       return true;
     }
 
-    if (decision.actions.length === 0) {
+    if (decision.tools.length === 0) {
       await this.emitChat(state, decision.summary || 'No tool actions needed for this step.');
       
       // Mark step as done even without tool calls
@@ -271,55 +270,45 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         const step = state.metadata.tacticalPlan.steps.find(s => s.id === tacticalStep.id);
         if (step) {
           step.status = 'done';
-          emit?.({
-            type: 'progress',
-            threadId: state.threadId,
-            data: { phase: 'tactical_step_status', stepId: step.id, action: step.action, status: 'done' },
-          });
+          this.emitProgress(state, 'tactical_step_status', { stepId: step.id, action: step.action, status: 'done' });
         }
       }
-      
+
       state.metadata.planHasRemainingTodos = this.hasRemainingTacticalWork(state);
       return true;
     }
 
-    // Execute tool actions
+    // Execute tools
     let anyToolFailed = false;
-    let lastFailedAction = '';
+    let lastFailedTool = '';
     let lastFailedError = '';
 
-    for (const actionItem of decision.actions) {
-      const actionName = actionItem.action;
-      const actionArgs = actionItem.args || {};
+    for (const toolItem of decision.tools) {
+      const toolName = toolItem.tool;
+      const toolArgs = toolItem.args || {};
 
-      agentLog(this.name, `Executing tool: ${actionName}`);
-      emit?.({
-        type: 'progress',
-        threadId: state.threadId,
-        data: { phase: 'tool_call', tool: actionName, args: actionArgs },
-      });
-
-      const result = await this.executeSingleToolAction(state, actionName, actionArgs);
+      agentLog(this.name, `Executing tool: ${toolName}`);
+      const result = await this.executeSingleToolAction(state, toolName, toolArgs);
 
       if (result && result.success === false) {
         anyToolFailed = true;
-        lastFailedAction = actionName;
+        lastFailedTool = toolName;
         lastFailedError = result.error || 'Unknown error';
-        agentWarn(this.name, `Tool ${actionName} failed: ${lastFailedError}`, {
-          tool: actionName,
+        agentWarn(this.name, `Tool ${toolName} failed: ${lastFailedError}`, {
+          tool: toolName,
           error: lastFailedError,
-          args: actionArgs,
+          args: toolArgs,
         });
       }
     }
 
-    const allActionsSucceeded = decision.actions.length > 0 && !anyToolFailed;
-    const markDone = decision.markDone || allActionsSucceeded;
+    const allToolsSucceeded = decision.tools.length > 0 && !anyToolFailed;
+    const markDone = decision.markDone || allToolsSucceeded;
 
     state.metadata.todoExecution = {
       todoId: 0,
-      actions: decision.actions.map(a => a.action),
-      actionsCount: decision.actions.length,
+      actions: decision.tools.map(t => t.tool),
+      actionsCount: decision.tools.length,
       markDone,
       status: markDone ? 'done' : (anyToolFailed ? 'failed' : 'in_progress'),
       summary: decision.summary || '',
@@ -331,17 +320,13 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       if (step) {
         const newStatus = markDone ? 'done' : (anyToolFailed ? 'failed' : 'in_progress');
         step.status = newStatus;
-        emit?.({
-          type: 'progress',
-          threadId: state.threadId,
-          data: { phase: 'tactical_step_status', stepId: step.id, action: step.action, status: newStatus },
-        });
+        this.emitProgress(state, 'tactical_step_status', { stepId: step.id, action: step.action, status: newStatus });
       }
     }
 
     if (anyToolFailed) {
-      await this.emitChat(state, `Tool failed (${lastFailedAction}): ${lastFailedError}`);
-      state.metadata.requestPlanRevision = { reason: `Tool failed: ${lastFailedAction} - ${lastFailedError}` };
+      await this.emitChat(state, `Tool failed (${lastFailedTool}): ${lastFailedError}`);
+      state.metadata.requestPlanRevision = { reason: `Tool failed: ${lastFailedTool} - ${lastFailedError}` };
     } else if (markDone) {
     }
 
@@ -356,15 +341,10 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
   private async executeKnowledgeBaseGeneration(
     state: ThreadState,
     milestone: { title?: string; kbSuggestedSlug?: string; kbSuggestedTags?: string[] },
-    emit?: (event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void,
   ): Promise<boolean> {
     console.log(`[Agent:Executor] Executing KnowledgeBase generation milestone: ${milestone.title}`);
 
-    emit?.({
-      type: 'progress',
-      threadId: state.threadId,
-      data: { phase: 'knowledgebase_generation_start', milestone: milestone.title },
-    });
+    this.emitProgress(state, 'knowledgebase_generation_start', { milestone: milestone.title });
 
     await this.emitChat(state, `Generating KnowledgeBase article: ${milestone.title || 'Documentation'}...`);
 
@@ -403,11 +383,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         state.metadata.requestPlanRevision = { reason: `KnowledgeBase article not created: ${result.error || 'unknown error'}` };
       }
 
-      emit?.({
-        type: 'progress',
-        threadId: state.threadId,
-        data: { phase: 'knowledgebase_generation_end', success: result.success, slug: result.slug },
-      });
+      this.emitProgress(state, 'knowledgebase_generation_end', { success: result.success, slug: result.slug });
 
       // Mark tactical step as done
       if (state.metadata.tacticalPlan) {
@@ -490,7 +466,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
   private async planTacticalStepExecution(
     state: ThreadState,
     step: { id: string; action: string; description: string; toolHints?: string[] },
-  ): Promise<{ actions: Array<{ action: string; args?: Record<string, unknown> }>; markDone: boolean; summary: string } | null> {
+  ): Promise<{ tools: Array<{ tool: string; args?: Record<string, unknown> }>; markDone: boolean; summary: string } | null> {
     const todoExecution = state.metadata.todoExecution as any;
     const activeMilestone = (state.metadata.activeMilestone && typeof state.metadata.activeMilestone === 'object')
       ? (state.metadata.activeMilestone as any)
@@ -546,8 +522,8 @@ Mandatory visibility:
 
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
-  "actions": [
-    { "action": "tool_name", "args": { "arg1": "value1" } }
+  "tools": [
+    ["tool_name", "arg1", "arg2"]
   ],
   "markDone": true,
   "summary": "Brief description of what was done"
@@ -586,7 +562,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         if (looksLikeCompletion) {
           agentWarn(this.name, 'LLM returned non-JSON completion summary, treating as done');
           return {
-            actions: [],
+            tools: [],
             markDone: true,
             summary: response.content.substring(0, 200),
           };
@@ -596,8 +572,9 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         return null;
       }
 
+      const normalized = this.normalizeToolCalls(Array.isArray(parsed.tools) ? parsed.tools : []);
       return {
-        actions: Array.isArray(parsed.actions) ? parsed.actions : [],
+        tools: normalized.map(n => ({ tool: n.toolName, args: n.args })),
         markDone: parsed.markDone !== false,
         summary: parsed.summary || '',
       };
@@ -605,23 +582,6 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       agentError(this.name, 'Failed to plan tactical step', err);
       return null;
     }
-  }
-
-  private async getActivePlanId(state: ThreadState): Promise<number | null> {
-    const fromMetadata = state.metadata.activePlanId;
-    if (fromMetadata !== undefined && fromMetadata !== null && Number.isFinite(Number(fromMetadata))) {
-      return Number(fromMetadata);
-    }
-
-    const awareness = getAwarenessService();
-    await awareness.initialize();
-    const ids = awareness.getData().active_plan_ids || [];
-    const first = ids[0];
-    if (first && Number.isFinite(Number(first))) {
-      return Number(first);
-    }
-
-    return null;
   }
 
   private async executeSingleToolAction(
@@ -632,8 +592,6 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     registerDefaultTools();
     const registry = getToolRegistry();
 
-    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
-
     const tool = registry.get(action);
     if (!tool) {
       return { toolName: action, success: false, error: `Unknown tool action: ${action}` };
@@ -641,11 +599,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 
     const toolRunId = `${Date.now()}_${action}_${Math.floor(Math.random() * 1_000_000)}`;
 
-    emit?.({
-      type:     'progress',
-      threadId: state.threadId,
-      data:     { phase: 'tool_call', toolRunId, toolName: action, args: args || {} },
-    });
+    this.emitProgress(state, 'tool_call', { toolRunId, toolName: action, args: args || {} });
 
     const memorySearchQueries = Array.isArray(state.metadata?.plan && (state.metadata.plan as any)?.fullPlan?.context?.memorySearchQueries)
       ? ((state.metadata.plan as any).fullPlan.context.memorySearchQueries as unknown[]).map(String)
@@ -658,68 +612,11 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       args,
     });
 
-    emit?.({
-      type:     'progress',
-      threadId: state.threadId,
-      data:     { phase: 'tool_result', toolRunId, toolName: action, success: result.success, error: result.error || null, result: result.result },
-    });
+    this.emitProgress(state, 'tool_result', { toolRunId, toolName: action, success: result.success, error: result.error || null, result: result.result });
 
     this.appendToolResultMessage(state, action, result);
 
     return result;
-  }
-
-  private async executePlannedTools(
-    state: ThreadState,
-    plan: {
-      requiresTools: boolean;
-      steps: string[];
-      fullPlan?: { steps?: Array<{ action: string; args?: Record<string, unknown> }>; context?: { memorySearchQueries?: string[] } };
-    },
-  ): Promise<void> {
-    const actions = (plan.fullPlan?.steps?.length)
-      ? plan.fullPlan.steps.map(s => s.action)
-      : (plan.steps || []);
-
-    registerDefaultTools();
-    const registry = getToolRegistry();
-    const toolResults: Record<string, ToolResult> = {};
-    const memorySearchQueries = plan.fullPlan?.context?.memorySearchQueries || [];
-
-    const stepArgsByAction: Record<string, Record<string, unknown>> = {};
-    if (plan.fullPlan?.steps) {
-      for (const step of plan.fullPlan.steps) {
-        if (step?.action && step?.args && !stepArgsByAction[step.action]) {
-          stepArgsByAction[step.action] = step.args;
-        }
-      }
-    }
-
-    for (const action of actions) {
-      if (action === 'generate_response') {
-        continue;
-      }
-
-      const tool = registry.get(action);
-      if (!tool) {
-        console.warn(`[Agent:Executor] Unknown tool action: ${action}`);
-        continue;
-      }
-
-      const result = await tool.execute(state, {
-        threadId: state.threadId,
-        plannedAction: action,
-        memorySearchQueries,
-        args: stepArgsByAction[action],
-      });
-
-      toolResults[action] = result;
-      this.appendToolResultMessage(state, action, result);
-    }
-
-    if (Object.keys(toolResults).length > 0) {
-      state.metadata.toolResults = toolResults;
-    }
   }
 
 }

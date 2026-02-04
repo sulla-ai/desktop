@@ -3,8 +3,6 @@
 
 export * from './types';
 export { Sensory, getSensory } from './SensoryInput';
-export { ContextDetector, getContextDetector } from './ContextDetector';
-export { ConversationThread, getThread, getAllThreads, removeThread, onGlobalEvent, offGlobalEvent } from './ConversationThread';
 export { ResponseHandler, getResponseHandler } from './ResponseHandler';
 export { Graph, createHierarchicalGraph, createHeartbeatGraph } from './Graph';
 
@@ -32,3 +30,13 @@ export { getSchedulerService, SchedulerService } from './services/SchedulerServi
 export { getHeartbeatService, HeartbeatService } from './services/HeartbeatService';
 export { getKnowledgeGraph, KnowledgeGraphClass } from './services/KnowledgeGraph';
 export type { KnowledgeFinalPage, KnowledgePageSection, KnowledgeGoal } from './services/KnowledgeState';
+export { FrontendGraphWebSocketService } from './services/FrontendGraphWebSocketService';
+export { BackendGraphWebSocketService } from './services/BackendGraphWebSocketService';
+
+// Models
+export { AgentPersonaService } from './models/AgentPersonaModel';
+export type { PersonaTemplateId, PersonaStatus, PersonaEmotion, TodoStatus, Todo, PlanState, AgentPersonaState } from './models/AgentPersonaModel';
+
+// Registry
+export { AgentPersonaRegistry, getAgentPersonaRegistry } from './registry/AgentPersonaRegistry';
+export type { ChatMessage, AgentRegistryEntry } from './registry/AgentPersonaRegistry';

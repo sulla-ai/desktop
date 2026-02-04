@@ -30,7 +30,6 @@ export class MemoryNode extends BaseNode {
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
     console.log(`[Agent:Memory] Executing...`);
     const lastUserMessage = state.messages.filter(m => m.role === 'user').pop();
-    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
 
     if (!lastUserMessage) {
       console.log(`[Agent:Memory] No user message, skipping`);
@@ -64,11 +63,7 @@ export class MemoryNode extends BaseNode {
       console.log(`[Agent:Memory] Search plan: ${searchPlan.reasoning}`);
       state.metadata.memorySearchPlan = searchPlan;
 
-      emit?.({
-        type:     'progress',
-        threadId: state.threadId,
-        data:     { phase: 'memory_plan', needsMemory: true, queries: searchPlan.searchQueries, collection: searchPlan.collection },
-      });
+      this.emitProgress(state, 'memory_plan', { needsMemory: true, queries: searchPlan.searchQueries, collection: searchPlan.collection });
 
       // Query Chroma with the planned search (pull a larger candidate set)
       const candidateLimit = Number.isFinite(Number(searchPlan.candidateLimit)) ? Number(searchPlan.candidateLimit) : 18;
@@ -89,11 +84,7 @@ export class MemoryNode extends BaseNode {
           .map((m, i) => `[Memory ${ i + 1 }]: ${ m }`)
           .join('\n');
 
-        emit?.({
-          type:     'progress',
-          threadId: state.threadId,
-          data:     { phase: 'memory_selected', count: selected.length, candidates: candidates.length },
-        });
+        this.emitProgress(state, 'memory_selected', { count: selected.length, candidates: candidates.length });
       }
     } catch (err) {
       console.error('[Agent:Memory] Retrieval failed:', err);

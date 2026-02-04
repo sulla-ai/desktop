@@ -34,7 +34,7 @@
           <div class="flex items-center gap-2">
             <a
               class="flex h-10 w-10 cursor-pointer items-center justify-center border border-black/10 bg-white/70 text-[#0d0d0d] shadow-sm backdrop-blur hover:bg-white/90 dark:border-white/10 dark:bg-neutral-950/70 dark:text-white dark:hover:bg-neutral-950/90"
-              href="https://github.com/sulla-ai/desktop"
+              href="https://github.com/sulla-ai/sulla-desktop"
               target="_blank"
               rel="noreferrer"
               aria-label="Open GitHub repository"
@@ -70,7 +70,7 @@
       </div>
 
       <div class="flex-1 overflow-auto"><img alt="" width="530" height="530" decoding="async" data-nimg="1" class="absolute -top-64 -right-64"
-                    style="color:transparent" src="./agent/splash.png">
+                    style="color:transparent" src="./assets/splash.png">
                   
         <div class="mx-auto max-w-6xl px-4 py-6">
           <div v-if="!skill" class="border border-black/10 bg-white/70 p-6 text-base text-[#0d0d0d]/70 shadow-sm backdrop-blur dark:border-white/10 dark:bg-neutral-950/70 dark:text-white/70">
