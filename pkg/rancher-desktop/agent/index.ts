@@ -6,7 +6,7 @@ export { Sensory, getSensory } from './SensoryInput';
 export { ContextDetector, getContextDetector } from './ContextDetector';
 export { ConversationThread, getThread, getAllThreads, removeThread, onGlobalEvent, offGlobalEvent } from './ConversationThread';
 export { ResponseHandler, getResponseHandler } from './ResponseHandler';
-export { Graph, createHierarchicalGraph } from './Graph';
+export { Graph, createHierarchicalGraph, createHeartbeatGraph } from './Graph';
 
 // Graph Nodes
 export { BaseNode } from './nodes/BaseNode';

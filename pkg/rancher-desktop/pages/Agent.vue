@@ -6,8 +6,8 @@
 
     <!-- Loading overlay while system boots -->
     <div
-      v-if="!systemReady && !hasEverBeenReady"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      v-if="showOverlay"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-white/10 backdrop-blur-sm"
     >
       <div class="w-full max-w-lg rounded-2xl border border-black/10 bg-white/85 p-6 shadow-2xl dark:border-white/10 dark:bg-neutral-900/70">
         <div class="text-4xl leading-none mb-3">
@@ -67,7 +67,7 @@
     </div>
 
     <!-- Main agent interface -->
-    <div ref="chatScrollContainer" id="chat-scroll-container" class="flex min-h-0 flex-1 overflow-y-auto" :class="{ 'blur-sm pointer-events-none select-none': !systemReady && !hasEverBeenReady }">
+    <div ref="chatScrollContainer" id="chat-scroll-container" class="flex min-h-0 flex-1 overflow-y-auto" :class="{ 'blur-sm pointer-events-none select-none': showOverlay }">
       <div class="flex min-h-0 min-w-0 flex-1 flex-col">
         <div v-if="hasMessages" class="relative mx-auto flex w-full max-w-8xl flex-1 justify-center sm:px-2 lg:px-8 xl:px-12">
           <div class="hidden lg:relative lg:block lg:flex-none">
@@ -225,7 +225,7 @@
                           type="button"
                           class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#0d0d0d] transition-colors hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
                           aria-label="Attach"
-                          :disabled="!systemReady"
+                          :disabled="showOverlay"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" />
@@ -252,7 +252,7 @@
                               type="button"
                               class="flex h-9 shrink-0 items-center gap-2 rounded-full px-2.5 text-[#0d0d0d] hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
                               aria-label="Model select"
-                              :disabled="!systemReady"
+                              :disabled="showOverlay"
                               @click="modelSelector.toggleModelMenu"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
@@ -332,7 +332,7 @@
                               type="button"
                               class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
                               :aria-label="loading ? 'Stop' : (query.trim() ? 'Send' : 'Voice')"
-                              :disabled="!systemReady || (!loading && false)"
+                              :disabled="showOverlay || (!loading && false)"
                               @click="handlePrimaryAction"
                             >
                               <svg v-if="loading" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -373,7 +373,7 @@
                       type="button"
                       class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#0d0d0d] transition-colors hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
                       aria-label="Attach"
-                      :disabled="!systemReady"
+                      :disabled="showOverlay"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" />
@@ -400,7 +400,7 @@
                           type="button"
                           class="flex h-9 shrink-0 items-center gap-2 rounded-full px-2.5 text-[#0d0d0d] hover:bg-[#f0f0f0] disabled:opacity-60 dark:text-white dark:hover:bg-white/10"
                           aria-label="Model select"
-                          :disabled="!systemReady"
+                          :disabled="showOverlay"
                           @click="modelSelector.toggleModelMenu"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
@@ -480,7 +480,7 @@
                           type="button"
                           class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
                           :aria-label="loading ? 'Stop' : (query.trim() ? 'Send' : 'Voice')"
-                          :disabled="!systemReady || (!loading && false)"
+                          :disabled="showOverlay || (!loading && false)"
                           @click="handlePrimaryAction"
                         >
                           <svg v-if="loading" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -524,8 +524,6 @@ import {
 } from '@pkg/agent';
 import type { AgentResponse } from '@pkg/agent/types';
 import { updateAgentConfigFull } from '@pkg/agent/services/ConfigService';
-import { getSchedulerService } from '@pkg/agent/services/SchedulerService';
-import { getHeartbeatService } from '@pkg/agent/services/HeartbeatService';
 import { StartupProgressController } from './agent/StartupProgressController';
 import { AgentSettingsController } from './agent/AgentSettingsController';
 import { AgentChatController } from './agent/AgentChatController';
@@ -642,6 +640,7 @@ const {
   progressMax,
   progressDescription,
   startupPhase,
+  showOverlay,
   modelDownloading,
   modelName,
   modelDownloadProgress,
@@ -650,34 +649,6 @@ const {
   modelMode,
   progressPercent,
 } = startupState;
-
-const READY_ONCE_KEY = 'sulla-agent-system-ready-once';
-const hasEverBeenReady = ref(false);
-try {
-  hasEverBeenReady.value = window.localStorage.getItem(READY_ONCE_KEY) === 'true';
-} catch {
-  // ignore
-}
-
-watch(systemReady, (ready) => {
-  console.log('systemReady', ready);
-  if (!ready) {
-    return;
-  }
-  if (!hasEverBeenReady.value) {
-    hasEverBeenReady.value = true;
-  }
-  try {
-    window.localStorage.setItem(READY_ONCE_KEY, 'true');
-  } catch {
-    // ignore
-  }
-});
-
-// Ollama memory error recovery
-const ollamaRestarting = ref(false);
-const memoryErrorCount = ref(0);
-const MAX_MEMORY_ERROR_RETRIES = 3;
 
 const startupProgress = new StartupProgressController(startupState);
 
@@ -688,12 +659,6 @@ const settingsController = new AgentSettingsController(
   },
   updateAgentConfigFull,
 );
-
-startupProgress.setMemoryErrorRefs({
-  ollamaRestarting,
-  memoryErrorCount,
-  maxRetries: MAX_MEMORY_ERROR_RETRIES,
-});
 
 type SidebarTodoStatus = 'pending' | 'in_progress' | 'done' | 'blocked';
 type SidebarTodo = {
@@ -1067,25 +1032,9 @@ onMounted(async () => {
 
   await modelSelector.start();
 
-  await startupProgress.initializeFromBackend();
-
-  // Initialize scheduler for calendar events
-  try {
-    const scheduler = getSchedulerService();
-    await scheduler.initialize();
-    console.log('[Agent] SchedulerService initialized');
-  } catch (err) {
-    console.warn('[Agent] Failed to initialize SchedulerService:', err);
-  }
-
-  // Initialize heartbeat service
-  try {
-    const heartbeat = getHeartbeatService();
-    await heartbeat.initialize();
-    console.log('[Agent] HeartbeatService initialized');
-  } catch (err) {
-    console.warn('[Agent] Failed to initialize HeartbeatService:', err);
-  }
+  // Connect WebSocket to listen for backend messages
+  console.log('[Agent] Connecting WebSocket for chat controller...');
+  chatController.connectWebSocket();
 });
 
 onUnmounted(() => {

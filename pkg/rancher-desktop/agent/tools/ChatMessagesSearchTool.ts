@@ -52,8 +52,8 @@ export class ChatMessagesSearchTool extends BaseTool {
 
       const top = filtered.slice(-limit);
 
-      state.metadata.chatMessagesResults = top;
-      state.metadata.chatMessagesContext = top
+      (state.metadata as any).chatMessagesResults = top;
+      (state.metadata as any).chatMessagesContext = top
         .map((m, i) => `[ChatMessages ${i + 1}] ${m.role}: ${m.content}`)
         .join('\n');
 

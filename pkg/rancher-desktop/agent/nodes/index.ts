@@ -2,6 +2,7 @@
 
 export { BaseNode } from './BaseNode';
 export { MemoryNode } from './MemoryNode';
+export { OverLordPlannerNode } from './OverLordPlannerNode';
 export { StrategicPlannerNode } from './StrategicPlannerNode';
 export { TacticalPlannerNode } from './TacticalPlannerNode';
 export { TacticalExecutorNode } from './TacticalExecutorNode';

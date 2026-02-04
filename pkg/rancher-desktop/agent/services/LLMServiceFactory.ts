@@ -53,6 +53,8 @@ function getProviderBaseUrl(providerId: string): string {
     openai:    'https://api.openai.com/v1',
     anthropic: 'https://api.anthropic.com/v1',
     google:    'https://generativelanguage.googleapis.com/v1beta',
+    kimi:      'https://api.moonshot.cn/v1',
+    nvidia:    'https://integrate.api.nvidia.com/v1',
   };
 
   return urls[providerId] || urls.openai;

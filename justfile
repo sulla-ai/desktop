@@ -1,8 +1,12 @@
 # Sulla Desktop Development Commands
 
-# Default command: list all available commands
+# Default command: show help and list all available commands
 default:
-    @just --list
+    @echo "╔════════════════════════════════════════════════════════════════╗"
+    @echo "║           Sulla Desktop - Development Commands                 ╚"
+    @echo "╚════════════════════════════════════════════════════════════════╝"
+    @echo ""
+    @just --list --unsorted
 
 # Clean build artifacts only (preserves VM and cached images)
 clean:
@@ -50,7 +54,7 @@ start:
 
 # Tail the development server logs
 logs:
-    tail -f /tmp/sulla-desktop.log
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima limactl shell 0 -- sudo k3s kubectl logs -n sulla deploy/ws-server --tail=50
 
 # Stop the development server gracefully
 stop:
@@ -159,3 +163,15 @@ pg-events:
     resources/darwin/lima/bin/limactl shell 0 -- \
     sudo k3s kubectl exec -n sulla deploy/postgres -- \
     psql -U sulla -c "SELECT id, title, start_time, end_time, location, description FROM calendar_events ORDER BY start_time;"
+
+get-lima-config:
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    limactl list --json 2>/dev/null || echo '[]' | jq -c 'if . == [] then "No instances found" else .[] | {name, status, dir, sshLocalPort} end'
+
+lima-logs:
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    limactl shell 0 sudo cat /var/log/messages | tail -50
+
+check-ws:
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    limactl shell 0 sudo nerdctl --address /var/run/docker/containerd/containerd.sock ps | grep rd-ws-server

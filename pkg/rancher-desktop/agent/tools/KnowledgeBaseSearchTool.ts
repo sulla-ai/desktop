@@ -46,8 +46,8 @@ export class KnowledgeBaseSearchTool extends BaseTool {
 
       const ok = await chroma.initialize();
       if (!ok || !chroma.isAvailable()) {
-        state.metadata.knowledgeBaseContext = '';
-        state.metadata.knowledgeBaseResults = [];
+        (state.metadata as any).knowledgeBaseContext = '';
+        (state.metadata as any).knowledgeBaseResults = [];
         return { toolName: this.name, success: true, result: { query, count: 0, limit } };
       }
 
@@ -57,8 +57,8 @@ export class KnowledgeBaseSearchTool extends BaseTool {
       const docs = pageResults?.documents?.[0] || [];
       const top = docs.filter(Boolean).slice(0, limit);
 
-      state.metadata.knowledgeBaseResults = top;
-      state.metadata.knowledgeBaseContext = top
+      (state.metadata as any).knowledgeBaseResults = top;
+      (state.metadata as any).knowledgeBaseContext = top
         .map((m: string, i: number) => `[KnowledgeBase ${i + 1}]: ${m}`)
         .join('\n');
 

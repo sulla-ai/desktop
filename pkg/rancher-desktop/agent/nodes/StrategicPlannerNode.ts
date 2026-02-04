@@ -32,6 +32,13 @@ interface StrategicPlan {
     tone: 'formal' | 'casual' | 'technical' | 'friendly';
     format: 'brief' | 'detailed' | 'json' | 'markdown' | 'conversational';
   };
+  // Direct response to user for simple tasks (optional)
+  directResponse?: {
+    emitToUser: boolean;
+    content: string;
+    role: string;
+    kind: string;
+  };
 }
 
 export class StrategicPlannerNode extends BaseNode {
@@ -237,7 +244,7 @@ export class StrategicPlannerNode extends BaseNode {
     state: ThreadState,
     revisionReason?: string,
   ): Promise<StrategicPlan | null> {
-    const basePrompt = `You must create a strategic plan for the user's request.
+    const basePrompt = `You are a strategic planner. Your only job is to create a strategic plan for the user's request, not to reply to user requests directly. If the request is simple and does not require a strategic plan, you need to pass on the task to the tactical planner by returning planNeeded: false.
 
 You are an expert strategic planner with 20+ years across industries—tech (e.g., Amazon's predictive scaling for 40% efficiency gains), retail (Zappos' personalization driving 30% repeats), nonprofits (SWOT-led 25% donation boosts). Avoid novice pitfalls like generic steps; craft high-leverage, low-risk plans from battle-tested tactics that deliver 2-5x results. Expose blind spots, rethink assumptions, use foresight for lifelike overdelivery.
 

@@ -16,6 +16,7 @@ import omit from 'lodash/omit';
 import semver from 'semver';
 import tar from 'tar-stream';
 import yaml from 'yaml';
+import { ipcMain } from 'electron';
 
 import {
   Architecture,
@@ -1790,12 +1791,20 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
       ]));
     }
 
+    const status = await this.status;
+    if (!status) {
+      // Explicit create step
+      await this.progressTracker.action('Creating new Lima instance "0"', 20, async () => {
+        await this.lima('create', '--name=0', '--tty=false', this.CONFIG_PATH);
+      });
+    }
+
     await this.progressTracker.action('Starting virtual machine', 100, async() => {
       try {
         const env: NodeJS.ProcessEnv = {};
 
         env.LIMA_SSH_PORT_FORWARDER = this.cfg?.experimental.virtualMachine.sshPortForwarder ? 'true' : 'false';
-        await this.lima(env, 'start', '--tty=false', await this.isRegistered ? MACHINE_NAME : this.CONFIG_PATH);
+        await this.lima('start', '--tty=false', '0');
       } finally {
         // Symlink the logs (especially if start failed) so the users can find them
         const machineDir = path.join(paths.lima, MACHINE_NAME);
@@ -1817,6 +1826,10 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
   }
 
   async start(config_: BackendSettings): Promise<void> {
+
+    // Emit event when main process starts up (for detecting restarts)
+    ipcMain.emit('sulla-main-started');
+    
     const config = this.cfg = clone(config_);
     let kubernetesVersion: semver.SemVer | undefined;
     let isDowngrade = false;
@@ -1978,9 +1991,61 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
 
         await Promise.all(actions);
 
-        // Apply Sulla Desktop default Kubernetes deployments
         if (config.kubernetes.enabled) {
-          await this.progressTracker.action('Deploying Sulla services', 50, this.applySullaDeployments());
+          await this.progressTracker.action('Waiting for Kubernetes API ready (up to 10 min)', 100, async () => {
+            const start = Date.now();
+            const timeoutMs = 10 * 60 * 1000; // 10 minutes
+
+            while (Date.now() - start < timeoutMs) {
+              try {
+                const health = await this.execCommand(
+                  { capture: true, root: true },
+                  'k3s', 'kubectl', 'get', '--raw', '/healthz'
+                );
+                if (health.trim() === 'ok') {
+                  // Quick extra check
+                  await this.execCommand({ root: true }, 'k3s', 'kubectl', 'get', 'ns', 'default');
+                  console.log('Kubernetes API ready');
+                  return;
+                }
+              } catch {
+                // silent retry
+              }
+              await new Promise(r => setTimeout(r, 3000));
+            }
+
+            throw new Error('Kubernetes API did not become ready after 10 minutes');
+          });
+
+          // Now safe to deploy Sulla services
+          await this.progressTracker.action('Preparing Sulla deployment files', 30, async () => {
+            await this.prepareSullaDeploymentFiles();
+          });
+
+          await this.progressTracker.action('Applying Sulla manifests', 50, async () => {
+            await this.applySullaManifests();
+          });
+
+          await this.progressTracker.action('Waiting for Ollama deployment ready', 60, async () => {
+            await this.waitForDeployment('ollama', 600);
+          });
+
+          await this.progressTracker.action('Waiting for Ollama pod scheduling', 60, async () => {
+            await this.waitForPodCondition('ollama', 'Initialized', 'True', 300);
+          });
+
+          await this.progressTracker.action('Waiting for Ollama pod fully ready', 180, async () => {
+            await this.waitForPodCondition('ollama', 'Ready', 'True', 600);
+          });
+
+          await this.progressTracker.action('Running quick deployment diagnostics', 30, async () => {
+            await this.logQuickDeploymentStatus();
+          });
+
+          await this.progressTracker.action('Pulling & loading Ollama model', 300, async () => {
+            await this.pullOllamaModelWithProgress();
+          });
+        
         }
 
         await this.setState(config.kubernetes.enabled ? State.STARTED : State.DISABLED);
@@ -1997,6 +2062,19 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
         this.currentAction = Action.NONE;
       }
     });
+  }
+
+  async waitForApiReady(timeoutSec = 120): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutSec * 1000) {
+      try {
+        const health = await this.execCommand({ capture: true, root: true },
+          'k3s', 'kubectl', 'get', '--raw', '/healthz');
+        if (health.trim() === 'ok') return;
+      } catch {}
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    throw new Error('Kubernetes API not ready after timeout');
   }
 
   protected async startService(serviceName: string) {
@@ -2080,143 +2158,167 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
     }
   }
 
-  /**
-   * Apply Sulla Desktop default Kubernetes deployments.
-   * This runs after K8s is ready and deploys the sulla namespace and test services.
-   */
-  protected async applySullaDeployments(): Promise<void> {
-    // Configure Docker credentials before deploying (helps with rate limits)
-    await this.configureDockerCredentials();
+  private tempSullaWorkdir?: string;
 
-    const workdir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'sulla-deploy-'));
+  private async prepareSullaDeploymentFiles(): Promise<void> {
+    this.tempSullaWorkdir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'sulla-deploy-'));
+    const deploymentPath = path.join(this.tempSullaWorkdir, 'sulla-deployments.yaml');
 
-    try {
-      const deploymentPath = path.join(workdir, 'sulla-deployments.yaml');
+    const vmMemoryGB = this.cfg?.virtualMachine.memoryInGB || 4;
+    const vmCPUs = this.cfg?.virtualMachine.numberCPUs || 4;
+    const ollamaMemoryGB = Math.max(2, Math.floor(vmMemoryGB * 0.7));
+    const ollamaCPUs = Math.max(1, Math.floor(vmCPUs * 0.75));
+    console.log(`Configuring Ollama pod: ${ollamaMemoryGB}Gi memory, ${ollamaCPUs} CPUs (VM: ${vmMemoryGB}GB, ${vmCPUs} CPUs)`);
 
-      // Get VM settings for dynamic resource allocation
-      const vmMemoryGB = this.cfg?.virtualMachine.memoryInGB || 4;
-      const vmCPUs = this.cfg?.virtualMachine.numberCPUs || 4;
-
-      // Allocate ~70% of VM memory to Ollama (leave room for K8s, other pods)
-      const ollamaMemoryGB = Math.max(2, Math.floor(vmMemoryGB * 0.7));
-      // Allocate ~75% of CPUs to Ollama
-      const ollamaCPUs = Math.max(1, Math.floor(vmCPUs * 0.75));
-
-      console.log(`Configuring Ollama pod: ${ollamaMemoryGB}Gi memory, ${ollamaCPUs} CPUs (VM: ${vmMemoryGB}GB, ${vmCPUs} CPUs)`);
-
-      // Clone deployments and inject dynamic resources into Ollama deployment
-      const deployments = (SULLA_DEPLOYMENTS as unknown[]).map((doc: unknown) => {
-        const deployment = doc as Record<string, unknown>;
-
-        if (deployment.kind === 'Deployment' && (deployment.metadata as Record<string, unknown>)?.name === 'ollama') {
-          const spec = deployment.spec as Record<string, unknown>;
-          const template = spec?.template as Record<string, unknown>;
-          const podSpec = template?.spec as Record<string, unknown>;
-          const containers = podSpec?.containers as Array<Record<string, unknown>>;
-
-          if (containers?.[0]) {
-            containers[0].resources = {
-              limits: {
-                memory: `${ollamaMemoryGB}Gi`,
-                cpu:    `${ollamaCPUs * 1000}m`,
-              },
-              requests: {
-                memory: `${Math.ceil(ollamaMemoryGB / 2)}Gi`,
-                cpu:    `${Math.ceil(ollamaCPUs * 500)}m`,
-              },
-            };
-          }
-        }
-
-        return deployment;
-      });
-
-      // SULLA_DEPLOYMENTS is parsed as JS objects by webpack, convert back to YAML
-      // Use quotingType to ensure strings like 'yes' are quoted to prevent boolean parsing
-      const yamlContent = deployments.map(doc => yaml.stringify(doc, { defaultStringType: 'QUOTE_DOUBLE' })).join('---\n');
-
-      await fs.promises.writeFile(deploymentPath, yamlContent, 'utf-8');
-      await this.lima('copy', deploymentPath, `${ MACHINE_NAME }:/tmp/sulla-deployments.yaml`);
-
-      // Retry loop with backoff for kubectl apply
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          await this.execCommand({ root: true }, 'k3s', 'kubectl', 'apply', '--server-side', '--force-conflicts', '-f', '/tmp/sulla-deployments.yaml');
-          console.log(`Sulla Desktop deployments applied successfully (attempt ${ attempt })`);
-
-          // Log deployed pods and services
-          const status = await this.execCommand({ root: true, capture: true }, 'k3s', 'kubectl', 'get', 'pods,svc', '-n', 'sulla', '-o', 'wide');
-
-          console.log('Sulla pods/services:\n', status);
-
-          // Pull the Ollama model in the background (don't block startup)
-          this.pullOllamaModel().catch(err => console.warn('Failed to pull Ollama model:', err));
-
-          return;
-        } catch (err) {
-          console.warn(`Sulla deployment attempt ${ attempt } failed:`, err);
-          if (attempt === 3) {
-            throw err;
-          }
-          await new Promise(r => setTimeout(r, 5000));
+    const deployments = (SULLA_DEPLOYMENTS as unknown[]).map((doc: unknown) => {
+      const deployment = doc as Record<string, unknown>;
+      if (deployment.kind === 'Deployment' && (deployment.metadata as Record<string, unknown>)?.name === 'ollama') {
+        const spec = deployment.spec as Record<string, unknown>;
+        const template = spec?.template as Record<string, unknown>;
+        const podSpec = template?.spec as Record<string, unknown>;
+        const containers = podSpec?.containers as Array<Record<string, unknown>>;
+        if (containers?.[0]) {
+          containers[0].resources = {
+            limits: { memory: `${ollamaMemoryGB}Gi`, cpu: `${ollamaCPUs * 1000}m` },
+            requests: { memory: `${Math.ceil(ollamaMemoryGB / 2)}Gi`, cpu: `${Math.ceil(ollamaCPUs * 500)}m` },
+          };
         }
       }
-    } catch (err) {
-      console.error('Failed to apply Sulla deployments:', err);
-    } finally {
-      await fs.promises.rm(workdir, { recursive: true, force: true });
+      return deployment;
+    });
+
+    const yamlContent = deployments.map(doc => yaml.stringify(doc, { defaultStringType: 'QUOTE_DOUBLE' })).join('---\n');
+    await fs.promises.writeFile(deploymentPath, yamlContent, 'utf-8');
+    await this.lima('copy', deploymentPath, `${ MACHINE_NAME }:/tmp/sulla-deployments.yaml`);
+  }
+
+  private async applySullaManifests(): Promise<void> {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await this.execCommand({ root: true }, 'k3s', 'kubectl', 'apply', '--server-side', '--force-conflicts', '-f', '/tmp/sulla-deployments.yaml');
+        console.log(`Sulla Desktop deployments applied successfully (attempt ${ attempt })`);
+        const status = await this.execCommand({ root: true, capture: true }, 'k3s', 'kubectl', 'get', 'pods,svc', '-n', 'sulla', '-o', 'wide');
+        console.log('Sulla pods/services:\n', status);
+        break;
+      } catch (err) {
+        console.warn(`Sulla deployment attempt ${ attempt } failed:`, err);
+        if (attempt === 3) {
+          await this.logK8sDiagnostics('Deployment apply failed');
+          throw err;
+        }
+        await new Promise(r => setTimeout(r, 5000));
+      }
     }
   }
 
-  /**
-   * Pull the configured Ollama model for the Agent UI.
-   * This runs in the background after deployments are applied.
-   * Uses the model from experimental.sullaModel setting, defaults to tinyllama.
-   */
-  protected async pullOllamaModel(): Promise<void> {
-    // Get model from settings, default to tinyllama if not set
+  private async waitForDeployment(name: string, timeoutSec: number = 600): Promise<void> {
+    return this.waitForCondition(async () => {
+      try {
+        const status = await this.execCommand({ capture: true, root: true }, 'k3s', 'kubectl', 'get', 'deployment', '-n', 'sulla', name, '-o', 'jsonpath={.status.availableReplicas}');
+        return parseInt(status.trim()) > 0;
+      } catch {
+        return false;
+      }
+    }, timeoutSec);
+  }
+
+  private async waitForPodCondition(label: string, conditionType: string, expectedStatus: string, timeoutSec: number = 180): Promise<void> {
+    return this.waitForCondition(async () => {
+      try {
+        const status = await this.execCommand(
+          { capture: true, root: true },
+          'k3s', 'kubectl', 'get', 'pod', '-n', 'sulla',
+          '-l', `app=${label}`,
+          '-o', `jsonpath={.items[0].status.conditions[?(@.type=="${conditionType}")].status}`
+        );
+        return status.trim() === expectedStatus;
+      } catch {
+        return false;
+      }
+    }, timeoutSec);
+  }
+
+  private async waitForCondition(check: () => Promise<boolean>, timeoutSec: number = 120, intervalMs: number = 2000): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutSec * 1000) {
+      if (await check()) return;
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+    throw new Error(`Timeout waiting for condition after ${timeoutSec}s`);
+  }
+
+  private async pullOllamaModelWithProgress(): Promise<void> {
     const MODEL = (this.cfg as Record<string, unknown>)?.experimental &&
       ((this.cfg as Record<string, unknown>).experimental as Record<string, unknown>)?.sullaModel
       ? String(((this.cfg as Record<string, unknown>).experimental as Record<string, unknown>).sullaModel)
       : 'tinyllama:latest';
 
-    console.log(`Waiting for Ollama pod to be ready before pulling ${ MODEL }...`);
+    console.log(`Starting Ollama model pull: ${MODEL}`);
 
-    // Wait for Ollama pod to be ready (up to 5 minutes)
-    for (let attempt = 1; attempt <= 30; attempt++) {
-      try {
-        const podStatus = await this.execCommand(
-          { root: true, capture: true },
-          'k3s', 'kubectl', 'get', 'pod', '-n', 'sulla', '-l', 'app=ollama', '-o', 'jsonpath={.items[0].status.phase}',
-        );
+    const proc = this.spawn({ root: true }, 'k3s', 'kubectl', 'exec', '-n', 'sulla', 'deploy/ollama', '--', 'ollama', 'pull', MODEL);
 
-        if (podStatus.trim() === 'Running') {
-          console.log('Ollama pod is running, pulling model...');
-          break;
+    return new Promise((resolve, reject) => {
+      let output = '';
+      proc.stdout?.on('data', (chunk: Buffer | string) => {
+        const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : chunk;
+        const lines = text.split('\n');
+        lines.forEach((line: string) => {
+          const trimmed = line.trim();
+          if (trimmed) {
+            console.log(`[Ollama Pull] ${trimmed}`);
+            output += trimmed + '\n';
+          }
+        });
+      });
+      proc.stderr?.on('data', (chunk: Buffer | string) => {
+        const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : chunk;
+        const trimmed = text.trim();
+        if (trimmed) {
+          console.error(`[Ollama Pull Error] ${trimmed}`);
         }
-        console.log(`Ollama pod status: ${ podStatus.trim() }, waiting... (attempt ${ attempt }/30)`);
-      } catch {
-        console.log(`Waiting for Ollama pod... (attempt ${ attempt }/30)`);
-      }
+      });
+      proc.on('close', (code) => {
+        if (code === 0) {
+          console.log(`Ollama model ${MODEL} pulled successfully`);
+          resolve();
+        } else {
+          reject(new Error(`Model pull failed with code ${code}. Output: ${output}`));
+        }
+      });
+      proc.on('error', reject);
+    });
+  }
 
-      if (attempt === 30) {
-        console.warn('Ollama pod did not become ready in time, skipping model pull');
-
-        return;
-      }
-      await new Promise(r => setTimeout(r, 10000));
-    }
-
-    // Pull the model
+  private async logK8sDiagnostics(message: string): Promise<void> {
+    console.error(message);
     try {
-      console.log(`Pulling Ollama model: ${ MODEL } (this may take several minutes)...`);
-      await this.execCommand(
-        { root: true },
-        'k3s', 'kubectl', 'exec', '-n', 'sulla', 'deploy/ollama', '--', 'ollama', 'pull', MODEL,
-      );
-      console.log(`Ollama model ${ MODEL } pulled successfully`);
-    } catch (err) {
-      console.error(`Failed to pull Ollama model ${ MODEL }:`, err);
+      const events = await this.execCommand({ capture: true, root: true }, 'k3s', 'kubectl', 'get', 'events', '-n', 'sulla', '--sort-by=.metadata.creationTimestamp');
+      console.log('Sulla namespace events:\n', events);
+
+      const podName = await this.execCommand({ capture: true, root: true }, 'k3s', 'kubectl', 'get', 'pod', '-n', 'sulla', '-l', 'app=ollama', '-o', 'name').then(n => n.trim());
+      if (podName) {
+        const describe = await this.execCommand({ capture: true, root: true }, 'k3s', 'kubectl', 'describe', 'pod', podName, '-n', 'sulla');
+        console.log('Ollama pod description:\n', describe);
+
+        const logs = await this.execCommand({ capture: true, root: true }, 'k3s', 'kubectl', 'logs', podName, '-n', 'sulla');
+        console.log('Ollama pod logs:\n', logs);
+      }
+    } catch (e) {
+      console.error('Failed to collect K8s diagnostics:', e);
+    }
+  }
+
+  private async logQuickDeploymentStatus(): Promise<void> {
+    try {
+      const depl = await this.execCommand({ capture: true, root: true },
+        'k3s', 'kubectl', 'get', 'deployment', '-n', 'sulla', 'ollama', '-o', 'wide');
+      console.log('Deployment status immediately after apply:\n', depl);
+
+      const rs = await this.execCommand({ capture: true, root: true },
+        'k3s', 'kubectl', 'get', 'rs', '-n', 'sulla', '-l', 'app=ollama', '-o', 'wide');
+      console.log('ReplicaSet status:\n', rs);
+    } catch (e) {
+      console.warn('Early status check failed:', e);
     }
   }
 

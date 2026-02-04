@@ -50,6 +50,16 @@ const PROVIDER_CONFIGS: Record<string, { baseUrl: string; chatEndpoint: string; 
     chatEndpoint: '/models/{model}:generateContent',
     authHeader:   'Bearer',
   },
+  kimi: {
+    baseUrl:      'https://api.moonshot.cn/v1',
+    chatEndpoint: '/chat/completions',
+    authHeader:   'Bearer',
+  },
+  nvidia: {
+    baseUrl:      'https://integrate.api.nvidia.com/v1',
+    chatEndpoint: '/chat/completions',
+    authHeader:   'Bearer',
+  },
 };
 
 class RemoteModelServiceClass implements ILLMService {

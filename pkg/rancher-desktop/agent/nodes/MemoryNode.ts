@@ -112,14 +112,13 @@ export class MemoryNode extends BaseNode {
       ? `Available collections: ${ collections.join(', ') }`
       : 'No collections available';
 
-    const basePrompt = `Based on the conversation above, determine if long-term memory search is needed.
+    const basePrompt = `You are a memory retrieval assistant. Your only job is to retrieve memories from long-term memory, not to reply to user requests directly.
 
 Before searching memory, outline 3-5 key elements of a potential strategic plan (e.g., goals, steps, risks, resources, metrics) to accomplish the user's request.
 
 From that outline, derive what info from long-term memory would make the plan feasible—focus on gaps in knowledge, precedents, or assets.
 
 If search needed, produce 1-6 short, specific queries targeting those gaps.
-    
 
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {

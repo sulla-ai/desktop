@@ -41,6 +41,9 @@ export interface ThreadContext {
 // ============================================================================
 
 export interface TaskState {
+  // WebSocket connection ID for message routing
+  wsConnectionId?: string;
+
   // Memory Node
   memoryContext?: string;
   memories?: unknown[];

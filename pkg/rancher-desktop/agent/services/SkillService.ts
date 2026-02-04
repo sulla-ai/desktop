@@ -1,9 +1,9 @@
 import { EnabledSkillRecord, getPersistenceService } from './PersistenceService';
+import { catalog } from '../skills/catalog';
 
 import fs from 'fs';
 import path from 'path';
 
-import catalogJson from '../skills/catalog.json';
 import paths from '@pkg/utils/paths';
 
 export interface SkillCatalogEntry {
@@ -71,7 +71,7 @@ export class SkillService {
   async listCatalog(): Promise<SkillCatalogEntry[]> {
     await this.initialize();
 
-    const raw = (catalogJson as any)?.skills;
+    const raw = catalog.skills;
 
     if (!Array.isArray(raw)) {
       return [];

@@ -46,8 +46,8 @@ export class ChatSummariesSearchTool extends BaseTool {
 
       const ok = await chroma.initialize();
       if (!ok || !chroma.isAvailable()) {
-        state.metadata.chatSummariesContext = '';
-        state.metadata.chatSummariesResults = [];
+        (state.metadata as any).chatSummariesContext = '';
+        (state.metadata as any).chatSummariesResults = [];
         return { toolName: this.name, success: true, result: { query, count: 0, limit } };
       }
 
@@ -57,8 +57,8 @@ export class ChatSummariesSearchTool extends BaseTool {
       const docs = summaryResults?.documents?.[0] || [];
       const top = docs.filter(Boolean).slice(0, limit);
 
-      state.metadata.chatSummariesResults = top;
-      state.metadata.chatSummariesContext = top
+      (state.metadata as any).chatSummariesResults = top;
+      (state.metadata as any).chatSummariesContext = top
         .map((m: string, i: number) => `[ChatSummaries ${i + 1}]: ${m}`)
         .join('\n');
 

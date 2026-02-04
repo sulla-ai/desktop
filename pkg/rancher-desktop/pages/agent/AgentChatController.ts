@@ -5,6 +5,7 @@ import type { ConversationThread } from '@pkg/agent/ConversationThread';
 import { onGlobalEvent, offGlobalEvent } from '@pkg/agent/ConversationThread';
 import type { AgentResponse, SensoryInput, ThreadContext, AgentEvent } from '@pkg/agent/types';
 import { AbortService } from '@pkg/agent/services/AbortService';
+import { getWebSocketClientService, type WebSocketMessage } from '@pkg/agent/services/WebSocketClientService';
 
 import type { StartupProgressController } from './StartupProgressController';
 
@@ -344,6 +345,10 @@ export class AgentChatController {
       const thread = this.deps.getThread(threadId);
       await thread.initialize();
 
+      // Set frontend WebSocket connection ID for user-triggered processing
+      const state = thread.getState();
+      state.metadata.wsConnectionId = 'chat-controller';
+
       const agentResponse = await thread.process(input, { abort: this.activeAbort });
 
       this.deps.onAgentResponse?.(agentResponse);
@@ -361,18 +366,11 @@ export class AgentChatController {
         return;
       }
       const message = err instanceof Error ? err.message : String(err);
-
-      const recovered = await this.deps.startupProgress.handleOllamaMemoryError(message);
-
-      if (recovered) {
-        this.messages.value.push({
-          id:      `${Date.now()}_error`,
-          role:    'error',
-          content: 'Restarting AI service to free memory. Please try again in a moment.',
-        });
-      } else {
-        this.messages.value.push({ id: `${Date.now()}_error`, role: 'error', content: `Error: ${message}` });
-      }
+      this.messages.value.push({ 
+        id: `${Date.now()}_error`, 
+        role: 'error', 
+        content: `Error: ${message}` 
+      });
     } finally {
       this.activeAbort = null;
       this.loading.value = false;
@@ -411,7 +409,7 @@ export class AgentChatController {
   }
 
   async send(): Promise<void> {
-    if (!this.query.value.trim() || !this.deps.systemReady.value) {
+    if (!this.query.value.trim()) {
       return;
     }
 
@@ -426,6 +424,116 @@ export class AgentChatController {
 
     await this.processUserText(userText);
     await this.drainPromptQueue();
+  }
+
+  /**
+   * Connect to WebSocket server to listen for backend messages
+   * @param url WebSocket URL
+   * @returns true if connection initiated
+   */
+  connectWebSocket(): boolean {
+    const wsService = getWebSocketClientService();
+    const connected = wsService.connect('chat-controller');
+
+    if (connected) {
+      // Listen for incoming messages from WebSocket
+      setTimeout(() => {
+        wsService.onMessage('chat-controller', (msg: WebSocketMessage) => {
+          this.handleWebSocketMessage(msg);
+        });
+      }, 100);
+    }
+
+    return connected;
+  }
+
+  /**
+   * Disconnect from WebSocket server
+   */
+  disconnectWebSocket(): void {
+    const wsService = getWebSocketClientService();
+    wsService.disconnect('chat-controller');
+  }
+
+  /**
+   * Handle incoming WebSocket messages from backend
+   * @param msg WebSocket message received
+   */
+  private handleWebSocketMessage(msg: WebSocketMessage): void {
+    console.log('[AgentChatController] WebSocket message received:', msg);
+
+    // Handle different message types
+    switch (msg.type) {
+      case 'chat_message':
+      case 'assistant_message':
+        // Add assistant message from external source
+        if (typeof msg.payload === 'string') {
+          this.messages.value.push({
+            id: `${Date.now()}_ws_assistant`,
+            role: 'assistant',
+            content: msg.payload,
+          });
+        } else if (msg.payload && typeof (msg.payload as any).content === 'string') {
+          this.messages.value.push({
+            id: `${Date.now()}_ws_assistant`,
+            role: (msg.payload as any).role || 'assistant',
+            content: (msg.payload as any).content,
+          });
+        }
+        break;
+
+      case 'user_message':
+        // External user message received - process it
+        if (typeof msg.payload === 'string') {
+          this.messages.value.push({
+            id: `${Date.now()}_ws_user`,
+            role: 'user',
+            content: msg.payload,
+          });
+          // Process the message through the agent
+          this.processUserText(msg.payload);
+        }
+        break;
+
+      case 'system_message':
+        // System notification
+        if (typeof msg.payload === 'string') {
+          this.messages.value.push({
+            id: `${Date.now()}_ws_system`,
+            role: 'system',
+            content: msg.payload,
+          });
+        }
+        break;
+
+      default:
+        console.log('[AgentChatController] Unknown WebSocket message type:', msg.type);
+    }
+
+    // Scroll to bottom after adding message
+    nextTick(() => {
+      this.scrollToBottom();
+    });
+  }
+
+  /**
+   * Scroll chat transcript to bottom
+   */
+  private scrollToBottom(): void {
+    nextTick(() => {
+      const el = this.transcriptEl.value;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    });
+  }
+
+  /**
+   * Check if WebSocket is connected
+   */
+  isWebSocketConnected(): boolean {
+    const wsService = getWebSocketClientService();
+    return wsService.isConnected('chat-controller');
   }
 
 }

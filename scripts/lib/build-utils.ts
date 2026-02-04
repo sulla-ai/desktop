@@ -178,6 +178,10 @@ export default {
             test: /(?:^|[/\\])assets[/\\]scripts[/\\]/,
             use:  { loader: 'raw-loader' },
           },
+          {
+            test: /(?:^|[/\\])agent[/\\]prompts[/\\].*\.md$/,
+            use:  { loader: 'raw-loader' },
+          },
         ],
       },
       plugins: [

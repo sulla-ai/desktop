@@ -2,6 +2,18 @@
 
 import type { GraphNode, GraphEdge, ThreadState, NodeResult } from './types';
 import type { AbortService } from './services/AbortService';
+import { MemoryNode } from './nodes/MemoryNode';
+import { OverLordPlannerNode } from './nodes/OverLordPlannerNode';
+import { StrategicPlannerNode } from './nodes/StrategicPlannerNode';
+import { TacticalPlannerNode } from './nodes/TacticalPlannerNode';
+import { TacticalExecutorNode } from './nodes/TacticalExecutorNode';
+import { TacticalCriticNode } from './nodes/TacticalCriticNode';
+import { StrategicCriticNode } from './nodes/StrategicCriticNode';
+import { KnowledgePlannerNode } from './nodes/KnowledgePlannerNode';
+import { KnowledgeExecutorNode } from './nodes/KnowledgeExecutorNode';
+import { KnowledgeCriticNode } from './nodes/KnowledgeCriticNode';
+import { KnowledgeWriterNode } from './nodes/KnowledgeWriterNode';
+import { getToolRegistry, registerDefaultTools } from './tools';
 
 type AgentRuntimeEmitter = (event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void;
 
@@ -293,6 +305,68 @@ export function createHierarchicalGraph(): Graph {
   // Set entry and end points
   graph.setEntryPoint('memory_recall');
   graph.setEndPoints('strategic_critic');
+
+  return graph;
+}
+
+/**
+ * Create a specialized graph for heartbeat-triggered OverLord planning
+ * This graph handles autonomous strategic oversight during idle periods
+ */
+export function createHeartbeatGraph(): Graph {
+  const graph = new Graph();
+
+  registerDefaultTools();
+
+  // Nodes: Memory → OverLord → HierarchicalGraph → OverLord
+  graph.addNode(new MemoryNode());
+  graph.addNode(new OverLordPlannerNode());
+  graph.addNode(new StrategicPlannerNode());
+  graph.addNode(new TacticalPlannerNode());
+  graph.addNode(new TacticalExecutorNode());
+  graph.addNode(new TacticalCriticNode());
+  graph.addNode(new StrategicCriticNode());
+
+  // Entry
+  graph.addEdge('memory_recall', 'overlord_planner');
+
+  // OverLord decides whether to enter hierarchical planning or end
+  graph.addConditionalEdge('overlord_planner', (state: ThreadState) => {
+    if ((state.metadata as any).__overlordRunHierarchy) {
+      return 'strategic_planner';
+    }
+    return 'end';
+  });
+
+  // Hierarchical flow
+  graph.addEdge('strategic_planner', 'tactical_planner');
+  graph.addEdge('tactical_planner', 'tactical_executor');
+  graph.addEdge('tactical_executor', 'tactical_critic');
+
+  graph.addConditionalEdge('tactical_critic', (state: ThreadState) => {
+    const decision = state.metadata.criticDecision;
+
+    if (decision === 'revise') {
+      return 'tactical_planner';
+    }
+
+    if (state.metadata.planHasRemainingTodos) {
+      return 'tactical_planner';
+    }
+
+    return 'strategic_critic';
+  });
+
+  // After strategic critic completes, return to OverLord for post-processing
+  graph.addConditionalEdge('strategic_critic', (state: ThreadState) => {
+    if (state.metadata.finalCriticDecision === 'revise') {
+      return 'strategic_planner';
+    }
+    return 'overlord_planner';
+  });
+
+  graph.setEntryPoint('memory_recall');
+  graph.setEndPoints('overlord_planner');
 
   return graph;
 }

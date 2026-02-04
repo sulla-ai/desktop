@@ -1,10 +1,8 @@
 // HeartbeatService - Triggers periodic sensory input for the agent to check in
 // Uses setInterval for simple periodic scheduling based on config settings
 
-import { getSensory } from '../SensoryInput';
-import { getContextDetector } from '../ContextDetector';
-import { getThread } from '../ConversationThread';
-import { getPlanService } from './PlanService';
+import type { ThreadState } from '../types';
+import { createHeartbeatGraph } from '../Graph';
 
 export interface HeartbeatConfig {
   enabled: boolean;
@@ -25,6 +23,7 @@ export function getHeartbeatService(): HeartbeatService {
 export class HeartbeatService {
   private initialized = false;
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  private isExecuting = false; // Track if heartbeat is actively executing
   private config: HeartbeatConfig = {
     enabled: true,
     delayMinutes: 30,
@@ -103,48 +102,51 @@ export class HeartbeatService {
 
   private async triggerHeartbeat(): Promise<void> {
     try {
-      // Check if there's an active plan - skip heartbeat if so
-      const planService = getPlanService();
-      const activePlans = await planService.getActivePlans();
-      if (activePlans.length > 0) {
-        console.log(`[HeartbeatService] ⏭️ Skipping heartbeat - ${activePlans.length} active plan(s) in progress`);
+      // Skip if heartbeat is already executing
+      if (this.isExecuting) {
+        console.log('[HeartbeatService] ⏭️ Skipping heartbeat - already executing');
         return;
       }
 
-      console.log(`[HeartbeatService] 📤 Sending event to SensoryInput`);
+      // Mark as executing
+      this.isExecuting = true;
 
-      const sensory = getSensory();
-      const contextDetector = getContextDetector();
-
-      // Create a heartbeat-triggered sensory input
+      // Build the heartbeat prompt
       const prompt = this.buildHeartbeatPrompt();
-      console.log(`[HeartbeatService]   Built prompt (${prompt.length} chars)`);
+      console.log(`[HeartbeatService] Built prompt \n${prompt})`);
 
-      const input = sensory.createHeartbeatInput(prompt);
-      console.log(`[HeartbeatService]   Created SensoryInput: type=${input.type}`);
-      console.log(`[HeartbeatService]   Model override: ${this.config.model}`);
+      // Build a minimal ThreadState and execute nodes directly (skip Sensory/ContextDetector/ConversationThread)
+      const now = Date.now();
+      const threadId = `heartbeat_${ now }`;
+      const state: ThreadState = {
+        threadId,
+        messages:        [{
+          id:        `msg_${ now }_heartbeat`,
+          role:      'user',
+          content:   prompt,
+          timestamp: now,
+          metadata:  { source: 'heartbeat' },
+        }],
+        shortTermMemory: [],
+        metadata:        {},
+        createdAt:       now,
+        updatedAt:       now,
+      };
 
-      // Add model override to input metadata if not 'default'
       if (this.config.model !== 'default') {
-        input.metadata.heartbeatModel = this.config.model;
+        state.metadata.heartbeatModel = this.config.model;
       }
 
-      // Detect context - let the context detector determine the thread (no forced thread ID)
-      const threadContext = await contextDetector.detect(input);
-      console.log(`[HeartbeatService]   Context detected: threadId=${threadContext.threadId}`);
+      console.log(`[HeartbeatService] 🧠 Executing heartbeat graph (OverLord → HierarchicalGraph → OverLord) (threadId=${threadId})`);
+      const graph = createHeartbeatGraph();
+      await graph.execute(state);
 
-      // Get or create the thread
-      const thread = getThread(threadContext.threadId);
-      await thread.initialize();
-      console.log(`[HeartbeatService]   Thread initialized, processing input...`);
-
-      // Process the heartbeat
-      const response = await thread.process(input);
-
-      console.log(`[HeartbeatService] ✅ Heartbeat processed successfully`);
-      console.log(`[HeartbeatService]   Response (first 200 chars): ${response.content.substring(0, 200)}...`);
+      console.log(`[HeartbeatService] ✅ Heartbeat graph executed successfully`);
     } catch (err) {
       console.error(`[HeartbeatService] ❌ Failed to trigger heartbeat:`, err);
+    } finally {
+      // Always reset executing flag
+      this.isExecuting = false;
     }
   }
 
@@ -162,12 +164,7 @@ export class HeartbeatService {
       hour12: true,
     });
 
-    return `[HEARTBEAT NOTIFICATION]
-
-Current time: ${formattedTime}
-Timezone: ${timezone}
-
-${this.config.prompt}`;
+    return `\nCurrent time: ${formattedTime}\nTimezone: ${timezone}\n\n${this.config.prompt}`;
   }
 
   getConfig(): HeartbeatConfig {

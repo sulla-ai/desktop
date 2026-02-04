@@ -114,7 +114,7 @@ export class KubectlListPodsTool extends BaseTool {
       pods: summaries.slice(0, 200),
     };
 
-    state.metadata.kubectlPods = result;
+    (state.metadata as any).kubectlPods = result;
 
     return { toolName: this.name, success: true, result };
   }

@@ -97,7 +97,7 @@ export class KubectlListNodesTool extends BaseTool {
       nodes: summaries,
     };
 
-    state.metadata.kubectlNodes = result;
+    (state.metadata as any).kubectlNodes = result;
 
     return { toolName: this.name, success: true, result };
   }

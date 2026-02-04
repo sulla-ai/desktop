@@ -162,6 +162,7 @@ export interface IpcMainInvokeEvents {
  * process, i.e. webContents.send() -> ipcRenderer.on().
  */
 export interface IpcRendererEvents {
+  'ollama-model-status': (event: Electron.IpcRendererEvent, payload: { status: string; model?: string }) => void;
   'backend-locked':   (action?: string) => void;
   'backend-unlocked': () => void;
   'settings-update': (

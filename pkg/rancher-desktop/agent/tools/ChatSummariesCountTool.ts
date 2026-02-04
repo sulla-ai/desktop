@@ -32,7 +32,7 @@ export class ChatSummariesCountTool extends BaseTool {
       await chroma.refreshCollections();
 
       const summaries = await chroma.count('conversation_summaries');
-      state.metadata.chatSummariesCounts = { summaries };
+      (state.metadata as any).chatSummariesCounts = { summaries };
 
       return { toolName: this.name, success: true, result: { summaries } };
     } catch (err) {

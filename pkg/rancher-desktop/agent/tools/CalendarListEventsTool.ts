@@ -47,7 +47,7 @@ export class CalendarListEventsTool extends BaseTool {
         description: e.description || null,
       }));
 
-      state.metadata.calendarEvents = formatted;
+      (state.metadata as any).calendarEvents = formatted;
 
       return {
         toolName: this.name,

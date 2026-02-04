@@ -34,7 +34,7 @@ export class SkillListEnabledTool extends BaseTool {
       return {
         toolName: this.name,
         success: true,
-        data: skillList,
+        result: skillList,
       };
     } catch (err) {
       return {

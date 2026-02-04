@@ -49,7 +49,7 @@ export class CalendarGetNextEventTool extends BaseTool {
         description: next.description || null,
       };
 
-      state.metadata.nextCalendarEvent = formatted;
+      (state.metadata as any).nextCalendarEvent = formatted;
 
       return {
         toolName: this.name,

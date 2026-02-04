@@ -9,6 +9,7 @@ import { getOllamaService } from '../services/OllamaService';
 import { getAwarenessService } from '../services/AwarenessService';
 import { getAgentConfig } from '../services/ConfigService';
 import type { AbortService } from '../services/AbortService';
+import { getWebSocketClientService, type WebSocketMessageHandler } from '../services/WebSocketClientService';
 
 // Import soul.md via raw-loader (configured in vue.config.mjs)
 // @ts-ignore - raw-loader import
@@ -665,5 +666,126 @@ When to trigger KB generation:
     const finalPrompt = parts.join('\n');
 
     return finalPrompt;
+  }
+
+  /**
+   * Connect to a WebSocket server and optionally register a message handler
+   * @param connectionId Unique identifier for this connection
+   * @param url WebSocket URL (defaults to ws://localhost:8080/)
+   * @param onMessage Optional handler for incoming messages
+   * @returns true if connection initiated
+   */
+  protected connectWebSocket(
+    connectionId: string,
+    onMessage?: WebSocketMessageHandler
+  ): boolean {
+    const wsService = getWebSocketClientService();
+    const connected = wsService.connect(connectionId);
+
+    if (connected && onMessage) {
+      // Small delay to allow connection to establish before registering handler
+      setTimeout(() => {
+        wsService.onMessage(connectionId, onMessage);
+      }, 100);
+    }
+
+    return connected;
+  }
+
+  /**
+   * Send a message to a WebSocket connection
+   * @param connectionId Connection identifier
+   * @param message Message to send (object or string)
+   * @returns true if sent successfully
+   */
+  protected dispatchToWebSocket(connectionId: string, message: unknown): boolean {
+    const wsService = getWebSocketClientService();
+    return wsService.send(connectionId, message);
+  }
+
+  /**
+   * Register a handler for WebSocket messages
+   * @param connectionId Connection identifier
+   * @param handler Callback function for incoming messages
+   * @returns Unsubscribe function or null if connection not found
+   */
+  protected listenToWebSocket(
+    connectionId: string,
+    handler: WebSocketMessageHandler,
+  ): (() => void) | null {
+    const wsService = getWebSocketClientService();
+    return wsService.onMessage(connectionId, handler);
+  }
+
+  /**
+   * Disconnect from a WebSocket server
+   * @param connectionId Connection identifier
+   */
+  protected disconnectWebSocket(connectionId: string): void {
+    const wsService = getWebSocketClientService();
+    wsService.disconnect(connectionId);
+  }
+
+  /**
+   * Check if a WebSocket connection is active
+   * @param connectionId Connection identifier
+   */
+  protected isWebSocketConnected(connectionId: string): boolean {
+    const wsService = getWebSocketClientService();
+    return wsService.isConnected(connectionId);
+  }
+
+  /**
+   * Emit a chat message to the UI dashboard via WebSocket
+   * Connection ID is read from state.metadata.wsConnectionId (defaults to 'chat-controller')
+   * @param state ThreadState containing the connection ID in metadata
+   * @param content Message content to display
+   * @param role 'assistant' | 'system' - defaults to 'assistant'
+   * @param kind Optional UI kind tag - defaults to 'progress'
+   * @returns true if message was sent via WebSocket
+   */
+  protected emitChatMessage(
+    state: ThreadState,
+    content: string,
+    role: 'assistant' | 'system' = 'assistant',
+    kind: string = 'progress',
+  ): boolean {
+    if (!content.trim()) {
+      return false;
+    }
+
+    // Get connection ID from state or use default
+    const connectionId = (state.metadata.wsConnectionId as string) || 'chat-controller';
+
+    // Ensure WebSocket connection exists
+    if (!this.isWebSocketConnected(connectionId)) {
+      this.connectWebSocket(connectionId);
+    }
+
+    // Send via WebSocket
+    const sent = this.dispatchToWebSocket(connectionId, {
+      type: 'chat_message',
+      payload: {
+        content: content.trim(),
+        role,
+        kind,
+        timestamp: Date.now(),
+      },
+    });
+
+    if (!sent) {
+      console.warn(`[Agent:${this.name}] Failed to send chat message via WebSocket`);
+    }
+
+    return sent;
+  }
+
+  /**
+   * Check if chat message emission via WebSocket is available
+   * @param state ThreadState containing the connection ID in metadata
+   */
+  protected canEmitChatMessage(state: ThreadState): boolean {
+    const connectionId = (state.metadata.wsConnectionId as string) || 'chat-controller';
+    return this.isWebSocketConnected(connectionId);
   }
 }

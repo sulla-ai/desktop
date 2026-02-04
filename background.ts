@@ -40,6 +40,8 @@ import { Snapshots } from '@pkg/main/snapshots/snapshots';
 import { Snapshot, SnapshotDialog } from '@pkg/main/snapshots/types';
 import { Tray } from '@pkg/main/tray';
 import setupUpdate from '@pkg/main/update';
+import { getSchedulerService } from '@pkg/agent/services/SchedulerService';
+import { getHeartbeatService } from '@pkg/agent/services/HeartbeatService';
 import { spawnFile } from '@pkg/utils/childProcess';
 import getCommandLineArgs from '@pkg/utils/commandLine';
 import dockerDirManager from '@pkg/utils/dockerDirManager';
@@ -322,6 +324,20 @@ Electron.app.whenReady().then(async() => {
     diagnostics.runChecks().catch(console.error);
 
     await startBackend();
+
+    // Initialize background cron services
+    console.log('[Background] Initializing cron services...');
+    try {
+      const schedulerService = getSchedulerService();
+      await schedulerService.initialize();
+      console.log('[Background] SchedulerService initialized - calendar events will trigger in background');
+
+      const heartbeatService = getHeartbeatService();
+      await heartbeatService.initialize();
+      console.log('[Background] HeartbeatService initialized - periodic tasks will run in background');
+    } catch (ex: any) {
+      console.error('[Background] Failed to initialize cron services:', ex);
+    }
   } catch (ex: any) {
     console.error(`Error starting up: ${ ex }`, ex.stack);
     gone = true;

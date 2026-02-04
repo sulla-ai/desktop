@@ -32,7 +32,7 @@ export class KnowledgeBaseCountTool extends BaseTool {
       await chroma.refreshCollections();
 
       const articles = await chroma.count('knowledgebase_articles');
-      state.metadata.knowledgeBaseCounts = { articles };
+      (state.metadata as any).knowledgeBaseCounts = { articles };
 
       return { toolName: this.name, success: true, result: { articles } };
     } catch (err) {

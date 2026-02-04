@@ -40,6 +40,21 @@ const OLLAMA_MODELS = [
     name: 'llama3.1:8b', displayName: 'Llama 3.1 8B', size: '4.7GB', minMemoryGB: 6, minCPUs: 2, description: 'Meta\'s latest 8B model, excellent all-around performance',
   },
   {
+    name: 'llama3.3:latest', displayName: 'Llama 3.3', size: '4.7GB', minMemoryGB: 6, minCPUs: 2, description: 'Meta\'s latest 70B-distilled 8B model, excellent reasoning',
+  },
+  {
+    name: 'qwen2.5:latest', displayName: 'Qwen 2.5', size: '4.7GB', minMemoryGB: 6, minCPUs: 2, description: 'Alibaba\'s excellent 7B model, strong multilingual performance',
+  },
+  {
+    name: 'qwen2.5-coder:latest', displayName: 'Qwen 2.5 Coder', size: '4.7GB', minMemoryGB: 6, minCPUs: 2, description: 'Alibaba\'s coding-specialized model, excellent for development',
+  },
+  {
+    name: 'deepseek-r1:latest', displayName: 'DeepSeek R1', size: '4.7GB', minMemoryGB: 6, minCPUs: 2, description: 'DeepSeek\'s reasoning model, chain-of-thought capabilities',
+  },
+  {
+    name: 'deepseek-v3:latest', displayName: 'DeepSeek V3', size: '4.7GB', minMemoryGB: 6, minCPUs: 2, description: 'DeepSeek\'s latest general purpose model, strong performance',
+  },
+  {
     name: 'gemma:7b', displayName: 'Gemma 7B', size: '5.0GB', minMemoryGB: 6, minCPUs: 2, description: 'Google\'s larger model, improved capabilities',
   },
   {
@@ -80,6 +95,8 @@ const REMOTE_PROVIDERS = [
       { id: 'grok-3-mini', name: 'Grok 3 Mini', description: '131K context, fast and affordable', pricing: '$0.30/$0.50' },
       { id: 'grok-3', name: 'Grok 3', description: '131K context, previous flagship', pricing: '$3.00/$15.00' },
     ],
+    signupUrl:   'https://x.ai/api',
+    signupText:  'Get API key from xAI',
   },
   {
     id:          'openai',
@@ -91,6 +108,8 @@ const REMOTE_PROVIDERS = [
       { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Fast and affordable' },
       { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', description: 'High capability with vision' },
     ],
+    signupUrl:   'https://platform.openai.com/signup',
+    signupText:  'Get API key from OpenAI',
   },
   {
     id:          'anthropic',
@@ -102,6 +121,8 @@ const REMOTE_PROVIDERS = [
       { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', description: 'Most capable Claude model' },
       { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', description: 'Fastest Claude model' },
     ],
+    signupUrl:   'https://console.anthropic.com/',
+    signupText:  'Get API key from Anthropic',
   },
   {
     id:          'google',
@@ -112,6 +133,34 @@ const REMOTE_PROVIDERS = [
       { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', description: 'Most capable Gemini model' },
       { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', description: 'Fast and efficient' },
     ],
+    signupUrl:   'https://ai.google.dev/',
+    signupText:  'Get API key from Google AI',
+  },
+  {
+    id:          'kimi',
+    name:        'Kimi (Moonshot AI)',
+    description: 'Kimi K2.5 models from Moonshot AI',
+    baseUrl:     'https://api.moonshot.cn/v1',
+    models:      [
+      { id: 'kimi-k2.5', name: 'Kimi K2.5', description: '256K context, advanced reasoning and long-context capabilities' },
+      { id: 'kimi-k2', name: 'Kimi K2', description: '200K context, balanced performance' },
+    ],
+    signupUrl:   'https://platform.moonshot.cn/',
+    signupText:  'Get API key from Moonshot AI',
+  },
+  {
+    id:          'nvidia',
+    name:        'NVIDIA (Free Moonshot/Kimi)',
+    description: 'Access Moonshot Kimi models for free through NVIDIA API',
+    baseUrl:     'https://integrate.api.nvidia.com/v1',
+    models:      [
+      { id: 'moonshotai/kimi-k2.5', name: 'Kimi K2.5 (Free)', description: '256K context, FREE through NVIDIA API' },
+      { id: 'moonshotai/kimi-k2', name: 'Kimi K2 (Free)', description: '200K context, FREE through NVIDIA API' },
+      { id: 'nvidia/llama-3.1-nemotron-70b-instruct', name: 'Llama 3.1 Nemotron 70B', description: 'NVIDIA optimized Llama model' },
+      { id: 'meta/llama-3.1-70b-instruct', name: 'Llama 3.1 70B', description: 'Meta Llama 3.1' },
+    ],
+    signupUrl:   'https://build.nvidia.com/',
+    signupText:  'Get free API key from NVIDIA (includes Moonshot access)',
   },
 ];
 
@@ -566,7 +615,7 @@ export default defineComponent({
         // Try a simple API call to validate the key
         const timeoutMs = Math.max(1000, Math.min(300, this.remoteTimeoutSeconds)) * 1000;
 
-        if (provider.id === 'grok' || provider.id === 'openai') {
+        if (provider.id === 'grok' || provider.id === 'openai' || provider.id === 'kimi' || provider.id === 'nvidia') {
           const testUrl = `${provider.baseUrl}/chat/completions`;
           const testBody = {
             model:       this.selectedRemoteModel,
@@ -574,6 +623,11 @@ export default defineComponent({
             temperature: 0,
             max_tokens:  10,
           };
+
+          console.log('[Remote Test] Provider:', provider.id);
+          console.log('[Remote Test] URL:', testUrl);
+          console.log('[Remote Test] Model:', this.selectedRemoteModel);
+          console.log('[Remote Test] API Key starts with:', this.apiKey.substring(0, 10) + '...');
 
           try {
             const testRes = await fetch(testUrl, {
@@ -588,6 +642,7 @@ export default defineComponent({
 
             if (!testRes.ok) {
               const errorText = await testRes.text();
+              console.error('[Remote Test] Error response:', testRes.status, errorText);
 
               this.activationError = `Remote model test failed: ${testRes.status}. Check model, key, and timeout.`;
               console.error('Remote model test error:', errorText);
@@ -1055,7 +1110,14 @@ export default defineComponent({
                 </button>
               </div>
               <p class="setting-description">
-                Get your API key from the {{ currentProvider?.name }} dashboard.
+                <a
+                  :href="currentProvider?.signupUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="provider-signup-link"
+                >
+                  {{ currentProvider?.signupText || `Get API key from ${currentProvider?.name}` }}
+                </a>
               </p>
             </div>
 
@@ -1621,6 +1683,16 @@ export default defineComponent({
     margin-top: 0.5rem;
     opacity: 0.6;
     margin-bottom: 0.5rem;
+
+    .provider-signup-link {
+      color: var(--primary, #3b82f6);
+      text-decoration: none;
+      font-weight: 500;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
   }
 }
 

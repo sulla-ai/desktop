@@ -30,7 +30,7 @@ export class ToolListTool extends BaseTool {
       return {
         toolName: this.name,
         success: true,
-        data: toolList,
+        result: toolList,
       };
     } catch (err) {
       return {
