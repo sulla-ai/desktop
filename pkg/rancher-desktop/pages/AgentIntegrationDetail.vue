@@ -48,40 +48,62 @@
                 </div>
               </div>
 
-              <!-- Screenshots/Images -->
+              <!-- Media -->
               <div v-if="integration.images && integration.images.length > 0" class="space-y-4">
-                <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Screenshots</h2>
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div
-                    v-for="(image, index) in integration.images"
-                    :key="index"
-                    class="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700"
-                  >
-                    <img
-                      :src="image.url"
-                      :alt="image.alt"
-                      class="h-48 w-full object-cover"
-                    >
-                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-                      <p class="text-sm text-white">{{ image.caption }}</p>
+                <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Media</h2>
+                <div class="relative">
+                  <!-- Carousel Container -->
+                  <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="relative">
+                      <!-- Main Image -->
+                      <div class="aspect-video">
+                        <img
+                          :src="integration.images[currentImageIndex].url"
+                          :alt="integration.images[currentImageIndex].alt"
+                          class="h-full w-full object-cover"
+                        >
+                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+                          <p class="text-sm text-white">{{ integration.images[currentImageIndex].caption }}</p>
+                        </div>
+                      </div>
+                      
+                      <!-- Navigation Arrows -->
+                      <button
+                        v-if="integration.images.length > 1"
+                        @click="previousImage"
+                        class="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition-colors"
+                      >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        v-if="integration.images.length > 1"
+                        @click="nextImage"
+                        class="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition-colors"
+                      >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <!-- Video -->
-              <div v-if="integration.video" class="space-y-4">
-                <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Overview Video</h2>
-                <div class="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div class="aspect-video bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                    <div class="text-center">
-                      <div class="mx-auto mb-4 h-12 w-12 rounded-full bg-blue-600 flex items-center justify-center">
-                        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                        </svg>
-                      </div>
-                      <p class="text-sm text-slate-600 dark:text-slate-400">Click to play video</p>
-                    </div>
+                  
+                  <!-- Thumbnail Navigation -->
+                  <div v-if="integration.images.length > 1" class="mt-4 flex gap-2 overflow-x-auto">
+                    <button
+                      v-for="(image, index) in integration.images"
+                      :key="index"
+                      @click="currentImageIndex = index"
+                      class="flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all"
+                      :class="currentImageIndex === index ? 'border-blue-500' : 'border-gray-200 dark:border-gray-700'"
+                    >
+                      <img
+                        :src="image.url"
+                        :alt="image.alt"
+                        class="h-16 w-24 object-cover"
+                      >
+                    </button>
                   </div>
                 </div>
               </div>
@@ -105,6 +127,29 @@
                       <p class="text-sm text-slate-600 dark:text-slate-400">{{ feature.description }}</p>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <!-- Connect/Disconnect Card -->
+              <div class="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-slate-800">
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+                  {{ integration.connected ? 'Manage Connection' : 'Connect Integration' }}
+                </h3>
+                <div class="space-y-4">
+                  <button
+                    @click="integration.connected ? disconnectIntegration() : connectIntegration()"
+                    class="w-full rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                    :class="integration.connected 
+                      ? 'bg-red-600 text-white hover:bg-red-700' 
+                      : 'bg-blue-600 text-white hover:bg-blue-700'"
+                  >
+                    {{ integration.connected ? 'Disconnect' : 'Connect Now' }}
+                  </button>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
+                    {{ integration.connected 
+                      ? 'Disconnecting will remove access to your account' 
+                      : 'Connect your account to start using this integration' }}
+                  </p>
                 </div>
               </div>
 
@@ -141,29 +186,6 @@
 
             <!-- Sidebar -->
             <div class="space-y-6">
-              <!-- Connect/Disconnect Card -->
-              <div class="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-slate-800">
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                  {{ integration.connected ? 'Manage Connection' : 'Connect Integration' }}
-                </h3>
-                <div class="space-y-4">
-                  <button
-                    @click="integration.connected ? disconnectIntegration() : connectIntegration()"
-                    class="w-full rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-                    :class="integration.connected 
-                      ? 'bg-red-600 text-white hover:bg-red-700' 
-                      : 'bg-blue-600 text-white hover:bg-blue-700'"
-                  >
-                    {{ integration.connected ? 'Disconnect' : 'Connect Now' }}
-                  </button>
-                  <p class="text-xs text-slate-500 dark:text-slate-400">
-                    {{ integration.connected 
-                      ? 'Disconnecting will remove access to your account' 
-                      : 'Connect your account to start using this integration' }}
-                  </p>
-                </div>
-              </div>
-
               <!-- Quick Info -->
               <div class="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-slate-800">
                 <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Quick Info</h3>
@@ -247,10 +269,6 @@ interface Integration {
     alt: string;
     caption: string;
   }>;
-  video?: {
-    url: string;
-    title: string;
-  };
   features?: Array<{
     title: string;
     description: string;
@@ -268,6 +286,22 @@ const route = useRoute();
 const router = useRouter();
 
 const integration = ref<Integration | null>(null);
+const currentImageIndex = ref(0);
+
+// Carousel functions
+const nextImage = () => {
+  if (integration.value && integration.value.images) {
+    currentImageIndex.value = (currentImageIndex.value + 1) % integration.value.images.length;
+  }
+};
+
+const previousImage = () => {
+  if (integration.value && integration.value.images) {
+    currentImageIndex.value = currentImageIndex.value === 0 
+      ? integration.value.images.length - 1 
+      : currentImageIndex.value - 1;
+  }
+};
 
 // Mock integration data
 const mockIntegrations: Record<string, Integration> = {
@@ -293,10 +327,6 @@ const mockIntegrations: Record<string, Integration> = {
         caption: 'Real-time customer chat interface'
       }
     ],
-    video: {
-      url: 'https://example.com/intercom-demo',
-      title: 'Intercom Integration Overview'
-    },
     features: [
       {
         title: 'Real-time Chat',
@@ -355,10 +385,6 @@ const mockIntegrations: Record<string, Integration> = {
         caption: 'Marketing campaign management'
       }
     ],
-    video: {
-      url: 'https://example.com/hubspot-demo',
-      title: 'HubSpot Integration Overview'
-    },
     features: [
       {
         title: 'Contact Management',
@@ -412,10 +438,6 @@ const mockIntegrations: Record<string, Integration> = {
         caption: 'Organized team conversations'
       }
     ],
-    video: {
-      url: 'https://example.com/slack-demo',
-      title: 'Slack Integration Overview'
-    },
     features: [
       {
         title: 'Channel Organization',
