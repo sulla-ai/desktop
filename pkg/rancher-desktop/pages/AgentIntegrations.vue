@@ -74,12 +74,12 @@
 
               <div
                 v-else
-                class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+                class="grid grid-cols-3 gap-6"
               >
                 <div
                   v-for="integration in filteredIntegrations"
                   :key="integration.id"
-                  class="group relative overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-black/10 transition-all duration-200 hover:shadow-lg hover:ring-black/20 dark:bg-slate-800 dark:ring-white/10 dark:hover:ring-white/20"
+                  class="group relative overflow-hidden rounded-xl bg-white shadow-sm border border-gray-200 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:bg-slate-800 dark:border-gray-700 dark:hover:border-gray-600"
                 >
                   <div class="p-6">
                     <div class="flex items-start justify-between mb-4">
