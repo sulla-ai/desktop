@@ -28,8 +28,6 @@ export class OverLordPlannerNode extends BaseNode {
     // Set the connection ID in state so hierarchical graph uses backend channel
     state.metadata.wsConnectionId = WS_CONNECTION_ID;
 
-    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
-
     try {
       const iteration = Number((state.metadata as any).__overlordIteration || 0);
       if (iteration >= 25) {
@@ -51,10 +49,8 @@ export class OverLordPlannerNode extends BaseNode {
 
       const decisionPrompt = `${enrichedprompt}\n\n${JSON_ONLY_RESPONSE_INSTRUCTIONS}\n{\n  "action": "trigger_hierarchical" | "stop",\n  "reason": "optional"\n}`;
 
-      // Emit via both WebSocket and traditional emit
-      const progressData = { phase: 'overlord_llm' };
-      this.dispatchToWebSocket(WS_CONNECTION_ID, { type: 'progress', ...progressData });
-      emit?.({ type: 'progress', threadId: state.threadId, data: progressData });
+      // Emit via WebSocket
+      this.dispatchToWebSocket(WS_CONNECTION_ID, { type: 'progress', payload: { phase: 'overlord_llm' } });
 
       const response = await this.prompt(decisionPrompt, state, true);
 

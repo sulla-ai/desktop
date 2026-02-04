@@ -246,7 +246,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
-import './agent/AgentKnowledgeBase.css';
+import './assets/AgentKnowledgeBase.css';
 
 import type { KnowledgeBaseNav, KnowledgeBasePage, KnowledgeBasePageSummary } from '@pkg/agent/services/KnowledgeBaseService';
 import { getKnowledgeBaseService } from '@pkg/agent/services/KnowledgeBaseService';
@@ -254,8 +254,8 @@ const THEME_STORAGE_KEY = 'agentTheme';
 const isDark = ref(false);
 const query = ref('');
 
-const splashUrl = new URL('./agent/splash.png', import.meta.url).toString();
-const splash2Url = new URL('./agent/splash2.png', import.meta.url).toString();
+const splashUrl = new URL('./assets/splash.png', import.meta.url).toString();
+const splash2Url = new URL('./assets/splash2.png', import.meta.url).toString();
 
 const loadingPages = ref(false);
 const pages = ref<KnowledgeBasePageSummary[]>([]);

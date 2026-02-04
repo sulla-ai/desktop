@@ -29,8 +29,6 @@ export class TacticalPlannerNode extends BaseNode {
   }
 
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
-    const emit = state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined;
-
     const llmFailureCount = (state.metadata.llmFailureCount as number) || 0;
 
     // Get the active milestone
@@ -99,11 +97,7 @@ export class TacticalPlannerNode extends BaseNode {
         toolHints: [],
       };
       
-      emit?.({
-        type: 'progress',
-        threadId: state.threadId,
-        data: { phase: 'tactical_step_status', stepId: 'kb_generation', action: 'knowledge_base_generate', status: 'in_progress' },
-      });
+      this.emitProgress(state, 'tactical_step_status', { stepId: 'kb_generation', action: 'knowledge_base_generate', status: 'in_progress' });
       
       return { state, next: 'continue' };
     }
@@ -120,11 +114,7 @@ export class TacticalPlannerNode extends BaseNode {
         const nextStep = pendingSteps[0];
         if (nextStep.status === 'pending') {
           nextStep.status = 'in_progress';
-          emit?.({
-            type: 'progress',
-            threadId: state.threadId,
-            data: { phase: 'tactical_step_status', stepId: nextStep.id, action: nextStep.action, status: 'in_progress' },
-          });
+          this.emitProgress(state, 'tactical_step_status', { stepId: nextStep.id, action: nextStep.action, status: 'in_progress' });
         }
         state.metadata.activeTacticalStep = {
           id: nextStep.id,
@@ -203,14 +193,9 @@ export class TacticalPlannerNode extends BaseNode {
         toolHints: firstStep.toolHints,
       };
 
-      emit?.({
-        type: 'progress',
-        threadId: state.threadId,
-        data: {
-          phase: 'tactical_plan_created',
-          milestone: milestone.title,
-          steps: tacticalPlan.steps.map(s => s.action),
-        },
+      this.emitProgress(state, 'tactical_plan_created', {
+        milestone: milestone.title,
+        steps: tacticalPlan.steps.map(s => s.action),
       });
 
       return { state, next: 'continue' };

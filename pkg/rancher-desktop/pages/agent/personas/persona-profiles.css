@@ -1,0 +1,157 @@
+@property --persona-from{syntax:'<color>';inherits:true;initial-value:#22c55e}
+@property --persona-via{syntax:'<color>';inherits:true;initial-value:#34d399}
+@property --persona-to{syntax:'<color>';inherits:true;initial-value:#a3e635}
+@property --persona-accent-top{syntax:'<color>';inherits:true;initial-value:#34d399}
+@property --persona-accent-bottom{syntax:'<color>';inherits:true;initial-value:#a3e635}
+@property --persona-primary{syntax:'<color>';inherits:true;initial-value:#6ee7b7}
+@property --persona-strong{syntax:'<color>';inherits:true;initial-value:#ecfdf5}
+@property --shine-angle{syntax:'<angle>';initial-value:0deg;inherits:false}
+
+/* Shine border effect on hover */
+.persona-wrap{cursor:pointer;position:relative}
+.persona-wrap:hover .persona-shine::before{opacity:1}
+.persona-shine{position:relative;--shine-size:2px}
+.persona-shine::before{content:'';position:absolute;inset:0;padding:var(--shine-size);background:conic-gradient(from var(--shine-angle),transparent 0deg 40deg,var(--persona-primary) 80deg 140deg,transparent 180deg 360deg) border-box;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;border-radius:1rem;opacity:0;animation:shine-rotate 5s linear infinite;transition:opacity .3s ease}
+
+/* Shine background sweep on hover */
+.persona-wrap:hover .persona-card::after{opacity:1;animation:sweep 3s linear infinite}
+.persona-card{position:relative;overflow:hidden}
+.persona-card::after{content:'';position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,color-mix(in oklab,var(--persona-primary) 25%,transparent) 50%,transparent 70%);background-size:200% 100%;opacity:0;pointer-events:none;transition:opacity .3s ease}
+
+@keyframes shine-rotate{to{--shine-angle:360deg}}
+@keyframes sweep{0%{background-position:-100% 0}100%{background-position:200% 0}}
+
+.persona-profile-focus{
+  --persona-from:#10b981;
+  --persona-via:#34d399;
+  --persona-to:#a3e635;
+  --persona-accent-top:#34d399;
+  --persona-accent-bottom:#a3e635;
+  --persona-primary:#6ee7b7;
+  --persona-strong:#ecfdf5;
+}
+
+.persona-profile-industrious{
+  --persona-from:#fcd34d;
+  --persona-via:#fb923c;
+  --persona-to:#fde047;
+  --persona-accent-top:#fcd34d;
+  --persona-accent-bottom:#fde047;
+  --persona-primary:#fcd34d;
+  --persona-strong:#fffbeb;
+}
+
+.persona-profile-curiosity{
+  --persona-from:#22d3ee;
+  --persona-via:#67e8f9;
+  --persona-to:#5eead4;
+  --persona-accent-top:#22d3ee;
+  --persona-accent-bottom:#5eead4;
+  --persona-primary:#67e8f9;
+  --persona-strong:#ecfeff;
+}
+
+.persona-profile-calm{
+  --persona-from:#7dd3fc;
+  --persona-via:#38bdf8;
+  --persona-to:#60a5fa;
+  --persona-accent-top:#7dd3fc;
+  --persona-accent-bottom:#60a5fa;
+  --persona-primary:#7dd3fc;
+  --persona-strong:#f0f9ff;
+}
+
+.persona-profile-mystery{
+  --persona-from:#c084fc;
+  --persona-via:#a78bfa;
+  --persona-to:#60a5fa;
+  --persona-accent-top:#c084fc;
+  --persona-accent-bottom:#60a5fa;
+  --persona-primary:#d8b4fe;
+  --persona-strong:#f5f3ff;
+}
+
+.persona-profile-joy{
+  --persona-from:#fdba74;
+  --persona-via:#fb923c;
+  --persona-to:#fcd34d;
+  --persona-accent-top:#fb923c;
+  --persona-accent-bottom:#fcd34d;
+  --persona-primary:#fdba74;
+  --persona-strong:#fff7ed;
+}
+
+.persona-profile-confidence{
+  --persona-from:#2563eb;
+  --persona-via:#3b82f6;
+  --persona-to:#22c55e;
+  --persona-accent-top:#3b82f6;
+  --persona-accent-bottom:#22c55e;
+  --persona-primary:#93c5fd;
+  --persona-strong:#eff6ff;
+}
+
+.persona-profile-love{
+  --persona-from:#fb7185;
+  --persona-via:#f472b6;
+  --persona-to:#fda4af;
+  --persona-accent-top:#f472b6;
+  --persona-accent-bottom:#fb7185;
+  --persona-primary:#fda4af;
+  --persona-strong:#fff1f2;
+}
+
+.persona-profile-anger{
+  --persona-from:#ef4444;
+  --persona-via:#f97316;
+  --persona-to:#f59e0b;
+  --persona-accent-top:#ef4444;
+  --persona-accent-bottom:#f97316;
+  --persona-primary:#fca5a5;
+  --persona-strong:#fef2f2;
+}
+
+.persona-profile-fear{
+  --persona-from:#0f172a;
+  --persona-via:#4c1d95;
+  --persona-to:#a21caf;
+  --persona-accent-top:#4c1d95;
+  --persona-accent-bottom:#a21caf;
+  --persona-primary:#c4b5fd;
+  --persona-strong:#f5f3ff;
+}
+
+.persona-profile-sadness{
+  --persona-from:#0f172a;
+  --persona-via:#334155;
+  --persona-to:#1d4ed8;
+  --persona-accent-top:#334155;
+  --persona-accent-bottom:#1d4ed8;
+  --persona-primary:#93c5fd;
+  --persona-strong:#eff6ff;
+}
+
+.persona-profile-mischief{
+  --persona-from:#22c55e;
+  --persona-via:#a3e635;
+  --persona-to:#14b8a6;
+  --persona-accent-top:#a3e635;
+  --persona-accent-bottom:#14b8a6;
+  --persona-primary:#86efac;
+  --persona-strong:#f0fdf4;
+}
+
+.persona-wrap{position:relative}
+.persona-wrap,.persona-wrap *{transition:color .6s ease,background-color .6s ease,box-shadow .6s ease,filter .6s ease,opacity .6s ease}
+.persona-glow-blur{position:absolute;inset:0;border-radius:1rem;background-image:linear-gradient(to top right,var(--persona-from) 0%,color-mix(in oklab,var(--persona-via) 70%,transparent) 50%,var(--persona-to) 100%);opacity:.10;filter:blur(16px);transition:background-image .6s ease}
+.persona-glow{position:absolute;inset:0;border-radius:1rem;background-image:linear-gradient(to top right,var(--persona-from) 0%,color-mix(in oklab,var(--persona-via) 70%,transparent) 50%,var(--persona-to) 100%);opacity:.10;transition:background-image .6s ease}
+.persona-card{position:relative;border-radius:1rem;background-color:rgb(15 23 42/.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 0 0 1px rgb(255 255 255/.10);overflow:hidden}
+.persona-accent-top{position:absolute;top:-1px;left:5rem;right:2.75rem;height:1px;background-image:linear-gradient(to right,color-mix(in oklab,var(--persona-accent-top) 0%,transparent),color-mix(in oklab,var(--persona-accent-top) 70%,transparent),color-mix(in oklab,var(--persona-accent-top) 0%,transparent));transition:background-image .6s ease}
+.persona-accent-bottom{position:absolute;bottom:-1px;left:2.75rem;right:5rem;height:1px;background-image:linear-gradient(to right,color-mix(in oklab,var(--persona-accent-bottom) 0%,transparent),var(--persona-accent-bottom),color-mix(in oklab,var(--persona-accent-bottom) 0%,transparent));transition:background-image .6s ease}
+.persona-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;color:color-mix(in oklab,var(--persona-primary) 80%,transparent)}
+.persona-title{color:var(--persona-strong);font-weight:600}
+.persona-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+.persona-icon{color:var(--persona-primary)}
+.persona-status-dot{background-color:var(--persona-primary);box-shadow:0 0 8px var(--persona-primary)}
+.persona-status-text{color:rgb(148 163 184);font-size:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+.persona-panel{background-color:rgb(30 41 59/.5);box-shadow:0 0 0 1px rgb(255 255 255/.05)}

@@ -1,8 +1,11 @@
 import type { Ref } from 'vue';
 
 import { ipcRenderer } from '@pkg/utils/ipcRenderer';
+import { getAgentPersonaRegistry } from '@pkg/agent';
 
 export class AgentSettingsController {
+  private readonly registry = getAgentPersonaRegistry();
+
   private readonly handlePreferencesChanged = () => {
     ipcRenderer.send('settings-read');
   };
@@ -49,6 +52,8 @@ export class AgentSettingsController {
         heartbeatModel:        exp.heartbeatModel,
       });
 
+      this.registry.setHeartbeatEnabled(exp.heartbeatEnabled ?? true);
+
       this.modelMode.value = exp.modelMode || 'local';
 
       if (exp.modelMode === 'remote' && exp.remoteModel) {
@@ -79,6 +84,10 @@ export class AgentSettingsController {
       remoteApiKey?: string;
       remoteRetryCount?: number;
       remoteTimeoutSeconds?: number;
+      heartbeatEnabled?: boolean;
+      heartbeatDelayMinutes?: number;
+      heartbeatPrompt?: string;
+      heartbeatModel?: string;
     }) => void,
   ) {
     this.modelName = params.modelName;

@@ -1,6 +1,7 @@
 import type { ThreadState, ToolResult } from '../types';
 import type { ToolContext } from './BaseTool';
 import { BaseTool } from './BaseTool';
+import { getWebSocketClientService } from '../services/WebSocketClientService';
 
 export class EmitChatMessageTool extends BaseTool {
   readonly name = 'emit_chat_message';
@@ -28,14 +29,18 @@ export class EmitChatMessageTool extends BaseTool {
     const role = typeof (args as any).role === 'string' ? String((args as any).role) : 'assistant';
     const kind = typeof (args as any).kind === 'string' ? String((args as any).kind) : 'progress';
 
-    const emit = (state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined);
+    // Get connection ID from state metadata or use default
+    const connectionId = (state.metadata?.wsConnectionId as string) || 'chat-controller';
 
     if (content.trim()) {
-      emit?.({
-        type:     'progress',
-        threadId: state.threadId,
-        data:     { phase: 'chat_message', content, role, kind },
+      // Send via WebSocket so persona receives it
+      const wsService = getWebSocketClientService();
+      wsService.send(connectionId, {
+        type: 'assistant_message',
+        payload: { role, content, kind },
+        timestamp: Date.now(),
       });
+
     }
 
     return { toolName: this.name, success: true, result: { emitted: !!content.trim() } };

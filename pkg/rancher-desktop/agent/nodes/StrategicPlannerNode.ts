@@ -48,7 +48,6 @@ export class StrategicPlannerNode extends BaseNode {
 
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
     console.log(`[Agent:StrategicPlanner] Executing...`);
-    const emit = state.metadata.__emitAgentEvent as ((event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void) | undefined;
 
     const llmFailureCount = (state.metadata.llmFailureCount as number) || 0;
     const strategicPlanRetryCount = (state.metadata.strategicPlanRetryCount as number) || 0;
@@ -184,14 +183,9 @@ export class StrategicPlannerNode extends BaseNode {
 
         state.metadata.planHasRemainingTodos = strategicStateForMapping.hasRemainingTodos();
 
-        emit?.({
-          type: 'progress',
-          threadId: state.threadId,
-          data: {
-            phase: 'strategic_plan_created',
-            goal: strategicPlan.goal,
-            milestones: strategicPlan.milestones.map(m => m.title),
-          },
+        this.emitPlanUpdate(state, 'strategic_plan_created', {
+          goal: strategicPlan.goal,
+          milestones: strategicPlan.milestones.map(m => m.title),
         });
 
       } else {
@@ -227,14 +221,9 @@ export class StrategicPlannerNode extends BaseNode {
       strategicPlanLastError: state.metadata.strategicPlanLastError,
     });
 
-    emit?.({
-      type: 'progress',
-      threadId: state.threadId,
-      data: {
-        phase: 'strategic_plan_retry',
-        attempt: strategicPlanRetryCount + 1,
-        reason: state.metadata.strategicPlanLastError,
-      },
+    this.emitProgress(state, 'strategic_plan_retry', {
+      attempt: strategicPlanRetryCount + 1,
+      reason: state.metadata.strategicPlanLastError,
     });
 
     return { state, next: 'strategic_planner' };

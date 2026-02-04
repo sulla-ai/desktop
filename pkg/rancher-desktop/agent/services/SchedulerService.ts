@@ -1,13 +1,10 @@
-// SchedulerService - Schedules calendar events using node-schedule
-// Triggers SensoryInput when events start, processed as background agent tasks
-
 import schedule from 'node-schedule';
 import { getCalendarService, CalendarEvent } from './CalendarService';
-import { getSensory } from '../SensoryInput';
-import { getContextDetector } from '../ContextDetector';
-import { getThread } from '../ConversationThread';
+import { getWebSocketClientService, type WebSocketMessage } from './WebSocketClientService';
 
-const SCHEDULER_THREAD_ID = 'scheduler-background';
+const FRONTEND_CHANNEL_ID = 'chat-controller';
+const BACKEND_CHANNEL_ID = 'chat-controller-backend';
+const ACK_TIMEOUT_MS = 3_000;
 
 interface ScheduledJob {
   eventId: number;
@@ -20,12 +17,17 @@ export function getSchedulerService(): SchedulerService {
   if (!schedulerServiceInstance) {
     schedulerServiceInstance = new SchedulerService();
   }
+
   return schedulerServiceInstance;
 }
 
 export class SchedulerService {
   private initialized = false;
   private scheduledJobs: Map<number, ScheduledJob> = new Map();
+  private readonly wsService = getWebSocketClientService();
+  private wsInitialized = false;
+  private unsubscribeFrontend: (() => void) | null = null;
+  private pendingAcks = new Map<number, { resolve: (value: boolean) => void; timer: ReturnType<typeof setTimeout> }>();
 
   async initialize(): Promise<void> {
     if (this.initialized) {
@@ -38,7 +40,6 @@ export class SchedulerService {
       const calendarService = getCalendarService();
       await calendarService.initialize();
 
-      // Register for event changes
       calendarService.onEventChange((event, action) => {
         if (action === 'created') {
           this.scheduleEvent(event);
@@ -49,7 +50,6 @@ export class SchedulerService {
         }
       });
 
-      // Load all future events and schedule them
       const now = new Date().toISOString();
       const events = await calendarService.getEvents({ startAfter: now });
 
@@ -66,20 +66,18 @@ export class SchedulerService {
   }
 
   scheduleEvent(event: CalendarEvent): void {
-    // Cancel existing job for this event if any
     this.cancelEvent(event.id);
 
     const startTime = new Date(event.start);
     const now = new Date();
 
-    // Don't schedule past events
     if (startTime <= now) {
       console.log(`[SchedulerService] Skipping past event: ${event.id} - ${event.title}`);
       return;
     }
 
     const job = schedule.scheduleJob(startTime, async () => {
-      console.log(`[SchedulerService] ⏰ CRON JOB FIRED for event: ${event.id} - "${event.title}"`);
+      console.log(`[SchedulerService] CRON JOB FIRED for event: ${event.id} - "${event.title}"`);
       console.log(`[SchedulerService]   Scheduled time: ${startTime.toISOString()}`);
       console.log(`[SchedulerService]   Actual fire time: ${new Date().toISOString()}`);
       await this.triggerEvent(event);
@@ -107,42 +105,100 @@ export class SchedulerService {
 
   private async triggerEvent(event: CalendarEvent): Promise<void> {
     try {
-      console.log(`[SchedulerService] 📤 Sending event to SensoryInput: ${event.id} - "${event.title}"`);
-      
-      const sensory = getSensory();
-      const contextDetector = getContextDetector();
-
-      // Create a calendar-triggered sensory input
+      console.log(`[SchedulerService] Sending event prompt via WS: ${event.id} - "${event.title}"`);
       const prompt = this.buildEventPrompt(event);
       console.log(`[SchedulerService]   Built prompt (${prompt.length} chars)`);
-      
-      const input = sensory.createCalendarInput(prompt, {
-        eventId: event.id,
-        eventTitle: event.title,
-      });
-      console.log(`[SchedulerService]   Created SensoryInput: type=${input.type}`);
 
-      // Detect context (will use scheduler thread)
-      const threadContext = await contextDetector.detect(input, SCHEDULER_THREAD_ID);
-      console.log(`[SchedulerService]   Context detected: threadId=${threadContext.threadId}`);
+      const acknowledged = await this.sendToFrontend(event, prompt);
+      if (acknowledged) {
+        console.log(`[SchedulerService] Frontend acknowledged event ${event.id}`);
+        return;
+      }
 
-      // Get or create the scheduler thread
-      const thread = getThread(threadContext.threadId);
-      await thread.initialize();
-      console.log(`[SchedulerService]   Thread initialized, processing input...`);
-
-      // Process the event notification
-      const response = await thread.process(input);
-
-      console.log(`[SchedulerService] ✅ Event processed successfully: ${event.id}`);
-      console.log(`[SchedulerService]   Response (first 200 chars): ${response.content.substring(0, 200)}...`);
+      console.warn(`[SchedulerService] Frontend did not ACK event ${event.id} - using backend channel`);
+      this.sendToBackend(event, prompt);
     } catch (err) {
-      console.error(`[SchedulerService] ❌ Failed to trigger event ${event.id}:`, err);
+      console.error(`[SchedulerService] Failed to trigger event ${event.id}:`, err);
+    }
+  }
+
+  private ensureFrontendListener(): void {
+    if (this.wsInitialized) {
+      return;
+    }
+
+    this.wsService.connect(FRONTEND_CHANNEL_ID);
+    this.unsubscribeFrontend = this.wsService.onMessage(FRONTEND_CHANNEL_ID, (msg: WebSocketMessage) => {
+      if (msg.type !== 'scheduler_ack') {
+        return;
+      }
+
+      const payload = (msg.payload && typeof msg.payload === 'object') ? (msg.payload as any) : null;
+      const eventId = Number(payload?.eventId);
+      if (!Number.isFinite(eventId)) {
+        return;
+      }
+
+      const pending = this.pendingAcks.get(eventId);
+      if (!pending) {
+        return;
+      }
+
+      clearTimeout(pending.timer);
+      pending.resolve(true);
+      this.pendingAcks.delete(eventId);
+    }) ?? null;
+
+    this.wsInitialized = true;
+  }
+
+  private buildEventPayload(event: CalendarEvent, prompt: string) {
+    return {
+      type: 'user_message',
+      payload: {
+        role: 'user',
+        content: prompt,
+        metadata: {
+          origin: 'scheduler',
+          eventId: event.id,
+          eventTitle: event.title,
+        },
+      },
+      timestamp: Date.now(),
+    };
+  }
+
+  private async sendToFrontend(event: CalendarEvent, prompt: string): Promise<boolean> {
+    this.ensureFrontendListener();
+    const message = this.buildEventPayload(event, prompt);
+
+    const sent = this.wsService.send(FRONTEND_CHANNEL_ID, message);
+    if (!sent) {
+      console.warn(`[SchedulerService] Failed to send event ${event.id} to frontend channel`);
+      return false;
+    }
+
+    return await new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => {
+        this.pendingAcks.delete(event.id);
+        resolve(false);
+      }, ACK_TIMEOUT_MS);
+
+      this.pendingAcks.set(event.id, { resolve, timer });
+    });
+  }
+
+  private sendToBackend(event: CalendarEvent, prompt: string): void {
+    const message = this.buildEventPayload(event, prompt);
+
+    this.wsService.connect(BACKEND_CHANNEL_ID);
+    const sent = this.wsService.send(BACKEND_CHANNEL_ID, message);
+    if (!sent) {
+      console.error(`[SchedulerService] Failed to send event ${event.id} to backend channel`);
     }
   }
 
   private buildEventPrompt(event: CalendarEvent): string {
-    // Format times in user's timezone
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const startDate = new Date(event.start);
     const endDate = new Date(event.end);

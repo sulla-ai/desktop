@@ -26,35 +26,19 @@
           <p class="text-sm text-neutral-800 dark:text-neutral-200">
             📦 Downloading: <strong>{{ modelName }}</strong>
           </p>
-          <p class="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+          <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
             {{ modelDownloadStatus }}
-          </p>
-          <div
-            v-if="modelDownloadTotal > 0"
-            class="mt-3 h-2 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10"
-          >
-            <div
-              class="h-full rounded-full bg-gradient-to-r from-indigo-500/90 to-violet-500/90"
-              :style="{ width: (modelDownloadProgress / modelDownloadTotal * 100) + '%' }"
-            />
-          </div>
-          <p
-            v-if="modelDownloadTotal > 0"
-            class="mt-2 font-mono text-[11px] text-neutral-600 dark:text-neutral-400"
-          >
-            {{ Math.round(modelDownloadProgress / 1024 / 1024) }} MB / {{ Math.round(modelDownloadTotal / 1024 / 1024) }} MB
-            ({{ Math.round(modelDownloadProgress / modelDownloadTotal * 100) }}%)
           </p>
         </div>
         
         <!-- K8s progress bar -->
         <div
-          v-else-if="progressMax > 0"
+          v-if="progressMax > 0"
           class="mt-4 h-2 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10"
         >
           <div
             class="h-full rounded-full bg-black/30 dark:bg-white/30"
-            :style="{ width: progressPercent + '%' }"
+            :style="{ width: (progressCurrent / progressMax * 100) + '%' }"
           />
         </div>
         <div
@@ -70,11 +54,12 @@
     <div ref="chatScrollContainer" id="chat-scroll-container" class="flex min-h-0 flex-1 overflow-y-auto" :class="{ 'blur-sm pointer-events-none select-none': showOverlay }">
       <div class="flex min-h-0 min-w-0 flex-1 flex-col">
         <div v-if="hasMessages" class="relative mx-auto flex w-full max-w-8xl flex-1 justify-center sm:px-2 lg:px-8 xl:px-12">
-          <div class="hidden lg:relative lg:block lg:flex-none">
-            <div class="absolute inset-y-0 right-0 w-[50vw] bg-slate-50 dark:hidden"></div>
-            <div class="absolute top-16 right-0 bottom-0 hidden h-12 w-px bg-linear-to-t from-slate-800 dark:block"></div>
-            <div class="absolute top-28 right-0 bottom-0 hidden w-px bg-slate-800 dark:block"></div>
-            <div class="sticky top-[5rem] -ml-0.5 h-[calc(100vh-5rem)] w-64 overflow-x-hidden overflow-y-auto py-16 pr-8 pl-0.5 xl:w-72 xl:pr-16"></div>
+          <div class="hidden lg:relative lg:block lg:flex-none lg:w-72 xl:w-80 bg-slate-50 dark:bg-slate-800/30">
+            <div class="sticky top-[15px] pt-[15px] h-[calc(100vh-5rem-15px)] w-full overflow-x-hidden overflow-y-auto">
+
+              <AgentPersonaLibrary/>
+
+            </div>
           </div>
 
           <div class="max-w-2xl min-w-0 flex-auto px-4 py-16 lg:max-w-none lg:pr-0 lg:pl-8 xl:px-16">
@@ -91,26 +76,45 @@
                 </div>
 
                 <div v-else-if="m.kind === 'tool'" class="max-w-[min(760px,92%)]">
-                  <div v-if="m.toolCard" class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
-                    <div class="mb-2 flex items-center gap-2">
-                      <span class="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{{ m.toolCard.toolName }}</span>
-                      <span 
-                        class="rounded-full px-2 py-0.5 text-xs font-medium"
-                        :class="m.toolCard.status === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : m.toolCard.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'"
+                  <div v-if="m.toolCard" class="rounded border border-slate-200 bg-slate-900 px-4 dark:border-slate-700 dark:bg-slate-800/50">
+                    <button
+                      type="button"
+                      class="w-full px-4 py-2 flex items-center justify-between transition-colors"
+                      @click="toggleToolCard(m.id)"
+                    >
+                      <div class="flex items-center gap-2">
+                        <span class="font-mono token comment">{{ m.toolCard.toolName }}</span>
+                        <span
+                          class="rounded-full px-2 py-0.5 text-xs font-medium"
+                          :class="m.toolCard.status === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : m.toolCard.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'"
+                        >
+                          {{ m.toolCard.status }}
+                        </span>
+                      </div>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 15 15"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="text-slate-500 transition-transform"
+                        :class="isToolCardExpanded(m.id) ? 'rotate-180' : ''"
                       >
-                        {{ m.toolCard.status }}
-                      </span>
-                    </div>
-                    <div v-if="m.toolCard.args && Object.keys(m.toolCard.args).length > 0" class="mb-2">
-                      <div class="text-xs font-semibold text-slate-600 dark:text-slate-400">Arguments:</div>
-                      <pre class="mt-1 overflow-x-auto rounded bg-slate-100 p-2 text-xs dark:bg-slate-900/50"><code>{{ JSON.stringify(m.toolCard.args, null, 2) }}</code></pre>
-                    </div>
-                    <div v-if="m.toolCard.result !== undefined" class="mb-2">
-                      <div class="text-xs font-semibold text-slate-600 dark:text-slate-400">Result:</div>
-                      <pre class="mt-1 overflow-x-auto rounded bg-slate-100 p-2 text-xs dark:bg-slate-900/50"><code>{{ typeof m.toolCard.result === 'string' ? m.toolCard.result : JSON.stringify(m.toolCard.result, null, 2) }}</code></pre>
-                    </div>
-                    <div v-if="m.toolCard.error" class="text-xs text-red-600 dark:text-red-400">
-                      Error: {{ m.toolCard.error }}
+                        <path d="M3.13523 6.15803C3.3241 5.95657 3.64052 5.94637 3.84197 6.13523L7.5 9.56464L11.158 6.13523C11.3595 5.94637 11.6759 5.95657 11.8648 6.15803C12.0536 6.35949 12.0434 6.67591 11.842 6.86477L7.84197 10.6148C7.64964 10.7951 7.35036 10.7951 7.15803 10.6148L3.15803 6.86477C2.95657 6.67591 2.94637 6.35949 3.13523 6.15803Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"/>
+                      </svg>
+                    </button>
+                    <div v-show="isToolCardExpanded(m.id)" class="px-4 pb-3">
+                      <div v-if="m.toolCard.args && Object.keys(m.toolCard.args).length > 0" class="mb-2">
+                        <div class="text-xs font-semibold text-slate-600 dark:text-slate-400">Arguments:</div>
+                        <pre class="mt-1 overflow-x-auto rounded bg-slate-800 p-2 text-xs text-slate-400 dark:bg-slate-900/50"><code>{{ JSON.stringify(m.toolCard.args, null, 2) }}</code></pre>
+                      </div>
+                      <div v-if="m.toolCard.result !== undefined" class="mb-2">
+                        <div class="text-xs font-semibold text-slate-600 dark:text-slate-400">Result:</div>
+                        <pre class="mt-1 overflow-x-auto rounded bg-slate-800 p-2 text-xs text-slate-400 dark:bg-slate-900/50"><code>{{ typeof m.toolCard.result === 'string' ? m.toolCard.result : JSON.stringify(m.toolCard.result, null, 2) }}</code></pre>
+                      </div>
+                      <div v-if="m.toolCard.error" class="text-xs text-red-600 dark:text-red-400">
+                        Error: {{ m.toolCard.error }}
+                      </div>
                     </div>
                   </div>
                   <pre v-else class="prism-code language-shell"><code><span class="token plain">{{ m.content }}</span>
@@ -143,7 +147,7 @@
             </div>
           </div>
 
-          <div class="hidden xl:sticky xl:top-0 xl:-mr-6 xl:block xl:h-screen xl:flex-none xl:overflow-y-auto xl:py-16 xl:pr-6">
+          <div class="hidden xl:sticky xl:top-0 xl:-mr-6 xl:block xl:max-h-[calc(100vh-12rem)] xl:flex-none xl:overflow-y-auto xl:py-16 xl:pr-6">
             <div class="w-72">
               <div v-if="latestChatError" class="my-8 flex rounded-3xl p-6 bg-amber-50 dark:bg-slate-800/60 dark:ring-1 dark:ring-slate-300/10">
                 <svg aria-hidden="true" viewBox="0 0 32 32" fill="none" class="h-8 w-8 flex-none [--icon-foreground:var(--color-amber-900)] [--icon-background:var(--color-amber-100)]">
@@ -511,6 +515,7 @@
 
 <script setup lang="ts">
 import AgentHeader from './agent/AgentHeader.vue';
+import AgentPersonaLibrary from './agent/personas/AgentPersonaLibrary.vue';
 
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
@@ -518,17 +523,18 @@ import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import {
   getSensory,
-  getContextDetector,
-  getThread,
   getResponseHandler,
 } from '@pkg/agent';
 import type { AgentResponse } from '@pkg/agent/types';
 import { updateAgentConfigFull } from '@pkg/agent/services/ConfigService';
 import { StartupProgressController } from './agent/StartupProgressController';
 import { AgentSettingsController } from './agent/AgentSettingsController';
-import { AgentChatController } from './agent/AgentChatController';
+import { ChatInterface } from './agent/ChatInterface';
+import { FrontendGraphWebSocketService } from '@pkg/agent/services/FrontendGraphWebSocketService';
 import { AgentModelSelectorController } from './agent/AgentModelSelectorController';
-import './agent/AgentModelSelector.css';
+import { getAgentPersonaRegistry, type ChatMessage } from '@pkg/agent';
+import './assets/AgentModelSelector.css';
+import './agent/personas/persona-profiles.css';
 
 const renderMarkdown = (markdown: string): string => {
   const raw = typeof markdown === 'string' ? markdown : String(markdown || '');
@@ -630,7 +636,6 @@ function updateComposerLayout(): void {
 
 // Initialize agent components
 const sensory = getSensory();
-const contextDetector = getContextDetector();
 const responseHandler = getResponseHandler();
 
 const startupState = StartupProgressController.createState();
@@ -643,11 +648,8 @@ const {
   showOverlay,
   modelDownloading,
   modelName,
-  modelDownloadProgress,
-  modelDownloadTotal,
   modelDownloadStatus,
   modelMode,
-  progressPercent,
 } = startupState;
 
 const startupProgress = new StartupProgressController(startupState);
@@ -668,266 +670,61 @@ type SidebarTodo = {
   statusLabel: string;
 };
 
-const activePlanId = ref<number | null>(null);
-const activePlanGoal = ref<string | null>(null);
-
-const planTodoOrder = ref<number[]>([]);
-const planTodoStateByKey = ref<Record<number, { title: string; status: SidebarTodoStatus; orderIndex: number }>>({});
-
-function makeStatusLabel(status: SidebarTodoStatus): string {
-  switch (status) {
-  case 'in_progress':
-    return 'In progress';
-  case 'done':
-    return 'Completed';
-  case 'blocked':
-    return 'Blocked';
-  default:
-    return 'Pending';
-  }
-}
-
-const activePlanTodos = computed<SidebarTodo[]>(() => {
-  return planTodoOrder.value
-    .map((key) => {
-      const entry = planTodoStateByKey.value[key];
-      if (!entry) {
-        return null;
-      }
-
-      return {
-        key: String(key),
-        title: entry.title,
-        status: entry.status,
-        statusLabel: makeStatusLabel(entry.status),
-      };
-    })
-    .filter((x): x is SidebarTodo => !!x);
-});
-
-function resetPlanFromTitles(titles: string[], nextPlanId: number | null, goal: string | null) {
-  activePlanId.value = nextPlanId;
-  activePlanGoal.value = goal;
-  const ids = titles.map((_, idx) => idx + 1);
-  planTodoOrder.value = ids;
-  planTodoStateByKey.value = ids.reduce<Record<number, { title: string; status: SidebarTodoStatus; orderIndex: number }>>((acc, id, idx) => {
-    acc[id] = { title: titles[idx], status: 'pending', orderIndex: idx };
-    return acc;
-  }, {});
-}
-
-function normalizeStatus(status: string): SidebarTodoStatus {
-  if (status === 'in_progress' || status === 'done' || status === 'blocked') {
-    return status;
-  }
-  return 'pending';
-}
-
-function sortTodoOrder() {
-  planTodoOrder.value = [...planTodoOrder.value].sort((a, b) => {
-    const ea = planTodoStateByKey.value[a];
-    const eb = planTodoStateByKey.value[b];
-    const ia = ea ? ea.orderIndex : 0;
-    const ib = eb ? eb.orderIndex : 0;
-    return ia - ib;
-  });
-}
-
-function resetPlanFromStreaming(planId: number | null, goal: string | null) {
-  activePlanId.value = planId;
-  activePlanGoal.value = goal;
-  planTodoOrder.value = [];
-  planTodoStateByKey.value = {};
-}
-
-function upsertTodoFromStreaming(params: { planId: number; todoId: number; title?: string; orderIndex?: number; status?: string }) {
-  if (activePlanId.value !== params.planId) {
-    return;
-  }
-  const todoId = params.todoId;
-  const existing = planTodoStateByKey.value[todoId];
-  const nextTitle = typeof params.title === 'string' && params.title ? params.title : existing?.title || '';
-  const nextOrderIndex = Number.isFinite(Number(params.orderIndex)) ? Number(params.orderIndex) : (existing?.orderIndex ?? planTodoOrder.value.length);
-  const nextStatus = params.status ? normalizeStatus(params.status) : (existing?.status ?? 'pending');
-
-  if (!existing) {
-    planTodoOrder.value = [...planTodoOrder.value, todoId];
-  }
-  planTodoStateByKey.value = {
-    ...planTodoStateByKey.value,
-    [todoId]: { title: nextTitle, status: nextStatus, orderIndex: nextOrderIndex },
-  };
-  sortTodoOrder();
-}
-
-function deleteTodoFromStreaming(params: { planId: number; todoId: number }) {
-  if (activePlanId.value !== params.planId) {
-    return;
-  }
-  const todoId = params.todoId;
-  const next = { ...planTodoStateByKey.value };
-  delete next[todoId];
-  planTodoStateByKey.value = next;
-  planTodoOrder.value = planTodoOrder.value.filter(id => id !== todoId);
-}
-
-function upsertTodoStatusByTitle(title: string, status: SidebarTodoStatus) {
-  if (!title) {
-    return;
-  }
-  // Snapshot fallback uses title-keys; to avoid mixing key types, ignore if streaming is active.
-  if (activePlanId.value !== null && planTodoOrder.value.some(id => Number.isFinite(Number(id)))) {
-    return;
-  }
-}
-
 const onAgentResponse = (resp: AgentResponse) => {
   const metadata = (resp?.metadata || {}) as Record<string, any>;
   const nextPlanId = typeof metadata.activePlanId === 'number' ? metadata.activePlanId : null;
 
-  const hasStreamingTodos = planTodoOrder.value.length > 0;
-  if (hasStreamingTodos) {
-    return;
-  }
-
-  const fullPlan = metadata.plan?.fullPlan;
-  const goal = typeof fullPlan?.goal === 'string' ? fullPlan.goal : null;
-  const todosFromFullPlan = Array.isArray(fullPlan?.todos)
-    ? fullPlan.todos
-        .map((t: any) => (typeof t?.title === 'string' ? t.title : null))
-        .filter((t: string | null): t is string => !!t)
-    : null;
-
-  const titles = (todosFromFullPlan && todosFromFullPlan.length > 0)
-    ? todosFromFullPlan
-    : (Array.isArray(metadata.plan?.todos) ? metadata.plan.todos.filter((t: any) => typeof t === 'string') : []);
-
-  if (goal && titles.length > 0) {
-    if (activePlanId.value !== nextPlanId || activePlanGoal.value !== goal || planTodoOrder.value.length === 0) {
-      resetPlanFromTitles(titles, nextPlanId, goal);
-    } else {
-      // Keep ordering in sync if planner revised the todo list.
-      resetPlanFromTitles(titles, nextPlanId, goal);
-    }
-  }
-
-  const activeTodoTitle = typeof metadata.activeTodo?.title === 'string' ? metadata.activeTodo.title : null;
-  if (activeTodoTitle) {
-    upsertTodoStatusByTitle(activeTodoTitle, 'in_progress');
-  }
-
-  // When the executor reports completion/progress, apply it to the current active todo.
-  const executionStatus = metadata.todoExecution?.status as SidebarTodoStatus | undefined;
-  if (activeTodoTitle && executionStatus && (executionStatus === 'done' || executionStatus === 'blocked' || executionStatus === 'in_progress')) {
-    upsertTodoStatusByTitle(activeTodoTitle, executionStatus);
-  }
+  // Plan state is now managed by AgentPersonaService and accessed via ChatInterface
+  // This handler can be used for additional response processing if needed
 };
 
 const onAgentEvent = (event: { type: string; threadId: string; data: any; timestamp: number }) => {
-  if (event.type !== 'progress') {
-    return;
-  }
-  const phase = event.data?.phase;
-  if (!phase) {
-    return;
-  }
-
-  if (phase === 'plan_created') {
-    const planId = Number(event.data.planId);
-    const goal = typeof event.data.goal === 'string' ? event.data.goal : null;
-    if (Number.isFinite(planId)) {
-      resetPlanFromStreaming(planId, goal);
-    }
-    return;
-  }
-
-  if (phase === 'plan_revised') {
-    const planId = Number(event.data.planId);
-    const goal = typeof event.data.goal === 'string' ? event.data.goal : null;
-    if (Number.isFinite(planId)) {
-      if (activePlanId.value !== planId) {
-        resetPlanFromStreaming(planId, goal);
-      } else {
-        activePlanGoal.value = goal;
-      }
-    }
-    return;
-  }
-
-  if (phase === 'todo_created') {
-    const planId = Number(event.data.planId);
-    const todoId = Number(event.data.todoId);
-    const title = typeof event.data.title === 'string' ? event.data.title : '';
-    const orderIndex = event.data.orderIndex !== undefined ? Number(event.data.orderIndex) : undefined;
-    const status = typeof event.data.status === 'string' ? event.data.status : 'pending';
-    if (Number.isFinite(planId) && Number.isFinite(todoId)) {
-      if (activePlanId.value !== planId) {
-        resetPlanFromStreaming(planId, activePlanGoal.value);
-      }
-      upsertTodoFromStreaming({ planId, todoId, title, orderIndex, status });
-    }
-    return;
-  }
-
-  if (phase === 'todo_updated') {
-    const planId = Number(event.data.planId);
-    const todoId = Number(event.data.todoId);
-    const title = typeof event.data.title === 'string' ? event.data.title : '';
-    const orderIndex = event.data.orderIndex !== undefined ? Number(event.data.orderIndex) : undefined;
-    const status = typeof event.data.status === 'string' ? event.data.status : undefined;
-    if (Number.isFinite(planId) && Number.isFinite(todoId)) {
-      if (activePlanId.value !== planId) {
-        resetPlanFromStreaming(planId, activePlanGoal.value);
-      }
-      upsertTodoFromStreaming({ planId, todoId, title, orderIndex, status });
-    }
-    return;
-  }
-
-  if (phase === 'todo_deleted') {
-    const planId = Number(event.data.planId);
-    const todoId = Number(event.data.todoId);
-    if (Number.isFinite(planId) && Number.isFinite(todoId)) {
-      if (activePlanId.value !== planId) {
-        resetPlanFromStreaming(planId, activePlanGoal.value);
-      }
-      deleteTodoFromStreaming({ planId, todoId });
-    }
-    return;
-  }
-
-  if (phase === 'todo_status') {
-    const planId = Number(event.data.planId);
-    const todoId = Number(event.data.todoId);
-    const title = typeof event.data.title === 'string' ? event.data.title : undefined;
-    const status = typeof event.data.status === 'string' ? event.data.status : undefined;
-    if (Number.isFinite(planId) && Number.isFinite(todoId) && status) {
-      if (activePlanId.value !== planId) {
-        resetPlanFromStreaming(planId, activePlanGoal.value);
-      }
-      upsertTodoFromStreaming({ planId, todoId, title, status });
-    }
-  }
+  // Plan events (plan_created, plan_revised, todo_created, etc.) are now handled
+  // by AgentPersonaService which updates the planState reactive object.
+  // The UI accesses this via ChatInterface's computed properties.
 };
 
-const chatController = new AgentChatController({
-  systemReady,
+const chatController = new ChatInterface();
+
+const frontendGraphController = new FrontendGraphWebSocketService({
   currentThreadId,
   sensory,
-  getThread,
   responseHandler,
   onAgentResponse,
-  onAgentEvent,
-  startupProgress,
 });
 
 const {
   query,
-  loading,
-  messages,
   transcriptEl,
+  activePlanId,
+  activePlanGoal,
+  activePlanTodos,
+  messages,
   hasMessages,
 } = chatController;
+
+const registry = getAgentPersonaRegistry();
+const activeChannelId = computed(() => registry.activeAgent.value?.agentId || 'chat-controller');
+const loading = computed<boolean>(() => {
+  const agent = registry.activeAgent.value;
+  if (!agent) return false;
+  return agent.loading;
+});
+
+// Track expanded tool cards
+const expandedToolCards = ref<Set<string>>(new Set());
+
+function toggleToolCard(messageId: string): void {
+  if (expandedToolCards.value.has(messageId)) {
+    expandedToolCards.value.delete(messageId);
+  } else {
+    expandedToolCards.value.add(messageId);
+  }
+}
+
+function isToolCardExpanded(messageId: string): boolean {
+  return expandedToolCards.value.has(messageId);
+}
 
 const chatScrollContainer = ref<HTMLElement | null>(null);
 const autoScrollEnabled = ref(true);
@@ -1000,7 +797,7 @@ watch(() => messages.value.length, async () => {
 
 const latestChatError = computed(() => {
   for (let i = messages.value.length - 1; i >= 0; i--) {
-    const m = messages.value[i];
+    const m: ChatMessage = messages.value[i];
     if (m.role === 'error') {
       return m.content;
     }
@@ -1032,16 +829,22 @@ onMounted(async () => {
 
   await modelSelector.start();
 
-  // Connect WebSocket to listen for backend messages
-  console.log('[Agent] Connecting WebSocket for chat controller...');
-  chatController.connectWebSocket();
+  // Start listening on each agent's persona service
+  registry.state.agents.forEach((agent: { agentId: string }) => {
+    registry.getOrCreatePersonaService(agent.agentId).startListening([agent.agentId]);
+  });
 });
 
 onUnmounted(() => {
   startupProgress.dispose();
   settingsController.dispose();
   modelSelector.dispose();
+  // Stop listening on each agent's persona service
+  registry.state.agents.forEach((agent: { agentId: string }) => {
+    registry.getOrCreatePersonaService(agent.agentId).stopListening();
+  });
   chatController.dispose();
+  frontendGraphController.dispose();
 });
 
 const sendOrStop = () => {

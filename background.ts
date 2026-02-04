@@ -335,6 +335,11 @@ Electron.app.whenReady().then(async() => {
       const heartbeatService = getHeartbeatService();
       await heartbeatService.initialize();
       console.log('[Background] HeartbeatService initialized - periodic tasks will run in background');
+
+      // Initialize backend WebSocket listener for fallback graph execution
+      const { BackendGraphWebSocketService } = await import('@pkg/agent');
+      const backendWsService = new BackendGraphWebSocketService();
+      console.log('[Background] BackendGraphWebSocketService initialized - fallback channel ready');
     } catch (ex: any) {
       console.error('[Background] Failed to initialize cron services:', ex);
     }
