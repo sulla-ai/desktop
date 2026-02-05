@@ -32,6 +32,7 @@ export { getKnowledgeGraph, KnowledgeGraphClass } from './services/KnowledgeGrap
 export type { KnowledgeFinalPage, KnowledgePageSection, KnowledgeGoal } from './services/KnowledgeState';
 export { FrontendGraphWebSocketService } from './services/FrontendGraphWebSocketService';
 export { getBackendGraphWebSocketService, BackendGraphWebSocketService } from './services/BackendGraphWebSocketService';
+export { getIntegrationService, IntegrationService } from './services/IntegrationService';
 
 // Models
 export { AgentPersonaService } from './models/AgentPersonaModel';

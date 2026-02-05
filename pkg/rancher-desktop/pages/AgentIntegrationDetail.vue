@@ -64,7 +64,7 @@
                       <!-- Main Media -->
                       <div class="aspect-video">
                         <!-- YouTube Video -->
-                        <CSPlayer
+                        <YouTubePlayer
                           v-if="integration.media[currentImageIndex].type === 'youtube'"
                           :video-id="integration.media[currentImageIndex].url"
                           :title="integration.media[currentImageIndex].alt"
@@ -77,7 +77,7 @@
                           :alt="integration.media[currentImageIndex].alt"
                           class="h-full w-full object-cover"
                         >
-                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+                        <div v-if="integration.media[currentImageIndex].caption" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
                           <p class="text-sm text-white">{{ integration.media[currentImageIndex].caption }}</p>
                         </div>
                       </div>
@@ -179,12 +179,17 @@
                 <div class="space-y-4">
                   <button
                     @click="integration.connected ? disconnectIntegration() : handleConnect()"
-                    class="w-full rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                    :disabled="isLoading"
+                    class="w-full rounded-lg px-4 py-2 text-sm font-medium transition-colors flex items-center justify-center"
                     :class="integration.connected 
                       ? 'bg-red-600 text-white hover:bg-red-700' 
                       : 'bg-blue-600 text-white hover:bg-blue-700'"
                   >
-                    {{ integration.connected ? 'Disconnect' : 'Connect Now' }}
+                    <svg v-if="isLoading" class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a8 8 0 01-16 0v4a8 8 0 0016 0z"></path>
+                    </svg>
+                    {{ isLoading ? 'Processing...' : (integration.connected ? 'Disconnect' : 'Connect Now') }}
                   </button>
                   <p class="text-xs text-slate-500 dark:text-slate-400">
                     {{ integration.connected 
@@ -293,7 +298,8 @@
 <script setup lang="ts">
 import AgentHeader from './agent/AgentHeader.vue';
 import { integrations, type Integration } from '@pkg/agent/integrations/catalog';
-import CSPlayer from '@pkg/components/CSPlayer.vue';
+import YouTubePlayer from '@pkg/components/YouTubePlayer.vue';
+import { getIntegrationService } from '@pkg/agent/services/IntegrationService';
 
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -302,11 +308,13 @@ const THEME_STORAGE_KEY = 'agentTheme';
 const isDark = ref(false);
 const route = useRoute();
 const router = useRouter();
+const integrationService = getIntegrationService();
 
 const integration = ref<Integration | null>(null);
 const currentImageIndex = ref(0);
 const formData = ref<Record<string, string>>({});
 const errors = ref<Record<string, string>>({});
+const isLoading = ref(false);
 
 // Carousel functions
 const nextImage = () => {
@@ -328,17 +336,33 @@ const toggleTheme = () => {
   localStorage.setItem(THEME_STORAGE_KEY, isDark.value ? 'dark' : 'light');
 };
 
-const connectIntegration = () => {
+const connectIntegration = async () => {
   if (integration.value) {
-    integration.value.connected = true;
-    integrations[integration.value.id].connected = true;
+    isLoading.value = true;
+    try {
+      await integrationService.setConnectionStatus(integration.value.id, true);
+      integration.value.connected = true;
+      integrations[integration.value.id].connected = true;
+    } catch (error) {
+      console.error('Failed to connect integration:', error);
+    } finally {
+      isLoading.value = false;
+    }
   }
 };
 
-const disconnectIntegration = () => {
+const disconnectIntegration = async () => {
   if (integration.value) {
-    integration.value.connected = false;
-    integrations[integration.value.id].connected = false;
+    isLoading.value = true;
+    try {
+      await integrationService.setConnectionStatus(integration.value.id, false);
+      integration.value.connected = false;
+      integrations[integration.value.id].connected = false;
+    } catch (error) {
+      console.error('Failed to disconnect integration:', error);
+    } finally {
+      isLoading.value = false;
+    }
   }
 };
 
@@ -396,26 +420,47 @@ const validateForm = (): boolean => {
   return isValid;
 };
 
-const handleConnect = () => {
+const handleConnect = async () => {
   if (!integration.value?.properties || integration.value.properties.length === 0) {
-    connectIntegration();
+    await connectIntegration();
     return;
   }
   
   if (validateForm()) {
-    console.log('Form submitted with data:', formData.value);
-    // TODO: Handle the submitted data later as requested
-    connectIntegration();
+    isLoading.value = true;
+    try {
+      // Save form data to database
+      const formInputs = Object.entries(formData.value).map(([key, value]) => ({
+        integration_id: integration.value!.id,
+        property: key,
+        value: value
+      }));
+      
+      await integrationService.setFormValues(formInputs);
+      console.log('Integration configuration saved:', formData.value);
+      
+      // Update connection status
+      await integrationService.setConnectionStatus(integration.value.id, true);
+      integration.value.connected = true;
+      integrations[integration.value.id].connected = true;
+    } catch (error) {
+      console.error('Failed to save integration configuration:', error);
+    } finally {
+      isLoading.value = false;
+    }
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
   try {
     const saved = localStorage.getItem(THEME_STORAGE_KEY);
     isDark.value = saved === 'dark';
   } catch {
     isDark.value = false;
   }
+
+  // Initialize integration service
+  await integrationService.initialize();
 
   // Load integration data based on route parameter
   const integrationId = route.params.id as string;
@@ -424,6 +469,24 @@ onMounted(() => {
   // If integration not found, redirect back to integrations list
   if (!integration.value) {
     router.push('/Integrations');
+    return;
+  }
+
+  // Load form data from database
+  try {
+    const formValues = await integrationService.getFormValues(integrationId);
+    const formDataObj: Record<string, string> = {};
+    formValues.forEach(value => {
+      formDataObj[value.property] = value.value;
+    });
+    formData.value = formDataObj;
+    
+    // Load connection status
+    const connectionStatus = await integrationService.getConnectionStatus(integrationId);
+    integration.value.connected = connectionStatus.connected;
+    integrations[integrationId].connected = connectionStatus.connected;
+  } catch (error) {
+    console.error('Failed to load integration data:', error);
   }
 });
 </script>

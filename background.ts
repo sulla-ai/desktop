@@ -42,6 +42,7 @@ import { Tray } from '@pkg/main/tray';
 import setupUpdate from '@pkg/main/update';
 import { getSchedulerService } from '@pkg/agent/services/SchedulerService';
 import { getHeartbeatService } from '@pkg/agent/services/HeartbeatService';
+import { getIntegrationService } from '@pkg/agent/services/IntegrationService';
 import { postgresClient } from '@pkg/agent/services/PostgresClient';
 import { getBackendGraphWebSocketService } from '@pkg/agent/services/BackendGraphWebSocketService';
 import { spawnFile } from '@pkg/utils/childProcess';
@@ -337,6 +338,10 @@ Electron.app.whenReady().then(async() => {
       const heartbeatService = getHeartbeatService();
       await heartbeatService.initialize();
       console.log('[Background] HeartbeatService initialized - periodic tasks will run in background');
+
+      const integrationService = getIntegrationService();
+      await integrationService.initialize();
+      console.log('[Background] IntegrationService initialized - integration tasks will run in background');
 
       const backendGraphWebSocketService = getBackendGraphWebSocketService();
       console.log('[Background] BackendGraphWebSocketService initialized - backend agent messages will be processed');
