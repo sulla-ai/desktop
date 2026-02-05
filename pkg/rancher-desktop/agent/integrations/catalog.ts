@@ -407,5 +407,261 @@ export const integrations: Record<string, Integration> = {
         url: 'https://sendgrid.com/docs/for-developers/sending-email/getting-started'
       }
     ]
+  },
+
+  whatsapp: {
+    id: 'whatsapp',
+    name: 'WhatsApp Business',
+    description: 'Connect with customers on the world\'s most popular messaging platform. Enable SULLA to send notifications, provide support, and automate conversations through WhatsApp Business API.',
+    category: 'Messaging',
+    icon: '📱',
+    connected: false,
+    version: '2.3.1',
+    lastUpdated: '1 week ago',
+    developer: 'Meta',
+    images: [
+      {
+        url: 'https://images.unsplash.com/photo-1610945411025-4e1a472b8ddb?w=800&h=450&fit=crop',
+        alt: 'WhatsApp Business Interface',
+        caption: 'Professional WhatsApp Business messaging interface'
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1559028006-848a6538c4f9?w=800&h=450&fit=crop',
+        alt: 'Customer Conversations',
+        caption: 'Real-time customer support through WhatsApp'
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
+        alt: 'Message Templates',
+        caption: 'Create and manage message templates for bulk messaging'
+      }
+    ],
+    features: [
+      {
+        title: 'Business Messaging',
+        description: 'Send and receive messages through official WhatsApp Business API'
+      },
+      {
+        title: 'Message Templates',
+        description: 'Use pre-approved templates for notifications and marketing'
+      },
+      {
+        title: 'Interactive Messages',
+        description: 'Create rich interactive experiences with buttons and quick replies'
+      },
+      {
+        title: 'Analytics & Insights',
+        description: 'Track message delivery, read rates, and customer engagement'
+      }
+    ],
+    guideLinks: [
+      {
+        title: 'WhatsApp Business API',
+        description: 'Official documentation for WhatsApp Business Platform',
+        url: 'https://developers.facebook.com/docs/whatsapp'
+      },
+      {
+        title: 'Getting Started Guide',
+        description: 'Step-by-step guide to set up WhatsApp Business API',
+        url: 'https://developers.facebook.com/docs/whatsapp/getting-started'
+      },
+      {
+        title: 'Best Practices',
+        description: 'Guidelines for effective WhatsApp communication',
+        url: 'https://developers.facebook.com/docs/whatsapp/best-practices'
+      }
+    ]
+  },
+
+  telegram: {
+    id: 'telegram',
+    name: 'Telegram',
+    description: 'Cloud-based instant messaging service with powerful bot capabilities. Enable SULLA to create bots, send messages, and automate communication through Telegram\'s flexible API.',
+    category: 'Messaging',
+    icon: '✈️',
+    connected: false,
+    version: '1.8.0',
+    lastUpdated: '3 days ago',
+    developer: 'Telegram Messenger LLP',
+    images: [
+      {
+        url: 'https://images.unsplash.com/photo-1610945411025-4e1a472b8ddb?w=800&h=450&fit=crop',
+        alt: 'Telegram Bot Interface',
+        caption: 'Powerful bot creation and management interface'
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
+        alt: 'Group Management',
+        caption: 'Manage groups and channels with automated bots'
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
+        alt: 'API Integration',
+        caption: 'Seamless API integration for custom workflows'
+      }
+    ],
+    features: [
+      {
+        title: 'Bot Development',
+        description: 'Create sophisticated bots with AI and automation capabilities'
+      },
+      {
+        title: 'Group & Channel Management',
+        description: 'Automate posting and moderation in groups and channels'
+      },
+      {
+        title: 'File Sharing',
+        description: 'Share documents, images, and media files up to 2GB'
+      },
+      {
+        title: 'Inline Bots',
+        description: 'Provide instant results within any chat using inline queries'
+      }
+    ],
+    guideLinks: [
+      {
+        title: 'Telegram Bot API',
+        description: 'Complete API documentation for bot development',
+        url: 'https://core.telegram.org/bots/api'
+      },
+      {
+        title: 'Bot Tutorial',
+        description: 'Learn to create your first Telegram bot',
+        url: 'https://core.telegram.org/bots/tutorial'
+      },
+      {
+        title: 'Bot Examples',
+        description: 'Sample bots and code examples to get started',
+        url: 'https://core.telegram.org/bots/samples'
+      }
+    ]
+  },
+
+  discord: {
+    id: 'discord',
+    name: 'Discord',
+    description: 'Voice, video, and text communication platform designed for communities. Enable SULLA to join servers, send messages, and automate community management through Discord bots.',
+    category: 'Community',
+    icon: '🎮',
+    connected: false,
+    version: '2.0.5',
+    lastUpdated: '2 days ago',
+    developer: 'Discord Inc.',
+    images: [
+      {
+        url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
+        alt: 'Discord Server',
+        caption: 'Community server with channels and voice rooms'
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=450&fit=crop',
+        alt: 'Bot Integration',
+        caption: 'Powerful bot integration for server automation'
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
+        alt: 'Voice Channels',
+        caption: 'High-quality voice communication for teams'
+      }
+    ],
+    features: [
+      {
+        title: 'Server Management',
+        description: 'Automate server moderation and member management'
+      },
+      {
+        title: 'Voice & Video',
+        description: 'Integrate with voice channels for audio communication'
+      },
+      {
+        title: 'Rich Embeds',
+        description: 'Create beautiful message embeds with images and interactions'
+      },
+      {
+        title: 'Slash Commands',
+        description: 'Implement custom commands for server functionality'
+      }
+    ],
+    guideLinks: [
+      {
+        title: 'Discord Developer Portal',
+        description: 'Create and manage Discord applications and bots',
+        url: 'https://discord.com/developers/applications'
+      },
+      {
+        title: 'Bot Documentation',
+        description: 'Complete guide for Discord bot development',
+        url: 'https://discord.com/developers/docs/intro'
+      },
+      {
+        title: 'Community Guidelines',
+        description: 'Best practices for Discord community management',
+        url: 'https://discord.com/guidelines'
+      }
+    ]
+  },
+
+  signal: {
+    id: 'signal',
+    name: 'Signal',
+    description: 'Privacy-focused messaging app with end-to-end encryption. Enable SULLA to send secure messages and notifications through Signal\'s privacy-preserving platform.',
+    category: 'Secure Messaging',
+    icon: '🔒',
+    connected: false,
+    version: '1.2.0',
+    lastUpdated: '1 week ago',
+    developer: 'Signal Foundation',
+    images: [
+      {
+        url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
+        alt: 'Signal Interface',
+        caption: 'Clean, privacy-focused messaging interface'
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
+        alt: 'Secure Messaging',
+        caption: 'End-to-end encrypted conversations'
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1610945411025-4e1a472b8ddb?w=800&h=450&fit=crop',
+        alt: 'Privacy Features',
+        caption: 'Advanced privacy and security features'
+      }
+    ],
+    features: [
+      {
+        title: 'End-to-End Encryption',
+        description: 'Military-grade encryption for all communications'
+      },
+      {
+        title: 'Privacy Protection',
+        description: 'No metadata collection or tracking'
+      },
+      {
+        title: 'Secure Groups',
+        description: 'Encrypted group conversations and file sharing'
+      },
+      {
+        title: 'Self-Destructing Messages',
+        description: 'Messages that automatically delete after set time'
+      }
+    ],
+    guideLinks: [
+      {
+        title: 'Signal Protocol',
+        description: 'Technical documentation on Signal encryption',
+        url: 'https://signal.org/docs/'
+      },
+      {
+        title: 'Privacy Guide',
+        description: 'Understanding Signal privacy features',
+        url: 'https://signal.org/privacy/'
+      },
+      {
+        title: 'Security Best Practices',
+        description: 'Tips for secure communication',
+        url: 'https://signal.org/blog/security-best-practices/'
+      }
+    ]
   }
 };
