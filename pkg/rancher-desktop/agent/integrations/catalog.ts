@@ -153,19 +153,19 @@ export const integrations: Record<string, Integration> = {
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'Twilio Console',
         caption: 'Manage all your communication services from the centralized console'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'SMS Messaging',
         caption: 'Send and receive SMS messages programmatically with SULLA'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'Voice Calls',
         caption: 'Make and receive voice calls through Twilio\'s VoIP infrastructure'
       }
@@ -478,19 +478,19 @@ export const integrations: Record<string, Integration> = {
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1596079820260-4635c9c198c7?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'Mailgun Analytics',
         caption: 'Track email delivery rates, opens, clicks, and bounces'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'Email Templates',
         caption: 'Create dynamic email templates with personalization'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'API Dashboard',
         caption: 'Monitor API usage and configure email routing rules'
       }
@@ -580,19 +580,19 @@ export const integrations: Record<string, Integration> = {
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1596079820260-4635c9c198c7?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'SendGrid Dashboard',
         caption: 'Monitor email performance and campaign analytics'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'Email Marketing',
         caption: 'Create and automate email marketing campaigns'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1559028006-848a6538c4f9?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'Template Design',
         caption: 'Design responsive email templates with drag-and-drop editor'
       }
@@ -670,19 +670,19 @@ export const integrations: Record<string, Integration> = {
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1610945411025-4e1a472b8ddb?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'WhatsApp Business Interface',
         caption: 'Professional WhatsApp Business messaging interface'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1559028006-848a6538c4f9?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'Customer Conversations',
         caption: 'Real-time customer support through WhatsApp'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'Message Templates',
         caption: 'Create and manage message templates for bulk messaging'
       }
@@ -776,19 +776,19 @@ export const integrations: Record<string, Integration> = {
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1610945411025-4e1a472b8ddb?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'Telegram Bot Interface',
         caption: 'Powerful bot creation and management interface'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'Group Management',
         caption: 'Manage groups and channels with automated bots'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'API Integration',
         caption: 'Seamless API integration for custom workflows'
       }
@@ -1054,19 +1054,19 @@ export const integrations: Record<string, Integration> = {
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'LinkedIn Professional Network',
         caption: 'Professional networking and business development platform'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1559028006-848a6538c4f9?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'LinkedIn Business',
         caption: 'Business networking and professional connections'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
+        url: 'default-media.webp',
         alt: 'LinkedIn Content',
         caption: 'Share professional content and engage with industry leaders'
       }
