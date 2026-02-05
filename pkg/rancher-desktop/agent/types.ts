@@ -116,6 +116,7 @@ export interface TaskState {
     status?: string;
     categoryHints?: string[];
   };
+  markDone?: boolean;
   todoExecution?: {
     todoId: number;
     status: string;

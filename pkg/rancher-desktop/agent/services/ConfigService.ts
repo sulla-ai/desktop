@@ -70,7 +70,7 @@ export function getAgentConfig(): AgentConfig {
         remoteTimeoutSeconds: config.remoteTimeoutSeconds ?? 60,
         heartbeatEnabled: config.heartbeatEnabled ?? true,
         heartbeatDelayMinutes: config.heartbeatDelayMinutes ?? 30,
-        heartbeatPrompt: config.heartbeatPrompt || 'This is the time for you to accomplish your goals',
+        heartbeatPrompt: config.heartbeatPrompt || '',
         heartbeatModel: config.heartbeatModel || 'default',
       };
 
@@ -103,7 +103,7 @@ export function getAgentConfig(): AgentConfig {
               remoteTimeoutSeconds: config.remoteTimeoutSeconds ?? 60,
               heartbeatEnabled: config.heartbeatEnabled ?? true,
               heartbeatDelayMinutes: config.heartbeatDelayMinutes ?? 30,
-              heartbeatPrompt: config.heartbeatPrompt || 'This is the time for you to accomplish your goals',
+              heartbeatPrompt: config.heartbeatPrompt || '',
               heartbeatModel: config.heartbeatModel || 'default',
             };
 

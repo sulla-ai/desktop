@@ -89,6 +89,10 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         }
       }
 
+      if (parsed.markDone !== false) {
+        state.metadata.markDone = true;
+        return ;
+      }
       // If no actions were taken and there's a summary, emit it as a chat message
       if (parsed.summary) {
         await this.emitChatMessage(state, parsed.summary);
@@ -101,6 +105,11 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     }
   }
 
+  /**
+   * 
+   * @param state 
+   * @returns 
+   */
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
     agentLog(this.name, 'Executing...');
     
@@ -136,7 +145,13 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       return false;
     }
 
-    // Check if the current step explicitly requested to continue (markDone: false)
+    // Check if the current executor explicitly requested to continue (markDone: true)
+    const markDone = state.metadata.markDone as boolean | undefined;
+    if (markDone !== false) {
+      return false; // LLM said to stop
+    }
+
+    // Check if the current tactical plan step explicitly requested to continue (markDone: false)
     const todoExecution = state.metadata.todoExecution as any;
     if (todoExecution && todoExecution.markDone === false) {
       return true; // LLM said more work needed, continue looping
@@ -514,12 +529,20 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
           return {
             tools: [],
             markDone: true,
-            summary: response.content.substring(0, 200),
+            summary: parsed.summary || '',
           };
         }
 
         agentWarn(this.name, 'Could not parse JSON from LLM response', { responseLength: response.content.length });
         return null;
+      }
+      if (parsed.markDone !== false) {
+        state.metadata.markDone = true;
+        return {
+            tools: [],
+            markDone: true,
+            summary: parsed.summary || '',
+          };
       }
 
       const normalized = this.normalizeToolCalls(Array.isArray(parsed.tools) ? parsed.tools : []);

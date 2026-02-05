@@ -131,11 +131,6 @@ class WebSocketConnection {
   }
 
   private attemptReconnect(): void {
-    if (this.reconnectAttempts >= (this.config.maxReconnectAttempts || 10)) {
-      console.error(`[WebSocket] Max reconnect attempts reached for ${this.config.url}`);
-      return;
-    }
-
     this.reconnectAttempts++;
     console.log(`[WebSocket] Auto-reconnect scheduled in ${this.config.reconnectInterval}ms (attempt ${this.reconnectAttempts}/${this.config.maxReconnectAttempts || 10})`);
 
