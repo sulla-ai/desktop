@@ -106,6 +106,17 @@ export class ChatInterface {
     return msgs;
   });
 
+  // Graph running state from active agent's persona service
+  readonly graphRunning = computed(() => {
+    const personaService = this.registry.getActivePersonaService();
+    if (!personaService) {
+      console.log('[ChatInterface] No active persona service, returning false for graphRunning');
+      return false;
+    }
+    console.log('[ChatInterface] graphRunning value:', personaService.graphRunning.value);
+    return personaService.graphRunning.value;
+  });
+
   // Track if user has ever sent a message (persisted in localStorage)
   private readonly hasSentMessageKey = 'chat_has_sent_message';
   private hasSentMessage = ref(localStorage.getItem(this.hasSentMessageKey) === 'true');

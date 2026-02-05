@@ -22,10 +22,12 @@ export class AgentModelSelectorController {
   readonly activeModelLabel: ComputedRef<string>;
   readonly localModelOptions: ComputedRef<ModelOption[]>;
   readonly remoteOption: ComputedRef<ModelOption | null>;
+  readonly isRunningValue: ComputedRef<boolean>;
 
   constructor(private readonly deps: {
     systemReady: Ref<boolean>;
     loading: Ref<boolean>;
+    isRunning: Ref<boolean>;
 
     modelName: Ref<string>;
     modelMode: Ref<'local' | 'remote'>;
@@ -60,6 +62,8 @@ export class AgentModelSelectorController {
         isActive: this.deps.modelMode.value === 'remote',
       };
     });
+
+    this.isRunningValue = computed(() => this.deps.isRunning.value);
   }
 
   async start(): Promise<void> {

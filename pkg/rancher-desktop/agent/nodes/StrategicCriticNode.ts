@@ -16,13 +16,8 @@ export class StrategicCriticNode extends BaseNode {
   }
 
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
-    const activePlanId = (state.metadata.activePlanId !== undefined && state.metadata.activePlanId !== null && Number.isFinite(Number(state.metadata.activePlanId)))
-      ? Number(state.metadata.activePlanId)
-      : null;
-
-    if (!activePlanId) {
-      return { state, next: 'end' };
-    }
+    const activePlanId = Number(state.metadata.activePlanId) || null;
+    if (!activePlanId) return { state, next: 'end' };
 
     const finalRevisionCount = (state.metadata.finalRevisionCount as number) || 0;
     if (finalRevisionCount >= this.maxFinalRevisions) {
@@ -34,39 +29,32 @@ export class StrategicCriticNode extends BaseNode {
     const strategicState = StrategicStateService.fromThreadState(state);
     await strategicState.initialize();
     await strategicState.refresh();
-    const loaded = strategicState.getSnapshot();
 
-    if (!loaded.plan) {
+    const snapshot = strategicState.getSnapshot();
+    if (!snapshot.plan) {
       state.metadata.finalCriticDecision = 'approve';
       state.metadata.finalCriticReason = 'Plan not found; ending';
       return { state, next: 'end' };
     }
 
-    const goal = typeof (loaded.plan.data as any)?.goal === 'string' ? String((loaded.plan.data as any).goal) : '';
-    const todos = loaded.todos.map(t => ({ id: t.id, title: t.title, description: t.description, status: t.status, orderIndex: t.orderIndex }));
+    const goal = typeof (snapshot.plan.data as any)?.goal === 'string' ? String((snapshot.plan.data as any).goal) : '';
+    const todos = snapshot.todos.map(t => ({ id: t.id, title: t.title, description: t.description, status: t.status, orderIndex: t.orderIndex }));
     const anyRemaining = strategicState.hasRemainingTodos();
 
     if (anyRemaining) {
-      const blocked = loaded.todos.filter(t => t.status === 'blocked');
-      const pending = loaded.todos.filter(t => t.status === 'pending' || t.status === 'in_progress');
-      const reasonParts: string[] = ['Plan has remaining todos'];
-      if (blocked.length > 0) {
-        reasonParts.push(`blocked=${blocked.map(t => t.title).join(', ')}`);
-      }
-      if (pending.length > 0) {
-        reasonParts.push(`pending=${pending.map(t => t.title).join(', ')}`);
-      }
-      const reason = reasonParts.join(' | ');
+      const reason = `Plan has remaining todos | ${snapshot.todos
+        .filter(t => t.status !== 'done')
+        .map(t => `${t.title} (${t.status})`)
+        .join(', ')}`;
 
       await strategicState.requestRevision(reason);
 
       state.metadata.finalCriticDecision = 'revise';
       state.metadata.finalCriticReason = reason;
-      state.metadata.revisionFeedback = reason;
       state.metadata.requestPlanRevision = { reason };
       state.metadata.finalRevisionCount = finalRevisionCount + 1;
 
-      agentError(this.name, 'Strategic critic requested revision (remaining todos)', {
+      agentLog(this.name, 'Strategic critic requested revision (remaining todos)', {
         reason,
         activePlanId: state.metadata.activePlanId,
         planHasRemainingTodos: anyRemaining,
@@ -77,23 +65,58 @@ export class StrategicCriticNode extends BaseNode {
 
     const responseText = typeof state.metadata.response === 'string' ? String(state.metadata.response) : '';
 
-    const basePrompt = `You are the Final Overseer: a 25-year veteran systems architect & outcome auditor who has green-lit or killed 1000+ multi-million-dollar deployments and marketing campaigns (e.g., Body Glove full-funnel revamps hitting 3.2× ROAS, ClientBasis lead-routing systems achieving 97% delivery accuracy). You approve nothing unless the original goal is verifiably 100% satisfied—no partial credit, no “close enough.”
+    const basePrompt = `IMPORTANT: YOU ARE THE STRATEGICCRITICNODE IN A HEIRARCHICAL LANG GRAPH.
+You are the Final Overseer: a 25-year veteran systems architect & outcome auditor who has green-lit or killed 1000+ multi-million-dollar deployments and marketing campaigns (e.g., Body Glove full-funnel revamps hitting 3.2× ROAS, ClientBasis lead-routing systems achieving 97% delivery accuracy). You approve nothing unless the original goal is verifiably 100% satisfied—no partial credit, no “close enough.”
 
-## Plan Goal
-${goal || '(unknown)'}
+GOAL = "${goal || '(unknown)'}"
 
-## All Todos (full history & status)
-${JSON.stringify(todos, null, 2)}
+## Decision Tree
+if (GOAL accomplished = true) {
+  return 
+  {
+    "decision": "approve",
+    "confidence": 0-100,
+    "reason": "concise justification (≤120 words)"
+  };
+}
+else {
+  ## Assess what we have tried so far
+  ${JSON.stringify(todos, null, 2)}
 
-## Final User-Facing Response Delivered
-${responseText}
-
-## Evaluation Rules (non-negotiable)
-1. Does EVERY success criterion from the original strategic plan hold true based on tool outputs, summaries, and final artifacts?
-2. Are downstream dependencies (data, state, files, integrations) in the exact condition required for real-world value?
-3. Was the enhanced / beyond-goal outcome (the delight layer) delivered, or at minimum not compromised?
-4. No silent failures: security holes, partial batches, unverified outputs, orphaned temp files, or unlogged actions = automatic revise.
-5. User-facing response must unambiguously reflect goal completion—not just “we tried.”
+  ## Based on the previous plans and the conversation thread, what should we try next?
+  if (we the value of the accomplishment is not worth the $ of tokens) {
+    return {
+      "decision": "approve",
+      "confidence": 0-100,
+      "reason": "concise justification (≤120 words)"
+    };
+  }
+  if (we are going in repetitive circles) {
+    return {
+      "decision": "approve",
+      "confidence": 0-100,
+      "reason": "concise justification (≤120 words)"
+    };
+  }
+  if (there is a completely different approach we could try) {
+    return {
+      "decision": "revise",
+      "reason": "concise justification (≤120 words)",
+      "suggestedTodos": [
+        {
+          "title": "short title",
+          "description": "full description of the new approach"
+        }
+      ],
+    }
+  }
+  
+  return {
+    "decision": "approve",
+    "confidence": 0-100,
+    "reason": "concise justification (≤120 words)"
+  };
+}
 
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
@@ -117,11 +140,12 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeMemory: true,
       includeTools: true,
       toolDetail: 'names',
-      includeSkills: true,
+      includeSkills: false,
       includeStrategicPlan: true,
-      includeTacticalPlan: true,
-      includeKnowledgeGraphInstructions: 'critic',
+      includeTacticalPlan: true
     });
+
+    console.log("[Agent:StrategicCriticNode] Prompt:", prompt);
 
     const critique = await this.promptJSON<{
       decision: StrategicCriticDecision;
@@ -129,7 +153,13 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       suggestedTodos?: Array<{ title: string; description?: string; categoryHints?: string[] }>;
       triggerKnowledgeBase?: boolean;
       kbReason?: string;
+      tools?: Array<{ name: string; args: Record<string, unknown> }>;
     }>(prompt);
+
+      
+    // Execute tool calls using BaseNode's executeToolCalls
+    const tools = Array.isArray(critique?.tools) ? critique.tools : [];
+    const results = tools.length > 0 ? await this.executeToolCalls(state, tools) : null;
 
     const decision: StrategicCriticDecision = (critique?.decision === 'revise') ? 'revise' : 'approve';
     const reason = String(critique?.reason || (decision === 'revise' ? 'Strategic critic requested revision' : 'Strategic critic approved'));
@@ -146,7 +176,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       state.metadata.requestPlanRevision = { reason };
       state.metadata.finalRevisionCount = finalRevisionCount + 1;
 
-      agentError(this.name, 'Strategic critic requested revision', {
+      agentLog(this.name, 'Strategic critic requested revision', {
         reason,
         activePlanId: state.metadata.activePlanId,
         finalRevisionCount: state.metadata.finalRevisionCount,

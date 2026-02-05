@@ -1,7 +1,7 @@
 // BaseNode - Abstract base class for all graph nodes
 // Uses LLMServiceFactory for LLM interactions (supports both local Ollama and remote APIs)
 
-import type { GraphNode, ThreadState, NodeResult, Message } from '../types';
+import type { GraphNode, ThreadState, NodeResult, Message, ToolResult } from '../types';
 import type { ILLMService } from '../services/ILLMService';
 import type { ChatMessage } from '../services/ILLMService';
 import { getLLMService, getCurrentMode } from '../services/LLMServiceFactory';
@@ -9,6 +9,7 @@ import { getOllamaService } from '../services/OllamaService';
 import { getAwarenessService } from '../services/AwarenessService';
 import { getAgentConfig } from '../services/ConfigService';
 import type { AbortService } from '../services/AbortService';
+import { getToolRegistry, registerDefaultTools } from '../tools';
 import { getWebSocketClientService, type WebSocketMessageHandler } from '../services/WebSocketClientService';
 
 // Import soul.md via raw-loader (configured in vue.config.mjs)
@@ -271,13 +272,17 @@ export abstract class BaseNode implements GraphNode {
 
     // Strategic plan milestones
     if (includeStrategic && strategicPlan?.milestones && strategicPlan.milestones.length > 0) {
-      const milestoneLines = strategicPlan.milestones.map(m => {
+      const milestoneLines = strategicPlan.milestones.map((m, idx) => {
         const status = m.status || 'pending';
         const statusIcon = status === 'completed' ? '✓' : status === 'in_progress' ? '→' : status === 'failed' ? '✗' : '○';
         const title = status === 'in_progress' ? `**${m.title}**` : m.title;
-        return `  ${statusIcon} ${title} [${status}]`;
+        return `  ${statusIcon} Step ${idx + 1}: ${title} [${status}]`;
       });
-      parts.push(`## Strategic Plan\nGoal: ${strategicPlan.goal || 'Not specified'}\n\nMilestones:\n${milestoneLines.join('\n')}`);
+      parts.push(`## Strategic Plan
+        Goal: ${strategicPlan.goal || 'Not specified'}
+        
+        ### Milestones:
+        ${milestoneLines.join('\n')}`);
     }
 
     // Tactical plan steps for current milestone
@@ -288,7 +293,9 @@ export abstract class BaseNode implements GraphNode {
         const action = status === 'in_progress' ? `**${s.action}**` : s.action;
         return `  ${statusIcon} Step ${idx + 1}: ${action} [${status}]`;
       });
-      parts.push(`## Tactical Plan (Current Milestone)\nSteps:\n${stepLines.join('\n')}`);
+      parts.push(`#### Tactical Plan (Current Milestone)
+        Steps:
+        ${stepLines.join('\n')}`);
     }
 
     return parts.length > 0 ? parts.join('\n\n') : null;
@@ -766,7 +773,7 @@ When to trigger KB generation:
 
     // Send via WebSocket
     const sent = this.dispatchToWebSocket(connectionId, {
-      type: 'chat_message',
+      type: 'assistant_message',
       data: {
         content: content.trim(),
         role,
@@ -834,8 +841,8 @@ When to trigger KB generation:
    * @param tools Raw tools array from LLM response (parsed.tools)
    * @returns Normalized actions with toolName and args
    */
-  protected normalizeToolCalls(tools: unknown[]): Array<{ toolName: string; args: { args: unknown[] } }> {
-    const result: Array<{ toolName: string; args: { args: unknown[] } }> = [];
+  protected normalizeToolCalls(tools: unknown[]): Array<{ toolName: string; args: string[] }> {
+    const result: Array<{ toolName: string; args: string[] }> = [];
 
     for (const item of tools) {
       // Exec form: array like ["kubectl", "get", "pods"] or ["emit_chat_message", "message"]
@@ -845,11 +852,178 @@ When to trigger KB generation:
 
         result.push({
           toolName,
-          args: { args: execArgs },
+          args: execArgs,
         });
       }
     }
 
     return result;
+  }
+
+  /**
+   * Execute an array of tool calls in exec form
+   * @param state ThreadState for execution context
+   * @param tools Array of tool calls in exec form: [["toolName", "arg1", "arg2"], ...]
+   * @returns Array of tool results
+   */
+  protected async executeToolCalls(
+    state: ThreadState,
+    tools: unknown[],
+  ): Promise<Array<{ toolName: string; success: boolean; result?: unknown; error?: string }>> {
+    const { getToolRegistry, registerDefaultTools } = await import('../tools');
+    registerDefaultTools();
+    const registry = getToolRegistry();
+
+    const normalized = this.normalizeToolCalls(tools);
+    const results: Array<{ toolName: string; success: boolean; result?: unknown; error?: string }> = [];
+
+    for (const { toolName, args } of normalized) {
+      const tool = registry.get(toolName);
+      if (!tool) {
+        results.push({ toolName, success: false, error: `Unknown tool: ${toolName}` });
+        continue;
+      }
+
+      try {
+        const result = await tool.execute(state, {
+          toolName,
+          args,
+        });
+        results.push({
+          toolName,
+          success: result.success,
+          result: result.result,
+          error: result.error,
+        });
+      } catch (err: any) {
+        results.push({ toolName, success: false, error: err.message || String(err) });
+      }
+    }
+
+    return results;
+  }
+
+  public async executeSingleToolAction(
+    state: ThreadState,
+    toolName: string,
+    args?: Record<string, unknown>,
+  ): Promise<ToolResult> {
+    registerDefaultTools();
+    const registry = getToolRegistry();
+
+    const tool = registry.get(toolName);
+    if (!tool) {
+      return { toolName, success: false, error: `Unknown tool action: ${toolName}` };
+    }
+
+    const toolRunId = `${Date.now()}_${toolName}_${Math.floor(Math.random() * 1_000_000)}`;
+
+    // Skip tool_call progress event for chat message tools to avoid UI tool cards
+    const isChatTool = toolName === 'emit_chat_message' || toolName === 'emit_chat_image';
+    if (!isChatTool) {
+      this.emitProgress(state, 'tool_call', { toolRunId, toolName, args: args || {} });
+    }
+
+    const result = await tool.execute(state, {
+      toolName: toolName,
+      args,
+    });
+
+    // Skip tool_result progress event for chat tools
+    if (!isChatTool) {
+      this.emitProgress(state, 'tool_result', { toolRunId, toolName, success: result.success, error: result.error || null, result: result.result });
+      this.appendToolResultMessage(state, toolName, result);
+    }
+    
+    return result;
+  }
+
+  public appendToolResultMessage(state: ThreadState, action: string, result: ToolResult): void {
+    const summary = result.success
+      ? `Tool ${action} succeeded`
+      : `Tool ${action} failed: ${result.error || 'unknown error'}`;
+
+    const content = JSON.stringify(
+      {
+        tool: action,
+        success: result.success,
+        error: result.error || null,
+        // Only include result if small; otherwise just summary
+        result: result.result && JSON.stringify(result.result).length < 5000
+          ? result.result
+          : '[result truncated — see logs]',
+      },
+      null,
+      2
+    );
+
+    const id = `tool_result_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    state.messages.push({
+      id,
+      role: 'assistant',
+      content,
+      timestamp: Date.now(),
+      metadata: {
+        nodeId: this.id,
+        nodeName: this.name,
+        kind: 'tool_result',
+        toolName: action,
+        success: result.success,
+        summary, // short human-readable line for chat UI
+      },
+    });
+  }
+
+  public appendExecutionNote(state: ThreadState, note: string): void {
+    const text = String(note || '').trim();
+    if (!text) {
+      return;
+    }
+
+    const existing = Array.isArray((state.metadata as any).executionNotes)
+      ? ((state.metadata as any).executionNotes as unknown[]).map(String)
+      : [];
+
+    const next = [...existing, text].slice(-12);
+    (state.metadata as any).executionNotes = next;
+  }
+
+  public appendToolResult(state: ThreadState, action: string, result: ToolResult): void {
+    const prior = (state.metadata as any).toolResults;
+    const priorObj = (prior && typeof prior === 'object') ? (prior as Record<string, ToolResult>) : {};
+    (state.metadata as any).toolResults = { ...priorObj, [action]: result };
+
+    const historyExisting = Array.isArray((state.metadata as any).toolResultsHistory)
+      ? ((state.metadata as any).toolResultsHistory as unknown[])
+      : [];
+    const entry = {
+      at: Date.now(),
+      toolName: action,
+      success: !!result.success,
+      error: result.error || null,
+      result: result.result,
+    };
+    (state.metadata as any).toolResultsHistory = [...historyExisting, entry].slice(-12);
+  }
+
+  public async promptLLM(state: ThreadState, prompt: string): Promise<string | null> {
+    try {
+      const enriched = await this.enrichPrompt(prompt, state, {
+        includeSoul: false,
+        includeAwareness: false,
+        includeMemory: false,
+      });
+
+      const llm = getLLMService();
+      await llm.initialize();
+      if (!llm.isAvailable()) {
+        return null;
+      }
+
+      return await llm.generate(enriched);
+    } catch {
+      return null;
+    }
   }
 }

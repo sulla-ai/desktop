@@ -11,11 +11,38 @@ import { parse as relaxedJsonParse } from 'relaxed-json';
 import { parse as dirtyJsonParse } from 'dirty-json';
 
 /**
- * Extract JSON from text that may contain markdown fences, prose, etc.
+ * Extract JSON from text that may contain markdown fences, prose, thinking tags, etc.
  * Uses multiple strategies to find valid JSON.
  */
 function extractFirstJSONObjectText(text: string): string | null {
-  const src = String(text || '');
+  const original = String(text || '');
+  let src = original;
+  const stripped: string[] = [];
+  
+  // Extract thinking blocks before removing
+  const thinkingMatches = src.match(/<thinking>[\s\S]*?<\/thinking>/gi);
+  if (thinkingMatches) stripped.push(...thinkingMatches.map(m => `[THINKING] ${m.substring(10, m.length - 11).substring(0, 200)}...`));
+  src = src.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+  
+  const thinkMatches = src.match(/<think>[\s\S]*?<\/think>/gi);
+  if (thinkMatches) stripped.push(...thinkMatches.map(m => `[THINK] ${m.substring(7, m.length - 8).substring(0, 200)}...`));
+  src = src.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  
+  // Remove [thinking]...[/thinking] blocks
+  src = src.replace(/\[thinking\][\s\S]*?\[\/thinking\]/gi, '');
+  // Remove [think]...[/think] blocks
+  src = src.replace(/\[think\][\s\S]*?\[\/think\]/gi, '');
+  // Remove ### Thinking: or ### Reasoning: markdown sections
+  src = src.replace(/###\s*(Thinking|Reasoning):[\s\S]*?(?=###|$)/gi, '');
+  // Remove "Thinking:" or "Reasoning:" prefixes at start of lines
+  src = src.replace(/^(Thinking|Reasoning):\s*.*$/gim, '');
+  
+  // Log stripped content
+  if (stripped.length > 0) {
+    console.log('[JsonParseService] Stripped from LLM response:', stripped.join(' | '));
+  }
+  
+  src = src.trim();
   
   // Strategy 1: Look for JSON in markdown code fences
   const fenceMatch = src.match(/```(?:json)?\s*([\s\S]*?)```/);

@@ -69,7 +69,7 @@ export class OverLordPlannerNode extends BaseNode {
 
         // Emit decision via WebSocket
         this.dispatchToWebSocket(WS_CONNECTION_ID, {
-          type: 'chat_message',
+          type: 'assistant_message',
           data: {
             role: 'system',
             content: `OverLord: Triggering hierarchical planning (${parsed?.reason || 'no reason provided'})`,
@@ -85,7 +85,7 @@ export class OverLordPlannerNode extends BaseNode {
 
       // Emit decision via WebSocket
       this.dispatchToWebSocket(WS_CONNECTION_ID, {
-        type: 'chat_message',
+        type: 'assistant_message',
         data: {
           role: 'system',
           content: `OverLord: Stopping (${parsed?.reason || 'no reason provided'})`,

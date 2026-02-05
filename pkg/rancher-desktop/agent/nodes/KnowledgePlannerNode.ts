@@ -115,24 +115,4 @@ Rules:
       return { state, next: 'end' };
     }
   }
-
-  private async promptLLM(state: ThreadState, prompt: string): Promise<string | null> {
-    try {
-      const enriched = await this.enrichPrompt(prompt, state, {
-        includeSoul: false,
-        includeAwareness: false,
-        includeMemory: false,
-      });
-
-      const llm = getLLMService();
-      await llm.initialize();
-      if (!llm.isAvailable()) {
-        return null;
-      }
-
-      return await llm.generate(enriched);
-    } catch {
-      return null;
-    }
-  }
 }

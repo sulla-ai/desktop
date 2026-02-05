@@ -14,6 +14,7 @@ import { KnowledgeExecutorNode } from './nodes/KnowledgeExecutorNode';
 import { KnowledgeCriticNode } from './nodes/KnowledgeCriticNode';
 import { KnowledgeWriterNode } from './nodes/KnowledgeWriterNode';
 import { getToolRegistry, registerDefaultTools } from './tools';
+import { getWebSocketClientService } from './services/WebSocketClientService';
 
 type AgentRuntimeEmitter = (event: { type: 'progress' | 'chunk' | 'complete' | 'error'; threadId: string; data: unknown }) => void;
 
@@ -160,6 +161,18 @@ export class Graph {
       // Check if we should end
       if (nextNodeId === 'end' || this.endPoints.has(currentNodeId) && result.next === 'end') {
         console.log(`[Agent:Graph] Execution complete after ${iterations} iterations`);
+        
+        // Send WebSocket message to signal isRunning = false
+        const wsService = getWebSocketClientService();
+        const connectionId = (state.metadata.wsConnectionId as string) || 'chat-controller-backend';
+        wsService.send(connectionId, {
+          type: 'transfer_data',
+          data: {
+            role: 'system',
+            content: 'graph_execution_complete',
+          },
+        });
+        
         break;
       }
 

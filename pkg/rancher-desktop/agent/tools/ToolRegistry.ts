@@ -22,52 +22,6 @@ export class ToolRegistry {
     return Array.from(unique.values());
   }
 
-  listCategories(): string[] {
-    const categories = new Set<string>();
-    for (const tool of this.listUnique()) {
-      categories.add(tool.category || 'uncategorized');
-    }
-    return Array.from(categories).sort();
-  }
-
-  listByCategory(category: string): BaseTool[] {
-    return this.listUnique().filter(t => (t.category || 'uncategorized') === category);
-  }
-
-  getCompactCategoryIndexBlock(options: { includeToolNames?: boolean; includeCategories?: string[] } = {}): string {
-    const all = this.listUnique();
-    const filtered = (options.includeCategories && options.includeCategories.length > 0)
-      ? all.filter(t => options.includeCategories!.includes(t.category || 'uncategorized'))
-      : all;
-
-    if (filtered.length === 0) {
-      return '';
-    }
-
-    const byCategory = new Map<string, BaseTool[]>();
-    for (const tool of filtered) {
-      const c = tool.category || 'uncategorized';
-      const list = byCategory.get(c) || [];
-      list.push(tool);
-      byCategory.set(c, list);
-    }
-
-    const lines: string[] = [];
-    lines.push('Tool categories (index):');
-    lines.push('');
-
-    for (const category of Array.from(byCategory.keys()).sort()) {
-      const tools = (byCategory.get(category) || []).map(t => t.name).sort();
-      if (options.includeToolNames) {
-        lines.push(`- ${category}: ${tools.join(', ')}`);
-      } else {
-        lines.push(`- ${category}`);
-      }
-    }
-
-    return lines.join('\n').trim();
-  }
-
   getPlanningInstructionsBlock(): string {
     const tools = this.listUnique();
     if (tools.length === 0) {
@@ -75,7 +29,6 @@ export class ToolRegistry {
     }
 
     const parts: string[] = [];
-    parts.push('Available tools:');
     for (const tool of tools) {
       parts.push(tool.getPlanningInstructions());
       parts.push('');
@@ -91,15 +44,12 @@ export class ToolRegistry {
     }
 
     const lines = tools.map(t => `- ${t.getTacticalInstructions()}`);
-    return `Available tools:\n${lines.join('\n')}`;
+    return `${lines.join('\n')}`;
   }
 
-  getCompactPlanningInstructionsBlock(options: { includeNames?: string[]; includeCategories?: string[] } = {}): string {
+  getCompactPlanningInstructionsBlock(options: { includeNames?: string[] } = {}): string {
     const all = this.listUnique();
     let tools = all;
-    if (options.includeCategories && options.includeCategories.length > 0) {
-      tools = tools.filter(t => options.includeCategories!.includes(t.category || 'uncategorized'));
-    }
     if (options.includeNames && options.includeNames.length > 0) {
       tools = tools.filter(t => options.includeNames!.includes(t.name));
     }
@@ -160,9 +110,10 @@ export class ToolRegistry {
         continue;
       }
 
-      if (line.toLowerCase().includes('purpose:')) {
-        purpose.push(line.replace(/^\s*-\s*/,'').trim());
-      }
+      // Add a second line to avail tools
+      //if (line.toLowerCase().includes('purpose:')) {
+      //  purpose.push(line.replace(/^\s*-\s*/,'').trim());
+      //}
     }
 
     const parts: string[] = [];

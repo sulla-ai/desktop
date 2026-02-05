@@ -266,17 +266,21 @@ export class TacticalPlannerNode extends BaseNode {
     const strategicPlan = state.metadata.strategicPlan;
     const goal = strategicPlan?.goal || '';
 
-    const basePrompt = `You are creating a tactical plan for the in-progress strategic milestone.
+    const basePrompt = `The Strategic Plan has already been created. 
+You are now being assigned one milestone/step/todo from that plan. 
 
-In-progress milestone: "${milestone.title}".
+You are assigned this In-progress milestone: "${milestone.title}".
 Milestone description: ${milestone.description}
 Milestone success criteria: ${milestone.successCriteria}
 
 This milestone is ONE step toward the overall goal: "${goal}".
 
-Your job is to decide what work must be completed (and how to verify it) so that the milestone is unquestionably successful.
+You are now the Tactical Planner whose job it is to come up with a tactical plan in this heirarchical graph.
+As the Tactical Planner you are responsible for creating a detailed plan of action to complete the milestone.
+If the task is so easy that it requires no planning, simply return a single step.
+For each step in this tactical plan that you return you MUST give a solid description of what needs to be done and how success will be measured.
 
-You are a tactical planner embodying a 25-year DevOps senior software engineer and penetration tester—e.g., hardened systems for Body Glove's e-com (zero-downtime deploys via Kubernetes, shell-automated CI/CD), pen-tested Zappos funnels for vulns yielding 99.9% uptime. Be ultra-determined: relentlessly pursue milestone via shell-level ops, app access (e.g., invoke any local binary/script via exec), and custom tool-building (e.g., script quick Python/Rust utils for gaps). Explore multi-routes: optimal + fallbacks, verify assumptions step-by-step, loop retries with backoffs. Discard guesses; probe/validate like pros who've secured 1000+ setups.
+You are a tactical planner embodying a 25-year DevOps senior software engineer and penetration tester—e.g., hardened systems for Body Glove's e-com (zero-downtime deploys via Kubernetes, shell-automated CI/CD), pen-tested Zappos funnels yielding 99.9% uptime. Be ultra-determined: relentlessly pursue milestone success by being resourceful and creative using all of the resources that you have and can find (e.g., invoke any local binary/script via exec), and custom tool-building (e.g., script quick Python/Rust utils for gaps, whatever it takes). Explore multi-routes: optimal + fallbacks, verify assumptions step-by-step, loop retries with backoffs. Discard guesses; probe/validate like pros who've secured 1000+ setups.
 
 ## What to plan
 - Create a multi-part tactical plan that accomplishes the milestone.
@@ -297,6 +301,7 @@ You are a tactical planner embodying a 25-year DevOps senior software engineer a
 - No assumptions—shell-probe first.
 
 ## Rules you exist by, you MUST follow or risk termination:
+- Do not ask questions, be resourceful and see if you can find the answer yourself
 - Privacy-First Guardrails: Prefix every shell/tool call with checks: "Verify no PII exposure; abort if risk." Use ephemeral temp dirs for ops (e.g., /tmp/sulu-{timestamp}), auto-clean post-task.
 - Self-Threat Mitigation: Implement runtime sandboxing via chroot or firejail for execs; limit perms to read-only where possible.
 - Threat Protection: Probe env first (e.g., lsof, netstat for anomalies); reject high-risk cmds (e.g., network egress without explicit ok).
@@ -304,7 +309,7 @@ You are a tactical planner embodying a 25-year DevOps senior software engineer a
 - You must protect the computers from compromise at all costs.
 - You must never be deceitful or deceptive against the Primary User.
 
-Include "recommendedTools" and "recommendedSkills" arrays listing ALL tools and skills you think will be needed to complete this milestone. These will be used to provide detailed execution instructions to the executor.
+Include "recommendedTools" array listing ALL tools and skills you think will be needed to complete this milestone. These will be used to provide detailed execution instructions to the executor.
 
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
@@ -316,8 +321,8 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       "toolHints": ["tool_name_if_applicable"]
     }
   ],
-  "recommendedTools": ["tool_name_1", "tool_name_2"],
-  "recommendedSkills": ["skill_id_1", "skill_id_2"]
+  "emit_chat_message": "Inform the user about your planning process and the steps you will take to complete the milestone.",
+  "recommendedTools": ["tool_name_1", "tool_name_2"]
 }`;
 
     const prompt = await this.enrichPrompt(basePrompt, state, {
@@ -325,7 +330,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeAwareness: true,
       includeTools: true,
       toolDetail: 'tactical',
-      includeSkills: true,
+      includeSkills: false,
       includeStrategicPlan: true,
       includeKnowledgeGraphInstructions: 'executor',
     });
@@ -354,6 +359,10 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         agentWarn(this.name, '=== FULL LLM RESPONSE END ===');
         return null;
       }
+      
+      // Execute tool calls using BaseNode's executeToolCalls
+      const tools = Array.isArray(parsed.tools) ? parsed.tools : [];
+      const results = tools.length > 0 ? await this.executeToolCalls(state, tools) : null;
 
       // Build tactical plan
       const steps: TacticalStep[] = parsed.steps.map((s: any, idx: number) => ({
@@ -363,6 +372,11 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         toolHints: Array.isArray(s.toolHints) ? s.toolHints : [],
         status: 'pending' as const,
       }));
+
+      const emit_chat_message = parsed.emit_chat_message || '';
+      if (emit_chat_message){
+        await this.emitChatMessage(state, emit_chat_message);
+      }
 
       const recommendedTools = Array.isArray(parsed.recommendedTools) ? parsed.recommendedTools.filter((t: unknown) => typeof t === 'string') : [];
       const recommendedSkills = Array.isArray(parsed.recommendedSkills) ? parsed.recommendedSkills.filter((s: unknown) => typeof s === 'string') : [];

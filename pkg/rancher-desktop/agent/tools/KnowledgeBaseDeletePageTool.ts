@@ -11,12 +11,11 @@ function normalizeSlug(name: string): string {
 export class KnowledgeBaseDeletePageTool extends BaseTool {
   override readonly name = 'knowledge_base_delete_page';
   override readonly aliases = ['kb_delete_page', 'knowledgebase_delete_page'];
-  override readonly category = 'memory';
 
   override getPlanningInstructions(): string {
     return [
-      '8) knowledge_base_delete_page (KnowledgeBase / Chroma articles)',
-      '   - Purpose: Delete a KnowledgeBase article from Chroma collection "knowledgebase_articles".',
+      '["knowledge_base_delete_page", "slug"] - Deletes memory/storage/articles/knowledgebase_articles from KnowledgeBase/Chroma',
+      '',
       '   - Args:',
       '     - slug (string, required) // the article slug to delete',
       '   - Output: Deletes the article by slug.',
@@ -24,9 +23,18 @@ export class KnowledgeBaseDeletePageTool extends BaseTool {
   }
 
   override async execute(state: ThreadState, context: ToolContext): Promise<ToolResult> {
+    const helpResult = await this.handleHelpRequest(context);
+    if (helpResult) {
+      return helpResult;
+    }
+    
     const chroma = getChromaService();
 
-    const slugRaw = String(context.args?.slug || context.args?.pageId || '').trim();
+    // Handle exec form: args is string array like ["knowledge_base_delete_page", "slug"]
+    const argsArray = Array.isArray(context.args) ? context.args : context.args?.args;
+    
+    // Skip first element (tool name) and get slug from second element
+    const slugRaw = String((argsArray as string[] | undefined)?.[1] || '').trim();
     const slug = normalizeSlug(slugRaw);
     if (!slug) {
       return { toolName: this.name, success: false, error: 'Missing args: slug' };

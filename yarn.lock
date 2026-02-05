@@ -8091,6 +8091,68 @@ __metadata:
   languageName: node
   linkType: hard
 
+"chromadb-js-bindings-darwin-arm64@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "chromadb-js-bindings-darwin-arm64@npm:1.2.1"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"chromadb-js-bindings-darwin-x64@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "chromadb-js-bindings-darwin-x64@npm:1.2.1"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"chromadb-js-bindings-linux-arm64-gnu@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "chromadb-js-bindings-linux-arm64-gnu@npm:1.2.1"
+  conditions: os=linux & cpu=arm64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"chromadb-js-bindings-linux-x64-gnu@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "chromadb-js-bindings-linux-x64-gnu@npm:1.2.1"
+  conditions: os=linux & cpu=x64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"chromadb-js-bindings-win32-x64-msvc@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "chromadb-js-bindings-win32-x64-msvc@npm:1.2.1"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"chromadb@npm:^3.2.2":
+  version: 3.2.2
+  resolution: "chromadb@npm:3.2.2"
+  dependencies:
+    chromadb-js-bindings-darwin-arm64: "npm:^1.2.1"
+    chromadb-js-bindings-darwin-x64: "npm:^1.2.1"
+    chromadb-js-bindings-linux-arm64-gnu: "npm:^1.2.1"
+    chromadb-js-bindings-linux-x64-gnu: "npm:^1.2.1"
+    chromadb-js-bindings-win32-x64-msvc: "npm:^1.2.1"
+    semver: "npm:^7.7.1"
+  dependenciesMeta:
+    chromadb-js-bindings-darwin-arm64:
+      optional: true
+    chromadb-js-bindings-darwin-x64:
+      optional: true
+    chromadb-js-bindings-linux-arm64-gnu:
+      optional: true
+    chromadb-js-bindings-linux-x64-gnu:
+      optional: true
+    chromadb-js-bindings-win32-x64-msvc:
+      optional: true
+  bin:
+    chroma: dist/cli.mjs
+  checksum: 10c0/eab896700545e6fc30cdbf52614e40e4be2ad898514540ccc16e2288c3dc7950836e567a4d948b8c6370c4b23a33d27a06ea306186e1c89a4f2d0706938b1f4a
+  languageName: node
+  linkType: hard
+
 "chrome-trace-event@npm:^1.0.2":
   version: 1.0.4
   resolution: "chrome-trace-event@npm:1.0.4"
@@ -17198,6 +17260,7 @@ __metadata:
     babel-jest: "npm:30.2.0"
     babel-loader: "npm:10.0.0"
     best-effort-json-parser: "npm:^1.2.1"
+    chromadb: "npm:^3.2.2"
     cookie-universal: "npm:2.2.2"
     cross-env: "npm:10.1.0"
     cross-spawn: "npm:7.0.6"

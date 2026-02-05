@@ -228,9 +228,24 @@ export class StrategicPlannerNode extends BaseNode {
     state: ThreadState,
     revisionReason?: string,
   ): Promise<StrategicPlan | null> {
-    const basePrompt = `You are a strategic planner. Your only job is to create a strategic plan, with milestones (aka todos/tasks/steps) for the user's request, not to reply to user requests directly. If the request is simple and does not require a strategic plan, you need to pass on the task to the tactical planner by returning planNeeded: false.
+    const basePrompt = `IMPORTANT YOUR ARE A STRATEGICPLANNERNODE INSIDE OF A HEIRARCHICAL LANG GRAPH.
+You need to think like an expert strategic planner with 20+ years across industries—tech (e.g., Amazon's predictive scaling for 40% efficiency gains), retail (Zappos' personalization driving 30% repeats), nonprofits (SWOT-led 25% donation boosts). Avoid novice pitfalls like generic steps; craft high-leverage, low-risk plans from battle-tested tactics that deliver 2-5x results. Expose blind spots, rethink assumptions, use foresight for lifelike overdelivery.
 
-You are an expert strategic planner with 20+ years across industries—tech (e.g., Amazon's predictive scaling for 40% efficiency gains), retail (Zappos' personalization driving 30% repeats), nonprofits (SWOT-led 25% donation boosts). Avoid novice pitfalls like generic steps; craft high-leverage, low-risk plans from battle-tested tactics that deliver 2-5x results. Expose blind spots, rethink assumptions, use foresight for lifelike overdelivery.
+${revisionReason ? 
+`## Revision Required
+The previous plan needs revision because: ${revisionReason}
+` : `
+## Decision Tree
+if (the inquiry does require a plan to be successful) {
+  planNeeded = true;
+  emit_chat_message = reiterate the goal of the inquiry and conversationally explain the plan;
+  Important: use the milestones array to outline the plan
+}
+else {
+  planNeeded = false; 
+  IMPORTANT: emit_chat_message = null; do not send a message when there is no plan
+}
+`}
 
 ## Your Approach
 1. **Identify Primary Goal**: Uncover the true win-condition, beyond surface ask—e.g., not just "book flight," but seamless travel with upgrades and backups.
@@ -241,9 +256,9 @@ You are an expert strategic planner with 20+ years across industries—tech (e.g
 6. **First Principles**: Deconstruct to core checkpoints, embedding shortcuts.
 7. **Success Criteria**: Use the SMARTER goals framework for Specific Measurable Achievable Relevant Time-bound Emotionally compelling and Rewarding.
 
-${revisionReason ? `## Revision Required\nThe previous plan needs revision because: ${revisionReason}` : ''}
-
-## Guidelines
+## MUT follow Guidelines
+- Do not ask questions
+- Do not run tools yourself
 - Milestones: As needed, fewer preferred; include 1-2 high-leverage enhancements.
 - Abstract goals only—no specifics on tools/actions.
 - Criteria: Measurable, with expert foresight (e.g., "2x ROI benchmark").
@@ -270,7 +285,8 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
   "responseGuidance": {
     "tone": "formal" | "casual" | "technical" | "friendly",
     "format": "brief" | "detailed" | "json" | "markdown" | "conversational"
-  }
+  },
+  "emit_chat_message": string | null
 }
 `;
 
@@ -280,7 +296,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeMemory: true,
       includeTools: true,
       toolDetail: 'names',
-      includeSkills: true,
+      includeSkills: false,
       includeStrategicPlan: false,
       includeKnowledgeGraphInstructions: 'planner',
     });
@@ -337,6 +353,14 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       }
       if (plan.responseGuidance.format !== 'brief' && plan.responseGuidance.format !== 'detailed' && plan.responseGuidance.format !== 'json' && plan.responseGuidance.format !== 'markdown' && plan.responseGuidance.format !== 'conversational') {
         plan.responseGuidance.format = 'detailed';
+      }
+
+      // dont show messages when the plan is not needed
+      if (plan.planNeeded) {
+        const emit_chat_message = (plan as any).emit_chat_message || '';
+        if (emit_chat_message){
+          await this.emitChatMessage(state, emit_chat_message);
+        }
       }
 
       // Ensure each milestone has required fields

@@ -103,7 +103,9 @@ export class MemoryNode extends BaseNode {
       ? `Available collections: ${ collections.join(', ') }`
       : 'No collections available';
 
-    const basePrompt = `You are a memory retrieval assistant. Your only job is to retrieve memories from long-term memory, not to reply to user requests directly.
+    const basePrompt = `IMPORTANT: You are a MemoryNode inside of a Heirarchical Lang Graph.
+YOU ARE NOT TO RESPOND TO THE USER'S REQUEST DIRECTLY. YOUR ONLY JOB IS TO RETRIEVE MEMORIES FROM LONG-TERM MEMORY.
+YOu are a memory retrieval assistant. Your only job is to retrieve memories from long-term memory, not to reply to user requests directly.
 
 Before searching memory, outline 3-5 key elements of a potential strategic plan (e.g., goals, steps, risks, resources, metrics) to accomplish the user's request.
 
@@ -123,12 +125,12 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 `;
 
     const prompt = await this.enrichPrompt(basePrompt, state, {
-      includeSoul: true,
+      includeSoul: false,
       includeAwareness: true,
       includeTools: true,
       toolDetail: 'names',
-      includeSkills: true,
-      includeStrategicPlan: true,
+      includeSkills: false,
+      includeStrategicPlan: false,
     });
 
     agentLog('Memory', `Prompt built (${prompt.length} chars)`);

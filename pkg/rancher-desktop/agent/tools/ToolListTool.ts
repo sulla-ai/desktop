@@ -5,26 +5,37 @@ import { getToolRegistry } from './ToolRegistry';
 
 export class ToolListTool extends BaseTool {
   override readonly name = 'tool_list';
-  override readonly category = 'tools';
+  override readonly aliases = ['tools', 'list_tools'];
 
   override getPlanningInstructions(): string {
-    return [
-      '37) tool_list (Tools)',
-      '   - Purpose: List all available tools with their tactical descriptions.',
-      '   - Args: none',
-      '   - Output: Array of tools with name and description.',
-      '   - Use this to discover what tools are available for execution.',
-    ].join('\n');
+    return `["tool_list"] - List all available tools
+
+Examples:
+["tool_list"]
+["tool_list", "help"] → shows this help text
+
+Output format:
+Array of objects:
+  - name: tool name
+  - description: short tactical use case
+  - aliases: [] (if any)
+
+Use when you need to discover or remind yourself of available tools.
+`.trim();
   }
 
-  override async execute(_state: ThreadState, _context: ToolContext): Promise<ToolResult> {
+  override async execute(_state: ThreadState, context: ToolContext): Promise<ToolResult> {
+    const helpResult = await this.handleHelpRequest(context);
+    if (helpResult) return helpResult;
+
     try {
       const registry = getToolRegistry();
       const tools = registry.listUnique();
 
       const toolList = tools.map(t => ({
         name: t.name,
-        description: t.getTacticalInstructions(),
+        description: t.getTacticalInstructions().trim(),
+        aliases: t.aliases.length ? t.aliases : undefined,
       }));
 
       return {
@@ -32,11 +43,11 @@ export class ToolListTool extends BaseTool {
         success: true,
         result: toolList,
       };
-    } catch (err) {
+    } catch (err: any) {
       return {
         toolName: this.name,
         success: false,
-        error: `Failed to list tools: ${err instanceof Error ? err.message : String(err)}`,
+        error: err.message || String(err),
       };
     }
   }

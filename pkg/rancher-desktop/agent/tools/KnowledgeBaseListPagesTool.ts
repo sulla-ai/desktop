@@ -7,12 +7,11 @@ import type { ToolContext } from './BaseTool';
 export class KnowledgeBaseListPagesTool extends BaseTool {
   override readonly name = 'knowledge_base_list_pages';
   override readonly aliases = ['kb_list_pages', 'knowledgebase_list_pages'];
-  override readonly category = 'memory';
 
   override getPlanningInstructions(): string {
     return [
-      '9) knowledge_base_list_pages (KnowledgeBase / Chroma articles)',
-      '   - Purpose: List KnowledgeBase articles from Chroma collection "knowledgebase_articles".',
+      '["knowledge_base_list_pages", "limit", "includeContent"] List articles/memory/storage from KnowledgeBase',
+      '',
       '   - Args:',
       '     - limit (number, optional)          // default 50, max 500',
       '     - includeContent (boolean, optional) // default false; if true includes full article JSON',
@@ -21,12 +20,21 @@ export class KnowledgeBaseListPagesTool extends BaseTool {
   }
 
   override async execute(state: ThreadState, context: ToolContext): Promise<ToolResult> {
+    const helpResult = await this.handleHelpRequest(context);
+    if (helpResult) {
+      return helpResult;
+    }
+    
     const chroma = getChromaService();
 
-    const limitRaw = context.args?.limit;
+    // Handle exec form: args is string array like ["knowledge_base_list_pages", "limit", "includeContent"]
+    const argsArray = Array.isArray(context.args) ? context.args : context.args?.args;
+    
+    // Skip first element (tool name) and get actual arguments
+    const limitRaw = (argsArray as string[] | undefined)?.[1];
     const limit = Number.isFinite(Number(limitRaw)) ? Math.max(1, Math.min(500, Number(limitRaw))) : 50;
 
-    const includeContent = context.args?.includeContent === true;
+    const includeContent = (argsArray as string[] | undefined)?.[2] === 'true';
 
     try {
       try {

@@ -14,6 +14,7 @@ interface CriticLLMResponse {
   decision: CriticDecision;
   reason: string;
   suggestedFix?: string;
+  tools?: Array<{ name: string; args: Record<string, unknown> }>;
 }
 
 export class TacticalCriticNode extends BaseNode {
@@ -151,10 +152,13 @@ export class TacticalCriticNode extends BaseNode {
       } catch (err) {
         agentError(this.name, `Failed to mark todo ${todoId} as done`, err);
       }
-
+      
       // Clear any executor issue flags once we accept success.
+      delete state.metadata.activeTacticalStep;
+      delete state.metadata.activeMilestone;
       delete state.metadata.requestPlanRevision;
       delete state.metadata.revisionFeedback;
+      state.metadata.planHasRemainingTodos = false;
 
       // Check if all todos are now complete - if so, mark plan as completed
       try {
@@ -202,7 +206,7 @@ export class TacticalCriticNode extends BaseNode {
     state.metadata.requestPlanRevision = { reason };
     state.metadata.revisionCount = revisionCount + 1;
 
-    agentError(this.name, `Requesting plan revision ${revisionCount + 1}/${this.maxRevisions}`, {
+    agentLog(this.name, `Requesting plan revision ${revisionCount + 1}/${this.maxRevisions}`, {
       reason,
       todoId,
       todoTitle,
@@ -279,7 +283,8 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
   "successScore": 0,                              // integer 0-10
   "decision": "approve" | "revise",              // if successScore >= 8 then approve
   "reason": "One-sentence verdict with evidence",
-  "suggestedFix": "Precise next action if revise (optional)"
+  "suggestedFix": "Precise next action if revise (optional)",
+  "emit_chat_message": "Inform the user about your review and what you need to do next"
 }`;
 
     const prompt = await this.enrichPrompt(basePrompt, state, {
@@ -288,7 +293,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeMemory: true,
       includeTools: true,
       toolDetail: 'names',
-      includeSkills: true,
+      includeSkills: false,
       includeStrategicPlan: true,
       includeTacticalPlan: true,
     });
@@ -304,6 +309,16 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       if (!parsed) {
         console.warn('[Agent:TacticalCritic] Could not parse LLM response, defaulting to heuristic');
         return this.fallbackHeuristic(context);
+      }
+      
+      // Execute tool calls using BaseNode's executeToolCalls
+      const tools = Array.isArray(parsed.tools) ? parsed.tools : [];
+      const results = tools.length > 0 ? await this.executeToolCalls(state, tools) : null;
+
+
+      const emit_chat_message = (parsed as any).emit_chat_message || '';
+      if (emit_chat_message){
+        await this.emitChatMessage(state, emit_chat_message);
       }
 
       const scoreRaw = (parsed as any).successScore;
