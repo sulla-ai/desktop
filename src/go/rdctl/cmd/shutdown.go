@@ -38,8 +38,8 @@ var commonShutdownSettings shutdownSettingsStruct
 // shutdownCmd represents the shutdown command
 var shutdownCmd = &cobra.Command{
 	Use:   "shutdown",
-	Short: "Shuts down the running Rancher Desktop application",
-	Long:  `Shuts down the running Rancher Desktop application.`,
+	Short: "Shuts down the running Sulla Desktop application",
+	Long:  `Shuts down the running Sulla Desktop application.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.NoArgs(cmd, args); err != nil {
 			return err

@@ -41,8 +41,8 @@ var (
 
 var resetCmd = &cobra.Command{
 	Use:   "reset",
-	Short: "Reset Rancher Desktop",
-	Long: `Delete parts of Rancher Desktop settings.
+	Short: "Reset Sulla Desktop",
+	Long: `Delete parts of Sulla Desktop settings.
 Some reset options are combinations of others:
 
   * --factory includes --vm and --k8s (but not --cache)

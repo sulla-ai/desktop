@@ -34,8 +34,8 @@ import (
 // startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start up Rancher Desktop, or update its settings.",
-	Long: `Starts up Rancher Desktop with the specified settings.
+	Short: "Start up Sulla Desktop, or update its settings.",
+	Long: `Starts up Sulla Desktop with the specified settings.
 If it's running, behaves the same as 'rdctl set ...'.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -57,18 +57,18 @@ func init() {
 }
 
 /**
- * If Rancher Desktop is currently running, treat this like a `set` command, and pass all the args to that.
+ * If Sulla Desktop is currently running, treat this like a `set` command, and pass all the args to that.
  */
 func doStartOrSetCommand(cmd *cobra.Command) error {
 	_, err := getListSettings(cmd.Context())
 	if err == nil {
 		// Unavoidable race condition here.
-		// There's no system-wide mutex that will let us guarantee that if rancher desktop is running when
+		// There's no system-wide mutex that will let us guarantee that if Sulla Desktop is running when
 		// we test it (easiest to just try to get the settings), that it will still be running when we
 		// try to upload the settings (if any were specified).
 		if applicationPath != "" {
 			// `--path | -p` is not a valid option for `rdctl set...`
-			return fmt.Errorf("--path %q specified but Rancher Desktop is already running", applicationPath)
+			return fmt.Errorf("--path %q specified but Sulla Desktop is already running", applicationPath)
 		}
 		return doSetCommand(cmd)
 	}
@@ -84,7 +84,7 @@ func doStartCommand(cmd *cobra.Command) error {
 	if !cmd.Flags().Changed("path") {
 		applicationPath, err = paths.GetRDLaunchPath(cmd.Context())
 		if err != nil {
-			return fmt.Errorf("failed to locate main Rancher Desktop executable: %w\nplease retry with the --path option", err)
+			return fmt.Errorf("failed to locate main Sulla Desktop executable: %w\nplease retry with the --path option", err)
 		}
 	}
 	if noModalDialogs {

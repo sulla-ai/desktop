@@ -22,7 +22,7 @@ var outputJSONFormat bool
 
 var snapshotCmd = &cobra.Command{
 	Use:   "snapshot",
-	Short: "Manage Rancher Desktop snapshots",
+	Short: "Manage Sulla Desktop snapshots",
 }
 
 func init() {

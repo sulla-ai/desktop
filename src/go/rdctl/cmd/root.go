@@ -28,7 +28,7 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:               "rdctl",
-	Short:             "A CLI for Rancher Desktop",
+	Short:             "A CLI for Sulla Desktop",
 	Long:              `The eventual goal of this CLI is to enable any UI-based operation to be done from the command-line as well.`,
 	PersistentPreRunE: config.PersistentPreRunE,
 }

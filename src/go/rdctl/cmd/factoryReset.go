@@ -30,8 +30,8 @@ var removeKubernetesCache bool
 var factoryResetCmd = &cobra.Command{
 	Use:    "factory-reset",
 	Hidden: true, // Hidden for backwards compatibility, use 'rdctl reset --factory' instead
-	Short:  "Clear all the Rancher Desktop state and shut it down.",
-	Long: `Clear all the Rancher Desktop state and shut it down.
+	Short:  "Clear all the Sulla Desktop state and shut it down.",
+	Long: `Clear all the Sulla Desktop state and shut it down.
 Use the --remove-kubernetes-cache=BOOLEAN flag to also remove the cached Kubernetes images.`,
 	Deprecated: "Use 'rdctl reset --factory' instead.",
 	RunE: func(cmd *cobra.Command, args []string) error {

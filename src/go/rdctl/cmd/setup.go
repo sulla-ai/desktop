@@ -26,5 +26,5 @@ var setupCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(setupCmd)
-	setupCmd.Flags().BoolVar(&setupSettings.AutoStart, "auto-start", false, "Whether to start Rancher Desktop at login")
+	setupCmd.Flags().BoolVar(&setupSettings.AutoStart, "auto-start", false, "Whether to start Sulla Desktop at login")
 }

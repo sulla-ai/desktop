@@ -27,8 +27,8 @@ import (
 // native code.
 var internalCmd = &cobra.Command{
 	Use:    "internal",
-	Short:  "Rancher Desktop internal commands",
-	Long:   `rdctl internal provides commands for Rancher Desktop internal use`,
+	Short:  "Sulla Desktop internal commands",
+	Long:   `rdctl internal provides commands for Sulla Desktop internal use`,
 	Hidden: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
