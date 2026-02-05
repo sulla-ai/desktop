@@ -55,27 +55,36 @@
               </div>
 
               <!-- Media -->
-              <div v-if="integration.images && integration.images.length > 0" class="space-y-4">
+              <div v-if="integration.media && integration.media.length > 0" class="space-y-4">
                 <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Media</h2>
                 <div class="relative">
                   <!-- Carousel Container -->
                   <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
                     <div class="relative">
-                      <!-- Main Image -->
+                      <!-- Main Media -->
                       <div class="aspect-video">
+                        <!-- YouTube Video -->
+                        <CSPlayer
+                          v-if="integration.media[currentImageIndex].type === 'youtube'"
+                          :video-id="integration.media[currentImageIndex].url"
+                          :title="integration.media[currentImageIndex].alt"
+                          :alt="integration.media[currentImageIndex].alt"
+                        />
+                        <!-- Image -->
                         <img
-                          :src="integration.images[currentImageIndex].url"
-                          :alt="integration.images[currentImageIndex].alt"
+                          v-else
+                          :src="integration.media[currentImageIndex].url.startsWith('http') ? integration.media[currentImageIndex].url : require(`@pkg/assets/images/${integration.media[currentImageIndex].url}`)"
+                          :alt="integration.media[currentImageIndex].alt"
                           class="h-full w-full object-cover"
                         >
                         <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-                          <p class="text-sm text-white">{{ integration.images[currentImageIndex].caption }}</p>
+                          <p class="text-sm text-white">{{ integration.media[currentImageIndex].caption }}</p>
                         </div>
                       </div>
                       
                       <!-- Navigation Arrows -->
                       <button
-                        v-if="integration.images.length > 1"
+                        v-if="integration.media.length > 1"
                         @click="previousImage"
                         class="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition-colors"
                       >
@@ -84,7 +93,7 @@
                         </svg>
                       </button>
                       <button
-                        v-if="integration.images.length > 1"
+                        v-if="integration.media.length > 1"
                         @click="nextImage"
                         class="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition-colors"
                       >
@@ -96,16 +105,16 @@
                   </div>
                   
                   <!-- Thumbnail Navigation -->
-                  <div v-if="integration.images.length > 1" class="mt-4 flex gap-2 overflow-x-auto">
+                  <div v-if="integration.media.length > 1" class="mt-4 flex gap-2 overflow-x-auto">
                     <button
-                      v-for="(image, index) in integration.images"
+                      v-for="(image, index) in integration.media"
                       :key="index"
                       @click="currentImageIndex = index"
                       class="flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all"
                       :class="currentImageIndex === index ? 'border-blue-500' : 'border-gray-200 dark:border-gray-700'"
                     >
                       <img
-                        :src="image.url"
+                        :src="image.type === 'youtube' ? `https://img.youtube.com/vi/${image.url}/hqdefault.jpg` : (image.url.startsWith('http') ? image.url : require(`@pkg/assets/images/${image.url}`))"
                         :alt="image.alt"
                         class="h-16 w-24 object-cover"
                       >
@@ -258,6 +267,7 @@
 <script setup lang="ts">
 import AgentHeader from './agent/AgentHeader.vue';
 import { integrations, type Integration } from '@pkg/agent/integrations/catalog';
+import CSPlayer from '@pkg/components/CSPlayer.vue';
 
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -272,15 +282,15 @@ const currentImageIndex = ref(0);
 
 // Carousel functions
 const nextImage = () => {
-  if (integration.value && integration.value.images) {
-    currentImageIndex.value = (currentImageIndex.value + 1) % integration.value.images.length;
+  if (integration.value && integration.value.media) {
+    currentImageIndex.value = (currentImageIndex.value + 1) % integration.value.media.length;
   }
 };
 
 const previousImage = () => {
-  if (integration.value && integration.value.images) {
+  if (integration.value && integration.value.media) {
     currentImageIndex.value = currentImageIndex.value === 0 
-      ? integration.value.images.length - 1 
+      ? integration.value.media.length - 1 
       : currentImageIndex.value - 1;
   }
 };

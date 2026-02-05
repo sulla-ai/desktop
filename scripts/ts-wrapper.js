@@ -11,8 +11,8 @@ function main(args) {
     'node_modules/tsx/dist/cli.mjs',
     '--trace-warnings',
     '--trace-deprecation',
-    '--max_old_space_size=4096',
-    '--stack-size=16384',
+    '--max_old_space_size=1024',
+    '--stack-size=1024',
   ];
 
   const finalArgs = [...childArgs, ...args];

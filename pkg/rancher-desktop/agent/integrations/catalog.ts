@@ -8,7 +8,8 @@ export interface Integration {
   version?: string;
   lastUpdated?: string;
   developer?: string;
-  images?: Array<{
+  media?: Array<{
+    type: 'image' | 'youtube';
     url: string;
     alt: string;
     caption: string;
@@ -35,18 +36,21 @@ export const integrations: Record<string, Integration> = {
     version: '2.1.0',
     lastUpdated: '1 day ago',
     developer: 'Intercom Inc.',
-    images: [
+    media: [
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=450&fit=crop',
         alt: 'Intercom Dashboard',
         caption: 'Main dashboard with conversation overview and team performance metrics'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1556656793-08538906a9f8?w=800&h=450&fit=crop',
         alt: 'Live Chat Interface',
         caption: 'Real-time customer chat interface with automated responses'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1559028006-848a6538c4f9?w=800&h=450&fit=crop',
         alt: 'Team Collaboration',
         caption: 'Team inbox and assignment features for efficient customer support'
@@ -99,18 +103,21 @@ export const integrations: Record<string, Integration> = {
     version: '3.0.1',
     lastUpdated: '3 days ago',
     developer: 'Twilio Inc.',
-    images: [
+    media: [
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
         alt: 'Twilio Console',
         caption: 'Manage all your communication services from the centralized console'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=450&fit=crop',
         alt: 'SMS Messaging',
         caption: 'Send and receive SMS messages programmatically with SULLA'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
         alt: 'Voice Calls',
         caption: 'Make and receive voice calls through Twilio\'s VoIP infrastructure'
@@ -163,18 +170,21 @@ export const integrations: Record<string, Integration> = {
     version: '1.8.2',
     lastUpdated: '2 days ago',
     developer: 'HubSpot, Inc.',
-    images: [
+    media: [
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1559028006-848a6538c4f9?w=800&h=450&fit=crop',
         alt: 'HubSpot CRM Dashboard',
         caption: 'Complete view of your customer relationships and pipeline'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=450&fit=crop',
         alt: 'Marketing Automation',
         caption: 'Create automated email campaigns and customer journeys'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1556656793-08538906a9f8?w=800&h=450&fit=crop',
         alt: 'Email Templates',
         caption: 'Design beautiful emails with drag-and-drop editor'
@@ -227,21 +237,18 @@ export const integrations: Record<string, Integration> = {
     version: '2.4.0',
     lastUpdated: '5 days ago',
     developer: 'Slack Technologies',
-    images: [
+    media: [
       {
-        url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=450&fit=crop',
-        alt: 'Slack Workspace',
-        caption: 'Organized team conversations in channels and direct messages'
+        type: 'youtube',
+        url: 'EDATYbzYGiE',
+        alt: 'Slack Platform Overview',
+        caption: 'Watch how Slack transforms team communication and collaboration'
       },
       {
-        url: 'https://images.unsplash.com/photo-1559028006-848a6538c4f9?w=800&h=450&fit=crop',
-        alt: 'Integration Hub',
-        caption: 'Connect all your tools and apps to Slack for centralized notifications'
-      },
-      {
-        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
-        alt: 'File Sharing',
-        caption: 'Share and collaborate on documents, images, and files'
+        type: 'image',
+        url: 'slack-ia4-client-windows-desktop.png',
+        alt: 'Slack Desktop Client',
+        caption: 'Native Slack desktop application for Windows with all features'
       }
     ],
     features: [
@@ -291,18 +298,21 @@ export const integrations: Record<string, Integration> = {
     version: '1.5.3',
     lastUpdated: '1 week ago',
     developer: 'Mailgun Technologies',
-    images: [
+    media: [
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1596079820260-4635c9c198c7?w=800&h=450&fit=crop',
         alt: 'Mailgun Analytics',
         caption: 'Track email delivery rates, opens, clicks, and bounces'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=450&fit=crop',
         alt: 'Email Templates',
         caption: 'Create dynamic email templates with personalization'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
         alt: 'API Dashboard',
         caption: 'Monitor API usage and configure email routing rules'
@@ -355,18 +365,21 @@ export const integrations: Record<string, Integration> = {
     version: '3.2.1',
     lastUpdated: '4 days ago',
     developer: 'Twilio Inc.',
-    images: [
+    media: [
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1596079820260-4635c9c198c7?w=800&h=450&fit=crop',
         alt: 'SendGrid Dashboard',
         caption: 'Monitor email performance and campaign analytics'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=450&fit=crop',
         alt: 'Email Marketing',
         caption: 'Create and automate email marketing campaigns'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1559028006-848a6538c4f9?w=800&h=450&fit=crop',
         alt: 'Template Design',
         caption: 'Design responsive email templates with drag-and-drop editor'
@@ -419,18 +432,21 @@ export const integrations: Record<string, Integration> = {
     version: '2.3.1',
     lastUpdated: '1 week ago',
     developer: 'Meta',
-    images: [
+    media: [
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1610945411025-4e1a472b8ddb?w=800&h=450&fit=crop',
         alt: 'WhatsApp Business Interface',
         caption: 'Professional WhatsApp Business messaging interface'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1559028006-848a6538c4f9?w=800&h=450&fit=crop',
         alt: 'Customer Conversations',
         caption: 'Real-time customer support through WhatsApp'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
         alt: 'Message Templates',
         caption: 'Create and manage message templates for bulk messaging'
@@ -483,18 +499,21 @@ export const integrations: Record<string, Integration> = {
     version: '1.8.0',
     lastUpdated: '3 days ago',
     developer: 'Telegram Messenger LLP',
-    images: [
+    media: [
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1610945411025-4e1a472b8ddb?w=800&h=450&fit=crop',
         alt: 'Telegram Bot Interface',
         caption: 'Powerful bot creation and management interface'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
         alt: 'Group Management',
         caption: 'Manage groups and channels with automated bots'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
         alt: 'API Integration',
         caption: 'Seamless API integration for custom workflows'
@@ -547,18 +566,21 @@ export const integrations: Record<string, Integration> = {
     version: '2.0.5',
     lastUpdated: '2 days ago',
     developer: 'Discord Inc.',
-    images: [
+    media: [
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
         alt: 'Discord Server',
         caption: 'Community server with channels and voice rooms'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=450&fit=crop',
         alt: 'Bot Integration',
         caption: 'Powerful bot integration for server automation'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
         alt: 'Voice Channels',
         caption: 'High-quality voice communication for teams'
@@ -611,18 +633,21 @@ export const integrations: Record<string, Integration> = {
     version: '1.2.0',
     lastUpdated: '1 week ago',
     developer: 'Signal Foundation',
-    images: [
+    media: [
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
         alt: 'Signal Interface',
         caption: 'Clean, privacy-focused messaging interface'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
         alt: 'Secure Messaging',
         caption: 'End-to-end encrypted conversations'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1610945411025-4e1a472b8ddb?w=800&h=450&fit=crop',
         alt: 'Privacy Features',
         caption: 'Advanced privacy and security features'
@@ -675,18 +700,21 @@ export const integrations: Record<string, Integration> = {
     version: '1.5.0',
     lastUpdated: '4 days ago',
     developer: 'Microsoft Corporation',
-    images: [
+    media: [
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=450&fit=crop',
         alt: 'LinkedIn Professional Network',
         caption: 'Professional networking and business development platform'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1559028006-848a6538c4f9?w=800&h=450&fit=crop',
         alt: 'LinkedIn Business',
         caption: 'Business networking and professional connections'
       },
       {
+        type: 'image',
         url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
         alt: 'LinkedIn Content',
         caption: 'Share professional content and engage with industry leaders'
