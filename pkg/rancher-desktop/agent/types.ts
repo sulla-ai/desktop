@@ -144,6 +144,8 @@ export interface TaskState {
   // Graph execution
   maxIterationsReached?: boolean;
   llmFailureCount?: number;
+  executorContinue?: boolean;
+  sameNodeLoopCount?: number;
   
   // LLM response
   response?: string;
@@ -231,7 +233,7 @@ export interface GraphNode {
 
 export interface GraphEdge {
   from: string;
-  to: string | ((state: ThreadState) => string); // Static or conditional
+  to: string | (((state: ThreadState) => string) | ((state: ThreadState, result: { next: 'end' | 'loop' | 'trigger_hierarchical' }) => string)); // Static or conditional
 }
 
 export interface GraphConfig {

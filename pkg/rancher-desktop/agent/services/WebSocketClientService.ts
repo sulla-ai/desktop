@@ -5,12 +5,14 @@ export interface WebSocketMessage {
   type: string;
   data: unknown;
   timestamp?: number;
+  channel?: string;
 }
 
 export type WebSocketMessageHandler = (message: WebSocketMessage) => void;
 
 interface ConnectionConfig {
   url: string;
+  channel?: string;
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
 }
@@ -24,6 +26,7 @@ class WebSocketConnection {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private messageHandlers: Set<WebSocketMessageHandler> = new Set();
   private isConnecting = false;
+  private subscribedChannels: Set<string> = new Set();
 
   constructor(config: ConnectionConfig) {
     this.config = {
@@ -52,18 +55,43 @@ class WebSocketConnection {
 
       this.ws.onopen = () => {
         console.log(`[WebSocket] Connected to ${this.config.url}`);
+
+        if (this.config.channel) {
+          const subscribeMsg = {
+            type: 'subscribe',
+            channel: this.config.channel
+          };
+          console.log(`[WebSocket] Auto-subscribing to channel: ${this.config.channel}`);
+          this.ws?.send(JSON.stringify(subscribeMsg));
+          this.subscribedChannels.add(this.config.channel);
+        }
+
         this.isConnecting = false;
         this.reconnectAttempts = 0;
       };
 
-      this.ws.onmessage = (event) => {
+      this.ws.onmessage = async (event) => {
         console.log(`[WebSocket] Message received:`, event.data);
+        let rawData: string;
+        if (event.data instanceof Blob) {
+          rawData = await event.data.text();
+          console.log(`[WebSocket] Unpacked Blob:`, rawData);
+        } else {
+          rawData = event.data as string;
+        }
+
         try {
-          const data = JSON.parse(event.data) as WebSocketMessage;
-          console.log(`[WebSocket] Parsed message type: ${data.type}`);
-          this.messageHandlers.forEach((handler) => {
+          const parsed = JSON.parse(rawData) as WebSocketMessage;
+
+          if (parsed.type === 'subscribed' && parsed.channel) {
+            this.subscribedChannels.add(parsed.channel);
+            console.log(`[WebSocket] Confirmed subscription to ${parsed.channel}`);
+          }
+
+          console.log(`[WebSocket] Parsed message type: ${parsed.type}`);
+          this.messageHandlers.forEach(handler => {
             try {
-              handler(data);
+              handler(parsed);
             } catch (err) {
               console.error('[WebSocket] Message handler error:', err);
             }
@@ -72,10 +100,10 @@ class WebSocketConnection {
           console.warn('[WebSocket] Failed to parse message as JSON, wrapping as raw:', parseErr);
           const msg: WebSocketMessage = {
             type: 'raw',
-            data: event.data,
+            data: rawData,
             timestamp: Date.now(),
           };
-          this.messageHandlers.forEach((handler) => {
+          this.messageHandlers.forEach(handler => {
             try {
               handler(msg);
             } catch (err) {
@@ -132,6 +160,7 @@ class WebSocketConnection {
     }
 
     this.messageHandlers.clear();
+    this.subscribedChannels.clear();
     this.reconnectAttempts = 0;
     console.log('[WebSocket] Disconnected and cleaned up');
   }
@@ -142,8 +171,17 @@ class WebSocketConnection {
       return false;
     }
 
+    let payload = message;
+    if (typeof message === 'object' && message !== null && this.config.channel && !('channel' in message as any)) {
+      payload = {
+        ...(message as object),
+        channel: this.config.channel
+      };
+      console.log(`[WebSocket] Auto-injected channel: ${this.config.channel}`);
+    }
+
     try {
-      const data = typeof message === 'string' ? message : JSON.stringify(message);
+      const data = typeof payload === 'string' ? payload : JSON.stringify(payload);
       console.log(`[WebSocket] Sending message:`, data.substring(0, 200) + (data.length > 200 ? '...' : ''));
       this.ws.send(data);
       console.log('[WebSocket] Message sent successfully');
@@ -177,12 +215,6 @@ export class WebSocketClientService {
     return WebSocketClientService.instance;
   }
 
-  /**
-   * Connect to a WebSocket endpoint
-   * @param connectionId Unique identifier for this connection
-   * @param url WebSocket URL (defaults to ws://localhost:8080/)
-   * @returns true if connection initiated
-   */
   connect(connectionId: string, url: string = DEFAULT_WS_URL): boolean {
     console.log(`[WebSocket] Service connect called for connectionId: ${connectionId}, url: ${url}`);
     if (this.connections.has(connectionId)) {
@@ -194,17 +226,16 @@ export class WebSocketClientService {
       console.log(`[WebSocket] Connection ${connectionId} exists but not connected, recreating...`);
     }
 
-    const connection = new WebSocketConnection({ url });
+    const connection = new WebSocketConnection({
+      url,
+      channel: connectionId
+    });
     this.connections.set(connectionId, connection);
     connection.connect();
 
     return true;
   }
 
-  /**
-   * Disconnect from a WebSocket endpoint
-   * @param connectionId Connection identifier
-   */
   disconnect(connectionId: string): void {
     console.log(`[WebSocket] Service disconnect called for connectionId: ${connectionId}`);
     const connection = this.connections.get(connectionId);
@@ -217,12 +248,6 @@ export class WebSocketClientService {
     }
   }
 
-  /**
-   * Send a message to a WebSocket connection
-   * @param connectionId Connection identifier
-   * @param message Message to send (object or string)
-   * @returns true if sent successfully
-   */
   send(connectionId: string, message: unknown): boolean {
     console.log(`[WebSocket] Service send called for connectionId: ${connectionId}`);
     const connection = this.connections.get(connectionId);
@@ -233,12 +258,6 @@ export class WebSocketClientService {
     return connection.send(message);
   }
 
-  /**
-   * Register a message handler for a connection
-   * @param connectionId Connection identifier
-   * @param handler Callback function for incoming messages
-   * @returns Unsubscribe function
-   */
   onMessage(connectionId: string, handler: WebSocketMessageHandler): (() => void) | null {
     console.log(`[WebSocket] Service onMessage called for connectionId: ${connectionId}`);
     const connection = this.connections.get(connectionId);
@@ -250,27 +269,17 @@ export class WebSocketClientService {
     return connection.onMessage(handler);
   }
 
-  /**
-   * Check if a connection is active
-   * @param connectionId Connection identifier
-   */
   isConnected(connectionId: string): boolean {
     const connection = this.connections.get(connectionId);
     return connection?.isConnected() ?? false;
   }
 
-  /**
-   * Get all active connection IDs
-   */
   getActiveConnections(): string[] {
     return Array.from(this.connections.entries())
       .filter(([, conn]) => conn.isConnected())
       .map(([id]) => id);
   }
 
-  /**
-   * Disconnect all connections
-   */
   disconnectAll(): void {
     this.connections.forEach((connection) => {
       connection.disconnect();
@@ -279,5 +288,4 @@ export class WebSocketClientService {
   }
 }
 
-// Singleton export
 export const getWebSocketClientService = WebSocketClientService.getInstance;

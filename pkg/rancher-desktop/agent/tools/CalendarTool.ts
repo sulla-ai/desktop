@@ -11,7 +11,7 @@ export class CalendarTool extends BaseTool {
   override readonly aliases = ['cal', 'schedule', 'events'];
 
   override getPlanningInstructions(): string {
-    return `["calendar", "list", "--startAfter", "2026-02-01"] - Manage calendar events
+    return `["calendar","create","--title","Reminder: 60s from request","--startTime","2026-02-05T08:02:00Z","--endTime","2026-02-05T08:02:01Z","--description","Auto-triggered 60s after 'Set me up a reminder 60 seconds from now'"] - Manage calendar events, reminders, and schedules
 
 Examples:
 ["calendar", "create", "--title", "Sales call", "--start", "2026-02-10T14:00:00Z", "--end", "2026-02-10T15:00:00Z", "--people", "john@client.com", "jane@agency.com"]
@@ -22,12 +22,22 @@ Examples:
 ["calendar", "listUpcoming", "7"]   // days from now
 
 Subcommands:
-- create  --title "..." --start ISO --end ISO [--description] [--location] [--people "email1" "email2"] [--calendarId] [--allDay]
+- create  --title "..." --start ISO (or --startTime) --end ISO (or --endTime) [--description] [--location] [--people "email1" "email2"] [--calendarId] [--allDay]
 - list     [--startAfter ISO] [--endBefore ISO] [--calendarId]
 - get      <eventId>
 - update   <eventId> [--title] [--start] [--end] [--description] [--location] [--people] [--calendarId] [--allDay]
 - delete   <eventId>
 - listUpcoming <daysFromNow>
+
+Args:
+--title "Event title" (required)
+--start ISO datetime or --startTime ISO datetime (required, one of them)
+--end ISO datetime or --endTime ISO datetime (required, one of them)
+--description "Details or notes"
+--location "Physical or virtual location"
+--people "email1@example.com" "email2@example.com" (multiple allowed)
+--calendarId "specific-calendar-id"
+--allDay true/false (for full-day events)
 `.trim();
   }
 
@@ -51,8 +61,8 @@ Subcommands:
           const params = this.argsToObject(rest);
           const event = {
             title: params.title,
-            start: params.start,
-            end: params.end,
+            start: params.start || params.startTime,
+            end: params.end || params.endTime,
             description: params.description,
             location: params.location,
             people: params.people,
@@ -60,8 +70,13 @@ Subcommands:
             allDay: params.allDay,
           };
 
-          if (!event.title || !event.start || !event.end) {
-            throw new Error('Missing required: title, start, end');
+          const missing = [];
+          if (!event.title) missing.push('title');
+          if (!event.start) missing.push('start (or startTime)');
+          if (!event.end) missing.push('end (or endTime)');
+
+          if (missing.length) {
+            throw new Error(`Missing required: ${missing.join(', ')}`);
           }
 
           const created = await calendarClient.createEvent(event);
@@ -103,8 +118,8 @@ Subcommands:
           const params = this.argsToObject(rest.slice(1));
           const updates = {
             title: params.title,
-            start: params.start,
-            end: params.end,
+            start: params.start || params.startTime,
+            end: params.end || params.endTime,
             description: params.description,
             location: params.location,
             people: params.people,

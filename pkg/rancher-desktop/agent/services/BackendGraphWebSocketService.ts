@@ -4,6 +4,15 @@ import { getSensory } from '../SensoryInput';
 
 const BACKEND_CHANNEL_ID = 'chat-controller-backend';
 
+let backendGraphWebSocketServiceInstance: BackendGraphWebSocketService | null = null;
+
+export function getBackendGraphWebSocketService(): BackendGraphWebSocketService {
+  if (!backendGraphWebSocketServiceInstance) {
+    backendGraphWebSocketServiceInstance = new BackendGraphWebSocketService();
+  }
+  return backendGraphWebSocketServiceInstance;
+}
+
 export class BackendGraphWebSocketService {
   private readonly wsService = getWebSocketClientService();
   private unsubscribe: (() => void) | null = null;
@@ -21,6 +30,8 @@ export class BackendGraphWebSocketService {
 
   private initialize(): void {
     this.wsService.connect(BACKEND_CHANNEL_ID);
+    console.log('[Background] BackendGraphWebSocketService initialized');
+    
     this.unsubscribe = this.wsService.onMessage(BACKEND_CHANNEL_ID, (msg) => {
       this.handleWebSocketMessage(msg);
     });
@@ -30,6 +41,8 @@ export class BackendGraphWebSocketService {
     if (msg.type !== 'user_message') {
       return;
     }
+
+    console.warn('[BackendGraphWebSocketService] Captured chat message:', msg);
 
     const data = typeof msg.data === 'string' ? { content: msg.data } : (msg.data as any);
     const content = typeof data?.content === 'string' ? data.content : '';

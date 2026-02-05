@@ -147,10 +147,11 @@ export class ChatInterface {
   }
 
   stop(): void {
-    const channelId = this.activeAgentId.value;
-    const personaService = this.registry.getOrCreatePersonaService(channelId);
-    personaService.emitStopSignal(channelId);
-    this.registry.setLoading(channelId, false);
+    const personaService = this.registry.getActivePersonaService();
+    if (personaService) {
+      personaService.emitStopSignal(personaService.state.agentId);
+      this.registry.setLoading(personaService.state.agentId, false);
+    }
   }
 
   async send(): Promise<void> {
@@ -168,8 +169,10 @@ export class ChatInterface {
       localStorage.setItem(this.hasSentMessageKey, 'true');
     }
 
-    const personaService = this.registry.getOrCreatePersonaService(channelId);
-    personaService.addUserMessage(channelId, userText);
+    const personaService = this.registry.getActivePersonaService();
+    if (personaService) {
+      personaService.addUserMessage(this.activeAgentId.value, userText);
+    }
   }
 
 }

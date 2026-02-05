@@ -456,6 +456,7 @@ When to trigger KB generation:
         messages.push({ role: 'system', content: prompt });
       }
 
+      console.warn(`[Agent:${this.name}] model ${model}`);
       const content = await this.llmService.chat(messages, { signal: abort?.signal });
 
       if (!content) {
@@ -932,16 +933,34 @@ When to trigger KB generation:
     // Skip tool_result progress event for chat tools
     if (!isChatTool) {
       this.emitProgress(state, 'tool_result', { toolRunId, toolName, success: result.success, error: result.error || null, result: result.result });
-      this.appendToolResultMessage(state, toolName, result);
+      await this.appendToolResultMessage(state, toolName, result);
     }
     
     return result;
   }
 
-  public appendToolResultMessage(state: ThreadState, action: string, result: ToolResult): void {
+  public async appendToolResultMessage(state: ThreadState, action: string, result: ToolResult): Promise<void> {
     const summary = result.success
       ? `Tool ${action} succeeded`
       : `Tool ${action} failed: ${result.error || 'unknown error'}`;
+
+    let toolHelpInfo = null;
+    
+    // If tool failed, get full help information to help LLM understand proper usage
+    if (!result.success) {
+      try {
+        const { getToolRegistry, registerDefaultTools } = await import('../tools');
+        registerDefaultTools();
+        const registry = getToolRegistry();
+        const tool = registry.get(action);
+        
+        if (tool) {
+          toolHelpInfo = tool.getPlanningInstructions();
+        }
+      } catch (error) {
+        console.warn(`[BaseNode] Failed to get help info for tool ${action}:`, error);
+      }
+    }
 
     const content = JSON.stringify(
       {
@@ -952,6 +971,8 @@ When to trigger KB generation:
         result: result.result && JSON.stringify(result.result).length < 5000
           ? result.result
           : '[result truncated — see logs]',
+        // Include full help information for failed tools
+        helpInfo: toolHelpInfo,
       },
       null,
       2

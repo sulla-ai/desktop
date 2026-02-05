@@ -31,7 +31,7 @@ export { getHeartbeatService, HeartbeatService } from './services/HeartbeatServi
 export { getKnowledgeGraph, KnowledgeGraphClass } from './services/KnowledgeGraph';
 export type { KnowledgeFinalPage, KnowledgePageSection, KnowledgeGoal } from './services/KnowledgeState';
 export { FrontendGraphWebSocketService } from './services/FrontendGraphWebSocketService';
-export { BackendGraphWebSocketService } from './services/BackendGraphWebSocketService';
+export { getBackendGraphWebSocketService, BackendGraphWebSocketService } from './services/BackendGraphWebSocketService';
 
 // Models
 export { AgentPersonaService } from './models/AgentPersonaModel';

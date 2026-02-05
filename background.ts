@@ -42,6 +42,8 @@ import { Tray } from '@pkg/main/tray';
 import setupUpdate from '@pkg/main/update';
 import { getSchedulerService } from '@pkg/agent/services/SchedulerService';
 import { getHeartbeatService } from '@pkg/agent/services/HeartbeatService';
+import { postgresClient } from '@pkg/agent/services/PostgresClient';
+import { getBackendGraphWebSocketService } from '@pkg/agent/services/BackendGraphWebSocketService';
 import { spawnFile } from '@pkg/utils/childProcess';
 import getCommandLineArgs from '@pkg/utils/commandLine';
 import dockerDirManager from '@pkg/utils/dockerDirManager';
@@ -336,10 +338,24 @@ Electron.app.whenReady().then(async() => {
       await heartbeatService.initialize();
       console.log('[Background] HeartbeatService initialized - periodic tasks will run in background');
 
-      // Initialize backend WebSocket listener for fallback graph execution
-      const { BackendGraphWebSocketService } = await import('@pkg/agent');
-      const backendWsService = new BackendGraphWebSocketService();
-      console.log('[Background] BackendGraphWebSocketService initialized - fallback channel ready');
+      const backendGraphWebSocketService = getBackendGraphWebSocketService();
+      console.log('[Background] BackendGraphWebSocketService initialized - backend agent messages will be processed');
+
+
+      Electron.app.on('before-quit', async () => {
+        try {
+          await postgresClient.close();
+        } catch {} // swallow any remaining errors
+      });
+
+      process.on('unhandledRejection', (reason: any) => {
+        if (reason?.code === '57P01') {
+          console.warn('[Unhandled] Ignored Postgres admin termination');
+          return;
+        }
+        console.error('[Unhandled Rejection]', reason);
+      });
+
     } catch (ex: any) {
       console.error('[Background] Failed to initialize cron services:', ex);
     }
@@ -719,6 +735,18 @@ ipcMainProxy.on('settings-read', (event) => {
 ipcMainProxy.on('settings-read', (event) => {
   console.debug(`event settings-read in main: ${ JSON.stringify(cfg) }`);
   event.returnValue = cfg;
+});
+
+// Handle agent configuration updates from renderer process
+ipcMainProxy.on('agent-config-updated', (event, agentConfig) => {
+  console.log('[Background] Agent configuration updated from renderer:', agentConfig);
+  // Update the agent services with new configuration
+  try {
+    const { updateAgentConfigFull } = require('@pkg/agent/services/ConfigService');
+    updateAgentConfigFull(agentConfig);
+  } catch (err) {
+    console.warn('[Background] Failed to update agent config from renderer:', err);
+  }
 });
 
 ipcMainProxy.on('images-namespaces-read', (event) => {

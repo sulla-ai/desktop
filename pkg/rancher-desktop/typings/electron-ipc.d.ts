@@ -107,6 +107,10 @@ export interface IpcMainEvents {
   snapshot:          (event: SnapshotEvent | null) => void;
   'snapshot/cancel': () => void;
   // #endregion
+
+  // #region Agent Configuration
+  'agent-config-updated': (agentConfig: any) => void;
+  // #endregion
 }
 
 /**

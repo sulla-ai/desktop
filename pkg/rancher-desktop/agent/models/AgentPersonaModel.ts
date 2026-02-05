@@ -1,8 +1,8 @@
 import { computed, reactive, ref } from 'vue';
 
 import { getWebSocketClientService, type WebSocketMessage } from '@pkg/agent/services/WebSocketClientService';
-import type { AgentPersonaRegistry } from '@pkg/agent';
-import type { ChatMessage } from '@pkg/agent/registry/AgentPersonaRegistry';
+import { AgentPersonaRegistry } from '../registry/AgentPersonaRegistry';
+import type { ChatMessage, AgentRegistryEntry } from '../registry/AgentPersonaRegistry';
 
 export type PersonaTemplateId =
   | 'terminal'
@@ -94,8 +94,19 @@ export class AgentPersonaService {
 
   readonly emotionClass = computed(() => `persona-profile-${this.state.emotion}`);
 
-  constructor(registry: AgentPersonaRegistry) {
+  constructor(registry: AgentPersonaRegistry, agentData?: AgentRegistryEntry) {
     this.registry = registry;
+    
+    if (agentData) {
+      // Populate state from agent data from registry
+      this.state.agentId = agentData.agentId;
+      this.state.agentName = agentData.agentName;
+      this.state.templateId = agentData.templateId;
+      this.state.emotion = agentData.emotion;
+      this.state.status = agentData.status;
+      this.state.tokensPerSecond = agentData.tokensPerSecond;
+      this.state.temperature = agentData.temperature;
+    }
   }
 
   startListening(agentIds: string[]): void {

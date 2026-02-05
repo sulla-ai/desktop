@@ -52,8 +52,7 @@ export class AgentSettingsController {
         heartbeatModel:        exp.heartbeatModel,
       });
 
-      this.registry.setHeartbeatEnabled(exp.heartbeatEnabled ?? true);
-
+      
       this.modelMode.value = exp.modelMode || 'local';
 
       if (exp.modelMode === 'remote' && exp.remoteModel) {
@@ -77,6 +76,9 @@ export class AgentSettingsController {
       modelMode: Ref<'local' | 'remote'>;
     },
     private readonly updateAgentConfigFull: (config: {
+      botName?: string;
+      primaryUserName?: string;
+      soulPrompt?: string;
       sullaModel?: string;
       modelMode?: 'local' | 'remote';
       remoteProvider?: string;

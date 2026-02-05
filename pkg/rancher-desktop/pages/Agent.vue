@@ -121,7 +121,7 @@
  </code></pre>
                 </div>
 
-                <div v-else-if="m.kind !== 'progress' && m.role !== 'system'" class="max-w-[min(760px,92%)]">
+                <div v-else-if="m.role !== 'system'" class="max-w-[min(760px,92%)]">
                   <div v-if="m.image" class="space-y-2">
                     <img
                       :src="m.image.dataUrl"
@@ -334,7 +334,7 @@
                           <div class="flex items-center gap-2">
                             <button
                               type="button"
-                              class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
+                              class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed hover:cursor-pointer dark:bg-white dark:text-[#0d0d0d]"
                               :aria-label="(loading || graphRunning) ? 'Stop' : (query.trim() ? 'Send' : 'Voice')"
                               :disabled="showOverlay || (!loading && !graphRunning && false)"
                               @click="handlePrimaryAction"
@@ -482,7 +482,7 @@
                       <div class="flex items-center gap-2">
                         <button
                           type="button"
-                          class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
+                          class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed hover:cursor-pointer dark:bg-white dark:text-[#0d0d0d]"
                           :aria-label="(loading || graphRunning) ? 'Stop' : (query.trim() ? 'Send' : 'Voice')"
                           :disabled="showOverlay || (!loading && !graphRunning && false)"
                           @click="handlePrimaryAction"

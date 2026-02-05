@@ -321,7 +321,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       "toolHints": ["tool_name_if_applicable"]
     }
   ],
-  "emit_chat_message": "Inform the user about your planning process and the steps you will take to complete the milestone.",
+  "emit_chat_message": "fyi: this is your area to inform the user about your planning process and the steps you will take to complete the milestone.",
   "recommendedTools": ["tool_name_1", "tool_name_2"]
 }`;
 

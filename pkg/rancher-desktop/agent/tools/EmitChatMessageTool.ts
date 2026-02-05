@@ -5,7 +5,8 @@ import { getWebSocketClientService } from '../services/WebSocketClientService';
 
 export class EmitChatMessageTool extends BaseTool {
   override readonly name = 'emit_chat_message';
-
+  override readonly aliases = ['emit', 'emit_chat'];
+  
   override getPlanningInstructions(): string {
     return `["emit_chat_message", "Your message here"] - Send message to user in chat
 

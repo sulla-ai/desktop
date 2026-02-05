@@ -41,7 +41,7 @@ Core Directives (non-negotiable):
 - If unsure → stop and return error instead of guessing
 
 Mandatory visibility:
-- Use emit_chat_message tool before EVERY non-trivial action.
+- Use emit_chat_message: "Talk the the user, tell them what's going on and what you're doing"
 - Before each tool call: 1-line preview of what command/tool + why.
 - On completion: confirm what was done with evidence.
 
@@ -49,9 +49,9 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
   "tools": [
     ["tool_name", "arg1", "arg2"]
+    ["emit_chat_message", "Respond to the users inquiry"]
   ],
-  "markDone": true,
-  "summary": "Talk the the user, tell them what's going on and what you're doing"
+  "markDone": true | false, // true if the task is complete, false if more steps are needed
 }`;
 
     const prompt = await this.enrichPrompt(basePrompt, state, {
@@ -60,11 +60,13 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeMemory: true,
       includeTools: true,
       toolDetail: 'tactical',
-      includeSkills: true,
+      includeSkills: false,
       includeStrategicPlan: false,
       includeTacticalPlan: false,
       includeKnowledgeGraphInstructions: undefined,
     });
+
+    console.log(['TacticalExecutorNode handleNoPlanResponse prompt', prompt]);
 
     try {
       const response = await this.prompt(prompt, state);
@@ -105,9 +107,6 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     // Clear previous iteration's revision request - each execution starts fresh
     delete state.metadata.requestPlanRevision;
     
-    // Track consecutive LLM failures to prevent infinite loops
-    const llmFailureCount = ((state.metadata.llmFailureCount as number) || 0);
-    
     // Only execute hierarchical tactical steps.
     let executed = false;
     if (state.metadata.activeTacticalStep) {
@@ -119,12 +118,36 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       await this.handleNoPlanResponse(state);
     }
 
-    // TacticalExecutor does not generate a second, user-facing LLM response.
-    // User-visible updates must come from emit_chat_message during tool execution.
-    state.metadata.executorCompleted = true;
-    state.metadata.llmFailureCount = 0;
+    // TacticalExecutor controls its own flow - decide whether to continue or go to critic
+    const shouldContinue = this.shouldContinueExecution(state);
+    state.metadata.executorContinue = shouldContinue;
+    
+    return { state, next: shouldContinue ? 'continue' : 'end' };
+  }
 
-    return { state, next: 'continue' };
+  /**
+   * Determine if executor should continue with more work or go to critic
+   */
+  private shouldContinueExecution(state: ThreadState): boolean {
+
+    // Track consecutive LLM failures to prevent infinite loops
+    const llmFailureCount = ((state.metadata.llmFailureCount as number) || 0);
+    if (llmFailureCount >= 3) {
+      return false;
+    }
+
+    // Check if the current step explicitly requested to continue (markDone: false)
+    const todoExecution = state.metadata.todoExecution as any;
+    if (todoExecution && todoExecution.markDone === false) {
+      return true; // LLM said more work needed, continue looping
+    }
+
+    // If there are remaining tactical steps or milestones, continue execution
+    if (this.hasRemainingTacticalWork(state)) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -446,12 +469,12 @@ Mandatory visibility:
 - On blocker/retry/failure: explain exactly what’s wrong + next attempt.
 - On completion: "Step complete. Evidence: [short proof]"
 
-Important: do not use { summary: '' } to communicate with the user. you must use emit_chat_message tool to communicate with the user.
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
   "tools": [
     ["tool_name", "arg1", "arg2"],
     ["anytool", "help"]
+    ["emit_chat_message", "Respond to the users inquiry"]
   ],
   "markDone": true
 }`;

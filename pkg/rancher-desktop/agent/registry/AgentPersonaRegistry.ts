@@ -66,9 +66,9 @@ export class AgentPersonaRegistry {
         loading: false,
       },
       {
-        isRunning: getAgentConfig().heartbeatEnabled,
+        isRunning: true,
         agentId: 'chat-controller-backend',
-        agentName: 'Sysop',
+        agentName: 'Subconscious',
         templateId: 'terminal',
         emotion: 'focus',
         status: 'idle',
@@ -91,7 +91,8 @@ export class AgentPersonaRegistry {
   // Get or create persona service for an agent
   getOrCreatePersonaService(agentId: string): AgentPersonaService {
     if (!this.personaServices.has(agentId)) {
-      this.personaServices.set(agentId, new AgentPersonaService(this));
+      const agentData = this.state.agents.find(a => a.agentId === agentId);
+      this.personaServices.set(agentId, new AgentPersonaService(this, agentData));
     }
     return this.personaServices.get(agentId)!;
   }
@@ -200,7 +201,7 @@ export class AgentPersonaRegistry {
   setHeartbeatEnabled(enabled: boolean): void {
     this.setAgentRunning(this.backgroundAgentId, enabled);
   }
-
+  
   upsertAgent(agent: AgentRegistryEntry): void {
     const idx = this.state.agents.findIndex(a => a.agentId === agent.agentId);
     if (idx >= 0) {

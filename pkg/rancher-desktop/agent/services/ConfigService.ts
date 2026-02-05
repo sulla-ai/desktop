@@ -4,6 +4,10 @@
 import type { LLMConfig } from './ILLMService';
 import { updateLLMConfig } from './LLMServiceFactory';
 import { getHeartbeatService } from './HeartbeatService';
+import { getIpcMainProxy } from '@pkg/main/ipcMain';
+import Logging from '@pkg/utils/logging';
+
+const console = Logging.agent;
 
 const DEFAULT_MODEL = 'tinyllama:latest';
 const OLLAMA_BASE = 'http://127.0.0.1:30114';
@@ -72,6 +76,44 @@ export function getAgentConfig(): AgentConfig {
 
       return cachedConfig;
     }
+
+    // If we're in the main process, we should have direct access to cfg
+    // But if not, try IPC as fallback
+    if (typeof window === 'undefined') {
+      try {
+        // Try to access cfg directly if we're in main process context
+        const mainModule = require('@pkg/config/settingsImpl');
+        if (mainModule && typeof mainModule.getSettings === 'function') {
+          const settings = mainModule.getSettings();
+          if (settings && settings.experimental) {
+            const config = settings.experimental;
+            cachedConfig = {
+              ollamaModel:      config.sullaModel || DEFAULT_MODEL,
+              ollamaBase:       OLLAMA_BASE,
+              soulPrompt:       config.soulPrompt || '',
+              botName:          config.botName || 'Sulla',
+              primaryUserName:  config.primaryUserName || '',
+              modelMode:        config.modelMode || 'local',
+              localTimeoutSeconds: config.localTimeoutSeconds ?? 120,
+              localRetryCount: config.localRetryCount ?? 2,
+              remoteProvider:   config.remoteProvider || 'grok',
+              remoteModel:      config.remoteModel || 'grok-4-1-fast-reasoning',
+              remoteApiKey:     config.remoteApiKey || '',
+              remoteRetryCount: config.remoteRetryCount ?? 3,
+              remoteTimeoutSeconds: config.remoteTimeoutSeconds ?? 60,
+              heartbeatEnabled: config.heartbeatEnabled ?? true,
+              heartbeatDelayMinutes: config.heartbeatDelayMinutes ?? 30,
+              heartbeatPrompt: config.heartbeatPrompt || 'This is the time for you to accomplish your goals',
+              heartbeatModel: config.heartbeatModel || 'default',
+            };
+
+            return cachedConfig;
+          }
+        }
+      } catch (err) {
+        console.warn('[ConfigService] Failed to access settings directly:', err);
+      }
+    }
   } catch {
     // Settings not available
   }
@@ -93,7 +135,7 @@ export function getAgentConfig(): AgentConfig {
     remoteTimeoutSeconds: 60,
     heartbeatEnabled: true,
     heartbeatDelayMinutes: 30,
-    heartbeatPrompt: 'This is the time for you to accomplish your goals',
+    heartbeatPrompt: '',
     heartbeatModel: 'default',
   };
 }
@@ -120,6 +162,9 @@ export function updateAgentConfigFull(settings: {
   heartbeatPrompt?: string;
   heartbeatModel?: string;
 }): void {
+  // Clear cache first to force refresh
+  cachedConfig = null;
+  
   cachedConfig = {
     ollamaModel:      settings.sullaModel || DEFAULT_MODEL,
     ollamaBase:       OLLAMA_BASE,
@@ -136,7 +181,7 @@ export function updateAgentConfigFull(settings: {
     remoteTimeoutSeconds: settings.remoteTimeoutSeconds ?? 60,
     heartbeatEnabled: settings.heartbeatEnabled ?? true,
     heartbeatDelayMinutes: settings.heartbeatDelayMinutes ?? 30,
-    heartbeatPrompt: settings.heartbeatPrompt || 'This is the time for you to accomplish your goals',
+    heartbeatPrompt: settings.heartbeatPrompt || '',
     heartbeatModel: settings.heartbeatModel || 'default',
   };
 
@@ -168,6 +213,16 @@ export function updateAgentConfigFull(settings: {
     prompt: cachedConfig.heartbeatPrompt,
     model: cachedConfig.heartbeatModel,
   });
+
+  // If we're in renderer process, notify main process of config change
+  if (typeof window !== 'undefined') {
+    try {
+      const { ipcRenderer } = require('@pkg/utils/ipcRenderer');
+      ipcRenderer.send('agent-config-updated', cachedConfig);
+    } catch (err) {
+      console.warn('[ConfigService] Failed to notify main process of config change:', err);
+    }
+  }
 
   console.log(`[ConfigService] Config updated: mode=${cachedConfig.modelMode}, model=${cachedConfig.modelMode === 'local' ? cachedConfig.ollamaModel : cachedConfig.remoteModel}, retries=${cachedConfig.remoteRetryCount}, timeoutSeconds=${cachedConfig.remoteTimeoutSeconds}, heartbeat=${cachedConfig.heartbeatEnabled ? `${cachedConfig.heartbeatDelayMinutes}min` : 'disabled'}`);
 }

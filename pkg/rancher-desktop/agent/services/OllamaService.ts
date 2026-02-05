@@ -88,17 +88,20 @@ class OllamaServiceClass implements ILLMService {
     }
 
     try {
+      console.log(`[OllamaService] Checking availability at: ${this.getBaseUrl()}/api/tags`);
       const res = await fetch(`${this.getBaseUrl()}/api/tags`, {
         signal: AbortSignal.timeout(5000),
       });
 
       if (res.ok) {
         const data = await res.json();
+        console.log(`[OllamaService] Ollama API response:`, data);
 
         this.availableModels = data.models?.map((m: ModelInfo) => m.name) || [];
         this.available = true;
-        console.log(`[OllamaService] Initialized with ${this.availableModels.length} models`);
+        console.log(`[OllamaService] Initialized with ${this.availableModels.length} models:`, this.availableModels);
       } else {
+        console.warn(`[OllamaService] Ollama API not ready: HTTP ${res.status} ${res.statusText}`);
         this.available = false;
       }
     } catch (err) {
@@ -190,6 +193,15 @@ class OllamaServiceClass implements ILLMService {
         throw err;
       }
       console.warn('[OllamaService] Generate failed:', err);
+      console.warn('[OllamaService] Error details:', {
+        name: err instanceof Error ? err.name : 'Unknown',
+        message: err instanceof Error ? err.message : String(err),
+        status: (err as any)?.status,
+        statusText: (err as any)?.statusText,
+        url: `${this.getBaseUrl()}/api/generate`,
+        model: modelName,
+        promptLength: prompt.length
+      });
     }
 
     return null;
@@ -220,6 +232,15 @@ class OllamaServiceClass implements ILLMService {
         throw err;
       }
       console.warn('[OllamaService] Chat (model override) failed:', err);
+      console.warn('[OllamaService] Error details:', {
+        name: err instanceof Error ? err.name : 'Unknown',
+        message: err instanceof Error ? err.message : String(err),
+        status: (err as any)?.status,
+        statusText: (err as any)?.statusText,
+        url: `${this.getBaseUrl()}/api/chat`,
+        model: modelName,
+        messagesCount: messages.length
+      });
     }
 
     return null;
@@ -254,6 +275,15 @@ class OllamaServiceClass implements ILLMService {
         throw err;
       }
       console.warn('[OllamaService] Chat failed:', err);
+      console.warn('[OllamaService] Error details:', {
+        name: err instanceof Error ? err.name : 'Unknown',
+        message: err instanceof Error ? err.message : String(err),
+        status: (err as any)?.status,
+        statusText: (err as any)?.statusText,
+        url: `${this.getBaseUrl()}/api/chat`,
+        model: this.getModel(),
+        messagesCount: messages.length
+      });
     }
 
     return null;

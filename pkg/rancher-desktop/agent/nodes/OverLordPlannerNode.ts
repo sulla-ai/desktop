@@ -10,7 +10,7 @@ import { getAgentConfig } from '../services/ConfigService';
 const WS_CONNECTION_ID = 'chat-controller-backend';
 
 type OverLordDecision = {
-  action: 'trigger_hierarchical' | 'stop';
+  action: 'trigger_hierarchical' | 'end' | 'continue';
   reason?: string;
 };
 
@@ -39,20 +39,31 @@ export class OverLordPlannerNode extends BaseNode {
       (state.metadata as any).__overlordIteration = iteration + 1;
 
       const config = getAgentConfig();
-      const heartbeatPrompt = config.heartbeatPrompt || 'Review current system state and determine if hierarchical planning should be triggered.';
       
-      const enrichedprompt = await this.enrichPrompt(heartbeatPrompt, state, {
+      const decisionPrompt = `${config.heartbeatPrompt}
+
+## Safety Guidelines
+- Whenever possible, work on your projects inside of a kubernetes pod
+- Document your projects in the knowledgebase so you can recall the details later
+- Schedule reminders and tasks for yourself on the calendar when necessary
+
+${JSON_ONLY_RESPONSE_INSTRUCTIONS}
+{
+  "action": "trigger_hierarchical" | "end" | "continue",
+  "reason": "optional"
+}`;
+
+      const fullprompt = await this.enrichPrompt(decisionPrompt, state, {
         includeSoul: true,
         includeMemory: true,
         includeConversation: true,
       });
-
-      const decisionPrompt = `${enrichedprompt}\n\n${JSON_ONLY_RESPONSE_INSTRUCTIONS}\n{\n  "action": "trigger_hierarchical" | "stop",\n  "reason": "optional"\n}`;
+      console.log('[OVERLORD] Full prompt:', fullprompt);
 
       // Emit via WebSocket
       this.dispatchToWebSocket(WS_CONNECTION_ID, { type: 'progress', data: { phase: 'overlord_llm' } });
 
-      const response = await this.prompt(decisionPrompt, state, true);
+      const response = await this.prompt(fullprompt, state, true);
 
       if (!response?.content) {
         delete (state.metadata as any).__overlordRunHierarchy;
@@ -62,6 +73,11 @@ export class OverLordPlannerNode extends BaseNode {
       const parsed = parseJson<OverLordDecision>(response.content);
       const action = parsed?.action;
 
+      if (action === 'continue') {
+        agentLog(this.name, `Decision: loop (${parsed?.reason || ''})`);
+        return { state, next: 'continue' };
+      }
+      
       if (action === 'trigger_hierarchical') {
         (state.metadata as any).__overlordRunHierarchy = true;
         (state.metadata as any).__overlordLastDecision = parsed;
@@ -76,7 +92,7 @@ export class OverLordPlannerNode extends BaseNode {
           },
         });
 
-        return { state, next: 'continue' };
+        return { state, next: 'trigger_hierarchical' };
       }
 
       delete (state.metadata as any).__overlordRunHierarchy;

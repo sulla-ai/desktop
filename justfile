@@ -175,3 +175,22 @@ lima-logs:
 check-ws:
     LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
     limactl shell 0 sudo nerdctl --address /var/run/docker/containerd/containerd.sock ps | grep rd-ws-server
+
+logs-ollama:
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    resources/darwin/lima/bin/limactl shell 0 -- \
+    sudo k3s kubectl logs -n sulla deploy/ollama
+
+describe-ollama:
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    resources/darwin/lima/bin/limactl shell 0 -- \
+    sudo k3s kubectl describe pod -n sulla ollama-78948bdfdc-bmmcr
+
+pull-ollama:
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    limactl shell 0 -- \
+    sudo nerdctl --address /var/run/docker/containerd/containerd.sock --namespace k8s.io pull ollama/ollama:latest
+
+stop-k8s:
+    LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
+    limactl stop 0 
