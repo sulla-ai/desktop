@@ -83,8 +83,14 @@
                 >
                   <div class="p-6">
                     <div class="flex items-start justify-between mb-4">
-                      <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-2xl dark:bg-slate-700">
-                        {{ integration.icon }}
+                      <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700">
+                        <img
+                          v-if="integration.icon.endsWith('.svg')"
+                          :src="require(`@pkg/assets/images/${integration.icon}`)"
+                          :alt="integration.name"
+                          class="h-8 w-8 object-contain"
+                        >
+                        <span v-else class="text-2xl">{{ integration.icon }}</span>
                       </div>
                       <div class="flex items-center gap-2">
                         <div

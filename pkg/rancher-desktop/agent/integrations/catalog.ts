@@ -30,7 +30,7 @@ export const integrations: Record<string, Integration> = {
     name: 'Intercom',
     description: 'Customer communication platform that helps you build better customer relationships through personalized, messenger-based experiences. Perfect for support, marketing, and sales teams.',
     category: 'Customer Support',
-    icon: '💬',
+    icon: 'intercom-icon-svgrepo-com.svg',
     connected: false,
     version: '2.1.0',
     lastUpdated: '1 day ago',
@@ -94,7 +94,7 @@ export const integrations: Record<string, Integration> = {
     name: 'Twilio',
     description: 'Programmable communication platform for SMS, voice, video, and email. Enable SULLA to send notifications, make calls, and handle customer communications through powerful APIs.',
     category: 'Communication API',
-    icon: '📞',
+    icon: 'twilio-icon-svgrepo-com.svg',
     connected: false,
     version: '3.0.1',
     lastUpdated: '3 days ago',
@@ -158,7 +158,7 @@ export const integrations: Record<string, Integration> = {
     name: 'HubSpot',
     description: 'All-in-one marketing, sales, and service platform. Help SULLA manage customer relationships, track interactions, and automate communication workflows across the entire customer lifecycle.',
     category: 'CRM & Marketing',
-    icon: '🎯',
+    icon: 'hubspot-svgrepo-com.svg',
     connected: false,
     version: '1.8.2',
     lastUpdated: '2 days ago',
@@ -222,7 +222,7 @@ export const integrations: Record<string, Integration> = {
     name: 'Slack',
     description: 'Team collaboration platform that brings all your communication together. Enable SULLA to send notifications, share updates, and interact with team members through channels and direct messages.',
     category: 'Team Communication',
-    icon: '🔷',
+    icon: 'slack-svgrepo-com.svg',
     connected: false,
     version: '2.4.0',
     lastUpdated: '5 days ago',
@@ -286,7 +286,7 @@ export const integrations: Record<string, Integration> = {
     name: 'Mailgun',
     description: 'Powerful email API service for developers. Enable SULLA to send, receive, and track emails programmatically with advanced analytics, validation, and deliverability features.',
     category: 'Email Service',
-    icon: '📧',
+    icon: 'mailgun-icon-svgrepo-com.svg',
     connected: false,
     version: '1.5.3',
     lastUpdated: '1 week ago',
@@ -350,7 +350,7 @@ export const integrations: Record<string, Integration> = {
     name: 'SendGrid',
     description: 'Cloud-based email delivery platform that reliably delivers emails on behalf of SULLA. Advanced features include email marketing campaigns, automation, and detailed analytics.',
     category: 'Email Service',
-    icon: '📨',
+    icon: 'sendgrid-icon-svgrepo-com.svg',
     connected: false,
     version: '3.2.1',
     lastUpdated: '4 days ago',
@@ -414,7 +414,7 @@ export const integrations: Record<string, Integration> = {
     name: 'WhatsApp Business',
     description: 'Connect with customers on the world\'s most popular messaging platform. Enable SULLA to send notifications, provide support, and automate conversations through WhatsApp Business API.',
     category: 'Messaging',
-    icon: '📱',
+    icon: 'whatsapp-symbol-logo-svgrepo-com.svg',
     connected: false,
     version: '2.3.1',
     lastUpdated: '1 week ago',
@@ -478,7 +478,7 @@ export const integrations: Record<string, Integration> = {
     name: 'Telegram',
     description: 'Cloud-based instant messaging service with powerful bot capabilities. Enable SULLA to create bots, send messages, and automate communication through Telegram\'s flexible API.',
     category: 'Messaging',
-    icon: '✈️',
+    icon: 'telegram-svgrepo-com.svg',
     connected: false,
     version: '1.8.0',
     lastUpdated: '3 days ago',
@@ -542,7 +542,7 @@ export const integrations: Record<string, Integration> = {
     name: 'Discord',
     description: 'Voice, video, and text communication platform designed for communities. Enable SULLA to join servers, send messages, and automate community management through Discord bots.',
     category: 'Community',
-    icon: '🎮',
+    icon: 'discord-icon-svgrepo-com.svg',
     connected: false,
     version: '2.0.5',
     lastUpdated: '2 days ago',
@@ -606,7 +606,7 @@ export const integrations: Record<string, Integration> = {
     name: 'Signal',
     description: 'Privacy-focused messaging app with end-to-end encryption. Enable SULLA to send secure messages and notifications through Signal\'s privacy-preserving platform.',
     category: 'Secure Messaging',
-    icon: '🔒',
+    icon: 'signal-svgrepo-com.svg',
     connected: false,
     version: '1.2.0',
     lastUpdated: '1 week ago',
@@ -661,6 +661,70 @@ export const integrations: Record<string, Integration> = {
         title: 'Security Best Practices',
         description: 'Tips for secure communication',
         url: 'https://signal.org/blog/security-best-practices/'
+      }
+    ]
+  },
+
+  linkedin: {
+    id: 'linkedin',
+    name: 'LinkedIn',
+    description: 'Professional networking platform for business development and recruitment. Enable SULLA to manage professional connections, share business content, and engage with industry professionals through LinkedIn\'s powerful network.',
+    category: 'Professional Network',
+    icon: 'linkedin-svgrepo-com.svg',
+    connected: false,
+    version: '1.5.0',
+    lastUpdated: '4 days ago',
+    developer: 'Microsoft Corporation',
+    images: [
+      {
+        url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=450&fit=crop',
+        alt: 'LinkedIn Professional Network',
+        caption: 'Professional networking and business development platform'
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1559028006-848a6538c4f9?w=800&h=450&fit=crop',
+        alt: 'LinkedIn Business',
+        caption: 'Business networking and professional connections'
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
+        alt: 'LinkedIn Content',
+        caption: 'Share professional content and engage with industry leaders'
+      }
+    ],
+    features: [
+      {
+        title: 'Professional Networking',
+        description: 'Build and maintain professional connections with industry leaders'
+      },
+      {
+        title: 'Content Sharing',
+        description: 'Share business insights and professional content with your network'
+      },
+      {
+        title: 'Lead Generation',
+        description: 'Generate business leads through professional networking and outreach'
+      },
+      {
+        title: 'Company Pages',
+        description: 'Manage company presence and share business updates'
+      }
+    ],
+    guideLinks: [
+      {
+        title: 'LinkedIn API Documentation',
+        description: 'Complete API reference for LinkedIn integration',
+        url: 'https://docs.microsoft.com/en-us/linkedin/'
+      },
+      {
+        title: 'Business Development Guide',
+        description: 'Best practices for professional networking on LinkedIn',
+        url: 'https://business.linkedin.com/'
+      },
+      {
+        title: 'Marketing Solutions',
+        description: 'LinkedIn marketing and advertising solutions',
+        url: 'https://business.linkedin.com/marketing-solutions/'
       }
     ]
   }

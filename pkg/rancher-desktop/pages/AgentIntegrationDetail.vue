@@ -21,8 +21,14 @@
             <div class="lg:col-span-2 space-y-8">
               <!-- Header -->
               <div class="flex items-start gap-6">
-                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-3xl dark:bg-slate-800">
-                  {{ integration.icon }}
+                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+                  <img
+                    v-if="integration.icon.endsWith('.svg')"
+                    :src="require(`@pkg/assets/images/${integration.icon}`)"
+                    :alt="integration.name"
+                    class="h-12 w-12 object-contain"
+                  >
+                  <span v-else class="text-3xl">{{ integration.icon }}</span>
                 </div>
                 <div class="flex-1">
                   <h1 class="text-3xl font-bold text-slate-900 dark:text-white mb-2">
