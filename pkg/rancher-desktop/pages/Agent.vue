@@ -121,7 +121,7 @@
  </code></pre>
                 </div>
 
-                <div v-else class="max-w-[min(760px,92%)]">
+                <div v-else-if="m.kind !== 'progress' && m.role !== 'system'" class="max-w-[min(760px,92%)]">
                   <div v-if="m.image" class="space-y-2">
                     <img
                       :src="m.image.dataUrl"
@@ -335,11 +335,11 @@
                             <button
                               type="button"
                               class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
-                              :aria-label="loading ? 'Stop' : (query.trim() ? 'Send' : 'Voice')"
-                              :disabled="showOverlay || (!loading && false)"
+                              :aria-label="(loading || graphRunning) ? 'Stop' : (query.trim() ? 'Send' : 'Voice')"
+                              :disabled="showOverlay || (!loading && !graphRunning && false)"
                               @click="handlePrimaryAction"
                             >
-                              <svg v-if="loading" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                              <svg v-if="loading || graphRunning" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />
                               </svg>
                               <svg v-else-if="query.trim()" width="18" height="18" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -483,11 +483,11 @@
                         <button
                           type="button"
                           class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d0d0d] text-white disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white dark:text-[#0d0d0d]"
-                          :aria-label="loading ? 'Stop' : (query.trim() ? 'Send' : 'Voice')"
-                          :disabled="showOverlay || (!loading && false)"
+                          :aria-label="(loading || graphRunning) ? 'Stop' : (query.trim() ? 'Send' : 'Voice')"
+                          :disabled="showOverlay || (!loading && !graphRunning && false)"
                           @click="handlePrimaryAction"
                         >
-                          <svg v-if="loading" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                          <svg v-if="loading || graphRunning" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                             <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />
                           </svg>
                           <svg v-else-if="query.trim()" width="18" height="18" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -696,11 +696,13 @@ const frontendGraphController = new FrontendGraphWebSocketService({
 const {
   query,
   transcriptEl,
+  currentAgentId,
   activePlanId,
   activePlanGoal,
   activePlanTodos,
   messages,
   hasMessages,
+  graphRunning,
 } = chatController;
 
 const registry = getAgentPersonaRegistry();

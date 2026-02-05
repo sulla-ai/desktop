@@ -1,4 +1,4 @@
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 import { getWebSocketClientService, type WebSocketMessage } from '@pkg/agent/services/WebSocketClientService';
 import type { AgentPersonaRegistry } from '@pkg/agent';
@@ -67,6 +67,9 @@ export class AgentPersonaService {
 
   // Track tool run ID to message ID mapping for updating tool cards
   private readonly toolRunIdToMessageId = new Map<string, string>();
+
+  // Track if graph is currently running
+  graphRunning = ref(false);
 
   readonly state = reactive<AgentPersonaState>({
     agentId: 'unit-01',
@@ -218,6 +221,7 @@ export class AgentPersonaService {
       case 'assistant_message':
       case 'user_message':
       case 'system_message': {
+        this.graphRunning.value = true;
         // Store message locally - persona is source of truth
         if (msg.type === 'user_message') {
           console.log('[AgentPersonaModel] Skipping user_message (already stored locally)');
@@ -362,39 +366,48 @@ export class AgentPersonaService {
         return;
       }
       case 'chat_image': {
-        // Handle chat image messages from EmitChatImageTool
         const data = (msg.data && typeof msg.data === 'object') ? (msg.data as any) : null;
-        const dataUrl = typeof data?.dataUrl === 'string' ? data.dataUrl : '';
-        const alt = typeof data?.alt === 'string' ? data.alt : '';
-        const contentType = typeof data?.contentType === 'string' ? data.contentType : '';
-        const filePath = typeof data?.path === 'string' ? data.path : '';
         
-        if (!dataUrl) {
-          console.log('[AgentPersonaModel] Skipping chat_image - empty dataUrl');
+        const src      = typeof data?.src === 'string' ? data.src : '';
+        const alt      = typeof data?.alt === 'string' ? data.alt : '';
+        const path     = typeof data?.path === 'string' ? data.path : '';
+        const isLocal  = data?.isLocal === true;
+
+        if (!src) {
+          console.log('[AgentPersonaModel] Skipping chat_image - empty src');
           return;
         }
-        
+
         const roleRaw = data?.role !== undefined ? String(data.role) : 'assistant';
-        const role = (roleRaw === 'user' || roleRaw === 'assistant' || roleRaw === 'system' || roleRaw === 'error') ? roleRaw : 'assistant';
-        
+        const role = (roleRaw === 'user' || roleRaw === 'assistant' || roleRaw === 'system' || roleRaw === 'error') 
+          ? roleRaw 
+          : 'assistant';
+
         const message: ChatMessage = {
           id: `${Date.now()}_ws_chat_image`,
           channelId: agentId,
           role,
           content: '',
           image: {
-            dataUrl,
+            dataUrl: src,    // Map src to expected dataUrl property
             alt,
-            contentType,
-            path: filePath,
+            path,
           },
         };
+
         this.messages.push(message);
-        console.log('[AgentPersonaModel] Chat image stored. Total messages:', this.messages.length);
-        
-        // Turn off loading when assistant sends image
+        console.log('[AgentPersonaModel] Chat image stored (path/URL mode). src:', src.substring(0, 80));
+
         if (role === 'assistant') {
           this.registry.setLoading(agentId, false);
+        }
+        return;
+      }
+      case 'transfer_data': {
+        const data = (msg.data && typeof msg.data === 'object') ? (msg.data as any) : null;
+        if (data === 'graph_execution_complete' || data?.content === 'graph_execution_complete') {
+          console.log('[AgentPersonaModel] Graph execution complete, setting graphRunning = false');
+          this.graphRunning.value = false;
         }
         return;
       }

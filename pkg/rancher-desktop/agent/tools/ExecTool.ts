@@ -68,8 +68,15 @@ Rules:
       return { toolName: this.name, success: false, error: 'Missing command' };
     }
 
-    const command = argsArray[0];
-    const subArgs = argsArray.slice(1);
+    let command = argsArray[0];
+    let subArgs = argsArray.slice(1);
+
+    // Handle case where people accidentally send ["sh", "-c", "script"] → command becomes "-c"
+    if (command === '-c' && subArgs.length >= 1) {
+      // Assume previous arg was sh, reconstruct properly
+      command = 'sh';
+      subArgs = ['-c', ...subArgs];
+    }
 
     // Allow simple commands from list
     if (ALLOWED_COMMANDS.has(command) && command !== 'sh') {
@@ -81,18 +88,18 @@ Rules:
         : { toolName: this.name, success: false, error: res.stderr || 'command failed' };
     }
 
-    // Full shell mode: must be sh -c "script"
+    // Full shell mode: sh -c "script"
     if (command === 'sh' && subArgs[0] === '-c' && subArgs.length >= 2) {
       const script = subArgs.slice(1).join(' '); // preserve full expression
       console.log('[ExecTool] Full shell script:', script.substring(0, 200) + '...');
 
-      const res = await runCommand('sh', ['-c', script], { timeoutMs: 30000 });
+      const res = await runCommand('sh', ['-c', script], { timeoutMs: 1200000 });
 
       return res.exitCode === 0
         ? { toolName: this.name, success: true, result: res }
         : { toolName: this.name, success: false, error: res.stderr || 'shell script failed' };
     }
 
-    return { toolName: this.name, success: false, error: `Invalid command: ${command} (use sh -c for shell features)` };
+    return { toolName: this.name, success: false, error: `Invalid command: ${command} (use ["exec", "sh", "-c", "your full command here"])` };
   }
 }

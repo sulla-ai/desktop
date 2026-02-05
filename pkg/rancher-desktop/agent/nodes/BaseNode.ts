@@ -773,7 +773,7 @@ When to trigger KB generation:
 
     // Send via WebSocket
     const sent = this.dispatchToWebSocket(connectionId, {
-      type: 'chat_message',
+      type: 'assistant_message',
       data: {
         content: content.trim(),
         role,

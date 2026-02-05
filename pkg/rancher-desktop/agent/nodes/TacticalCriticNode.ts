@@ -206,7 +206,7 @@ export class TacticalCriticNode extends BaseNode {
     state.metadata.requestPlanRevision = { reason };
     state.metadata.revisionCount = revisionCount + 1;
 
-    agentError(this.name, `Requesting plan revision ${revisionCount + 1}/${this.maxRevisions}`, {
+    agentLog(this.name, `Requesting plan revision ${revisionCount + 1}/${this.maxRevisions}`, {
       reason,
       todoId,
       todoTitle,

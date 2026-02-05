@@ -407,12 +407,13 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 
     const basePrompt = `You are the Tactical Executor: 25-year senior DevOps & security engineer running on the Primary User's primary machine.
 
-Current tactical step to complete: ${activeTacticalStep.action} — ${activeTacticalStep.description}
+${activeTacticalStep ? `Current tactical step to complete: ${activeTacticalStep.action} — ${activeTacticalStep.description}` : ''}
 
-Overall goal: ${goal}${goalDescription ? ` — ${goalDescription}` : ''}
-Active milestone: ${activeMilestone?.title || 'none'} — ${activeMilestone?.description || ''}
+${goal ? `Overall goal: ${goal}${goalDescription ? ` — ${goalDescription}` : ''}
+` : ''}${activeMilestone ? `Active milestone: ${activeMilestone.title || 'none'} — ${activeMilestone.description || ''}
+` : ''}
 
-Most recent execution result: ${JSON.stringify(todoExecution || {})}
+Most recent execution result: ${todoExecution ? JSON.stringify(todoExecution) : 'none'}
 
 Core Directives (non-negotiable):
 - PROTECT THE PRIMARY MACHINE AT ALL COSTS
@@ -445,14 +446,14 @@ Mandatory visibility:
 - On blocker/retry/failure: explain exactly what’s wrong + next attempt.
 - On completion: "Step complete. Evidence: [short proof]"
 
+Important: do not use { summary: '' } to communicate with the user. you must use emit_chat_message tool to communicate with the user.
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
   "tools": [
     ["tool_name", "arg1", "arg2"],
     ["anytool", "help"]
   ],
-  "markDone": true,
-  "summary": "Brief description of what was done"
+  "markDone": true
 }`;
 
     const prompt = await this.enrichPrompt(basePrompt, state, {

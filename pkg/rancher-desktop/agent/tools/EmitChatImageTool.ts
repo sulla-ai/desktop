@@ -19,28 +19,16 @@ function expandHome(inputPath: string): string {
   return p;
 }
 
-function guessContentType(filePath: string): string | null {
-  const ext = path.extname(filePath).toLowerCase();
-  const map: Record<string, string> = {
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.webp': 'image/webp',
-    '.svg': 'image/svg+xml',
-  };
-  return map[ext] || null;
-}
-
 export class EmitChatImageTool extends BaseTool {
   override readonly name = 'emit_chat_image';
 
   override getPlanningInstructions(): string {
-    return `["emit_chat_image", "/path/to/image.png"] - Display image in chat
+    return `["emit_chat_image", "/path/to/image.png"] - Display image via file path or URL
 
 Examples:
-["emit_chat_image", "~/screenshots/lead-form.png", "--alt", "High-converting lead capture form"]
-["emit_chat_image", "/tmp/chart.png", "--alt", "Conversion rate trend", "--role", "assistant"]
+["emit_chat_image", "~/screenshots/lead-form.png", "--alt", "Lead capture form"]
+["emit_chat_image", "https://example.com/chart.png", "--alt", "Conversion trend"]
+["emit_chat_image", "/tmp/report.jpg", "--alt", "Results", "--role", "assistant"]
 `.trim();
   }
 
@@ -48,52 +36,55 @@ Examples:
     const helpResult = await this.handleHelpRequest(context);
     if (helpResult) return helpResult;
 
-    const args = this.getArgsArray(context); // after "emit_chat_image"
-
+    const args = this.getArgsArray(context);
     if (!args.length) {
-      return { toolName: this.name, success: false, error: 'Missing file path' };
+      return { toolName: this.name, success: false, error: 'Missing path or URL' };
     }
 
-    // First arg = path
-    const rawPath = args[0].trim();
+    const rawSrc = args[0].trim();
     const params = this.argsToObject(args.slice(1));
 
-    const alt = (params.alt as string) || '';
-    const role = (params.role as string) || 'assistant';
+    const alt   = (params.alt   as string) || '';
+    const role  = (params.role  as string) || 'assistant';
 
-    const filePath = expandHome(rawPath);
-    if (!filePath) {
-      return { toolName: this.name, success: false, error: 'Invalid/empty path' };
+    let src = rawSrc;
+    let isLocal = false;
+
+    // Normalize local paths
+    if (!rawSrc.startsWith('http://') && !rawSrc.startsWith('https://')) {
+      src = expandHome(rawSrc);
+      isLocal = true;
+
+      // Add file:// prefix for local paths
+      if (!src.startsWith('file://')) {
+        src = `file://${src}`;
+      }
+
+      // Optional: existence check
+      if (!fs.existsSync(src.replace('file://', ''))) {
+        return { toolName: this.name, success: false, error: `File not found: ${src}` };
+      }
     }
-
-    const contentType = guessContentType(filePath);
-    if (!contentType) {
-      return { toolName: this.name, success: false, error: `Unsupported extension: ${path.extname(filePath) || '(none)'}` };
-    }
-
-    let buf: Buffer;
-    try {
-      buf = fs.readFileSync(filePath);
-    } catch (err: any) {
-      return { toolName: this.name, success: false, error: `Read failed: ${err.message || String(err)}` };
-    }
-
-    const base64 = buf.toString('base64');
-    const dataUrl = `data:${contentType};base64,${base64}`;
 
     const connectionId = (state.metadata?.wsConnectionId as string) || 'chat-controller';
 
     const wsService = getWebSocketClientService();
     wsService.send(connectionId, {
       type: 'chat_image',
-      data: { role, alt, contentType, dataUrl, path: filePath },
+      data: {
+        role,
+        alt,
+        src,                // ← frontend uses this directly in <img src={src}>
+        isLocal,            // optional hint if frontend needs special handling
+        path: isLocal ? src : undefined,
+      },
       timestamp: Date.now(),
     });
 
     return {
       toolName: this.name,
       success: true,
-      result: { emitted: true, contentType, path: filePath, alt },
+      result: { emitted: true, src, alt, isLocal },
     };
   }
 }
