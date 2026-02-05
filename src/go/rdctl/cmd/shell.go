@@ -30,8 +30,8 @@ import (
 // shellCmd represents the shell command
 var shellCmd = &cobra.Command{
 	Use:   "shell",
-	Short: "Run an interactive shell or a command in a Rancher Desktop-managed VM",
-	Long: `Run an interactive shell or a command in a Rancher Desktop-managed VM. For example:
+	Short: "Run an interactive shell or a command in a Sulla Desktop-managed VM",
+	Long: `Run an interactive shell or a command in a Sulla Desktop-managed VM. For example:
 
 > rdctl shell
 -- Runs an interactive shell

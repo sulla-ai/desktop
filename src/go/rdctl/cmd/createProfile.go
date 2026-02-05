@@ -56,7 +56,7 @@ var UseCurrentSettings bool
 var createProfileCmd = &cobra.Command{
 	Use:   "create-profile",
 	Short: "Generate a deployment profile in either macOS plist or Windows registry format",
-	Long: `Use this to generate deployment profiles for Rancher Desktop settings.
+	Long: `Use this to generate deployment profiles for Sulla Desktop settings.
 You can either convert the current listings in operation, or
 specify a JSON snippet, and convert that to the desired target.
 macOS plist files can be placed in the appropriate directory, while ".reg" files

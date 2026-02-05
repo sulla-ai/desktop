@@ -8,7 +8,59 @@ import { calendarClient } from '../services/CalendarClient'; // adjust path
 
 export class CalendarTool extends BaseTool {
   override readonly name = 'calendar';
-  override readonly aliases = ['cal', 'schedule', 'events'];
+  override readonly aliases = ['cal', 'schedule', 'events', 'reminder'];
+
+  /**
+   * Parse time strings, handling both ISO dates and relative expressions
+   * like "60 seconds from now", "5 minutes from now", "1 hour from now"
+   */
+  private parseTime(timeStr?: string): string | undefined {
+    if (!timeStr) return undefined;
+    
+    // If it's already an ISO date, return as-is
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z?$/.test(timeStr)) {
+      return timeStr;
+    }
+    
+    // Parse relative time expressions
+    const relativeMatch = timeStr.match(/^(\d+)\s+(second|seconds|minute|minutes|hour|hours|day|days)s?\s+from\s+now$/i);
+    if (relativeMatch) {
+      const amount = parseInt(relativeMatch[1], 10);
+      const unit = relativeMatch[2].toLowerCase();
+      
+      // Use current time in user's local timezone
+      const now = new Date();
+      let futureTime: Date;
+      
+      switch (unit) {
+        case 'second':
+        case 'seconds':
+          futureTime = new Date(now.getTime() + amount * 1000);
+          break;
+        case 'minute':
+        case 'minutes':
+          futureTime = new Date(now.getTime() + amount * 60 * 1000);
+          break;
+        case 'hour':
+        case 'hours':
+          futureTime = new Date(now.getTime() + amount * 60 * 60 * 1000);
+          break;
+        case 'day':
+        case 'days':
+          futureTime = new Date(now.getTime() + amount * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          return timeStr; // Return original if can't parse
+      }
+      
+      // Return as UTC ISO string for database storage
+      console.log(`[CalendarTool] Parsed "${timeStr}" to local time: ${futureTime.toLocaleString()} → UTC: ${futureTime.toISOString()}`);
+      return futureTime.toISOString();
+    }
+    
+    // Return original if no pattern matches
+    return timeStr;
+  }
 
   override getPlanningInstructions(): string {
     return `["calendar","create","--title","Reminder: 60s from request","--startTime","2026-02-05T08:02:00Z","--endTime","2026-02-05T08:02:01Z","--description","Auto-triggered 60s after 'Set me up a reminder 60 seconds from now'"] - Manage calendar events, reminders, and schedules
@@ -59,10 +111,15 @@ Args:
       switch (subcommand) {
         case 'create': {
           const params = this.argsToObject(rest);
+          
+          // Parse relative time expressions
+          const startTime = this.parseTime(params.start || params.startTime) || new Date().toISOString();
+          const endTime = this.parseTime(params.end || params.endTime) || new Date(Date.now() + 60 * 1000).toISOString(); // Default 1 minute later
+          
           const event = {
             title: params.title,
-            start: params.start || params.startTime,
-            end: params.end || params.endTime,
+            start: startTime,
+            end: endTime,
             description: params.description,
             location: params.location,
             people: params.people,

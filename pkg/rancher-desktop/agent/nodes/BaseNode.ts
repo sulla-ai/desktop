@@ -862,15 +862,14 @@ When to trigger KB generation:
   }
 
   /**
-   * Execute an array of tool calls in exec form
-   * @param state ThreadState for execution context
-   * @param tools Array of tool calls in exec form: [["toolName", "arg1", "arg2"], ...]
-   * @returns Array of tool results
+   * Execute multiple tool calls and return results
    */
   protected async executeToolCalls(
     state: ThreadState,
     tools: unknown[],
   ): Promise<Array<{ toolName: string; success: boolean; result?: unknown; error?: string }>> {
+    console.log(`[BaseNode:${this.name}] Executing ${tools.length} tool calls:`, JSON.stringify(tools, null, 2));
+    
     const { getToolRegistry, registerDefaultTools } = await import('../tools');
     registerDefaultTools();
     const registry = getToolRegistry();
@@ -879,9 +878,13 @@ When to trigger KB generation:
     const results: Array<{ toolName: string; success: boolean; result?: unknown; error?: string }> = [];
 
     for (const { toolName, args } of normalized) {
+      console.log(`[BaseNode:${this.name}] Executing tool: ${toolName} with args:`, JSON.stringify(args, null, 2));
+      
       const tool = registry.get(toolName);
       if (!tool) {
-        results.push({ toolName, success: false, error: `Unknown tool: ${toolName}` });
+        const error = `Unknown tool: ${toolName}`;
+        console.error(`[BaseNode:${this.name}] Tool execution failed:`, error);
+        results.push({ toolName, success: false, error });
         continue;
       }
 
@@ -890,6 +893,13 @@ When to trigger KB generation:
           toolName,
           args,
         });
+        
+        console.log(`[BaseNode:${this.name}] Tool ${toolName} result:`, {
+          success: result.success,
+          result: result.result,
+          error: result.error
+        });
+        
         results.push({
           toolName,
           success: result.success,
@@ -897,10 +907,13 @@ When to trigger KB generation:
           error: result.error,
         });
       } catch (err: any) {
-        results.push({ toolName, success: false, error: err.message || String(err) });
+        const error = err.message || String(err);
+        console.error(`[BaseNode:${this.name}] Tool ${toolName} threw exception:`, error);
+        results.push({ toolName, success: false, error });
       }
     }
 
+    console.log(`[BaseNode:${this.name}] All tool executions completed. Results:`, JSON.stringify(results, null, 2));
     return results;
   }
 
