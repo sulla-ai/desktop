@@ -865,22 +865,27 @@ export const integrations: Record<string, Integration> = {
     developer: 'Discord Inc.',
     media: [
       {
-        type: 'image',
-        url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
-        alt: 'Discord Server',
-        caption: 'Community server with channels and voice rooms'
+        type: 'youtube',
+        url: 'TJ13BA3-NR4',
+        alt: 'Discord Overview',
+        caption: 'How Discord Works in 148,000 Miliseconds or Less'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=450&fit=crop',
-        alt: 'Bot Integration',
-        caption: 'Powerful bot integration for server automation'
+        url: 'discord-media-1.jpg',
+        alt: 'Destop Interface',
+        caption: 'Discord interface of desktop app'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
-        alt: 'Voice Channels',
-        caption: 'High-quality voice communication for teams'
+        url: 'discord-media-2.webp',
+        alt: 'Desktop and Mobile',
+        caption: 'Discord available on desktop and mobile'
+      },
+      {
+        type: 'image',
+        url: 'discord-media-3.webp',
+        alt: 'Features'
       }
     ],
     features: [
@@ -947,22 +952,28 @@ export const integrations: Record<string, Integration> = {
     developer: 'Signal Foundation',
     media: [
       {
-        type: 'image',
-        url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop',
+        type: 'youtube',
+        url: 'vjdlMZQbSQs',
         alt: 'Signal Interface',
         caption: 'Clean, privacy-focused messaging interface'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=450&fit=crop',
+        url: 'signal-media-1.webp',
         alt: 'Secure Messaging',
         caption: 'End-to-end encrypted conversations'
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1610945411025-4e1a472b8ddb?w=800&h=450&fit=crop',
-        alt: 'Privacy Features',
-        caption: 'Advanced privacy and security features'
+        url: 'signal-media-2.webp',
+        alt: 'Voice & Video Calls',
+        caption: 'Secure voice and video calling'
+      },
+      {
+        type: 'image',
+        url: 'signal-media-3.png',
+        alt: 'Backup Plans',
+        caption: 'Secure backup and recovery options'
       }
     ],
     features: [
