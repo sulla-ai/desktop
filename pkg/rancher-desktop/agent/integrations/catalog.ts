@@ -394,11 +394,6 @@ export const integrations: Record<string, Integration> = {
         url: 'https://api.slack.com/authentication/basics'
       },
       {
-        title: 'Webhook Tutorial',
-        description: 'Set up incoming and outgoing webhooks for automation',
-        url: 'https://api.slack.com/messaging/webhooks'
-      },
-      {
         title: 'Best Practices',
         description: 'Tips for effective team communication on Slack',
         url: 'https://slack.com/resources'
@@ -413,9 +408,9 @@ export const integrations: Record<string, Integration> = {
         required: true,
         placeholder: '',
         validation: {
-          pattern: '^xoxb-[0-9]{10}-[0-9]{10}-[0-9]{10}-[a-zA-Z0-9]{24}$',
-          minLength: 51,
-          maxLength: 51
+          pattern: '^xoxb-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9_-]{24}$',
+          minLength: 50,
+          maxLength: 60
         }
       },
       {

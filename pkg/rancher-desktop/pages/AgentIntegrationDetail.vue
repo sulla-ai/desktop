@@ -64,7 +64,7 @@
                       <!-- Main Media -->
                       <div class="aspect-video">
                         <!-- YouTube Video -->
-                        <CSPlayer
+                        <YouTubePlayer
                           v-if="integration.media[currentImageIndex].type === 'youtube'"
                           :video-id="integration.media[currentImageIndex].url"
                           :title="integration.media[currentImageIndex].alt"
@@ -293,7 +293,7 @@
 <script setup lang="ts">
 import AgentHeader from './agent/AgentHeader.vue';
 import { integrations, type Integration } from '@pkg/agent/integrations/catalog';
-import CSPlayer from '@pkg/components/CSPlayer.vue';
+import YouTubePlayer from '@pkg/components/YouTubePlayer.vue';
 
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
