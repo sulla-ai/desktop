@@ -62,17 +62,17 @@ export const integrations: Record<string, Integration> = {
       {
         type: 'image',
         url: 'intercom-media-1.webp',
-        alt: 'Intercom - 1'
+        alt: 'Intercom Media - 1'
       },
       {
         type: 'image',
         url: 'intercom-media-2.webp',
-        alt: 'Intercom - 2'
+        alt: 'Intercom Media - 2'
       },
       {
         type: 'image',
         url: 'intercom-media-3.webp',
-        alt: 'Intercom - 3'
+        alt: 'Intercom Media - 3'
       }
     ],
     features: [
@@ -273,18 +273,23 @@ export const integrations: Record<string, Integration> = {
       },
       {
         type: 'image',
-        url: 'hubspot-media-1.avif',
-        alt: 'HubSpot - 1'
+        url: 'hubspot-media-1.webp',
+        alt: 'HubSpot Media - 1'
       },
       {
         type: 'image',
-        url: 'hubspot-media-2.avif',
-        alt: 'HubSpot - 2'
+        url: 'hubspot-media-2.png',
+        alt: 'HubSpot Media - 2'
       },
       {
         type: 'image',
-        url: 'hubspot-media-3.avif',
-        alt: 'HubSpot - 3'
+        url: 'hubspot-media-3.png',
+        alt: 'HubSpot Media - 3'
+      },
+      {
+        type: 'image',
+        url: 'hubspot-media-4.png',
+        alt: 'HubSpot Media - 4'
       }
     ],
     features: [
@@ -371,9 +376,15 @@ export const integrations: Record<string, Integration> = {
       },
       {
         type: 'image',
-        url: 'slack-media-1.png',
+        url: 'slack-media-1.jpeg',
         alt: 'Slack Desktop Client',
-        caption: 'Native Slack desktop application for Windows with all features'
+        caption: 'Native Slack desktop application'
+      },
+      {
+        type: 'image',
+        url: 'slack-media-2.png',
+        alt: 'Slack Integrations',
+        caption: 'Slack integrations marketplace'
       }
     ],
     features: [
