@@ -150,9 +150,35 @@
                 <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">
                   {{ integration.connected ? 'Manage Connection' : 'Connect Integration' }}
                 </h3>
+                
+                <!-- Configuration Form -->
+                <div v-if="!integration.connected && integration.properties && integration.properties.length > 0" class="space-y-4 mb-6">
+                  <div v-for="property in integration.properties" :key="property.key" class="space-y-2">
+                    <label :for="property.key" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      {{ property.title }}
+                      <span v-if="property.required" class="text-red-500">*</span>
+                    </label>
+                    <input
+                      :id="property.key"
+                      :type="property.type"
+                      v-model="formData[property.key]"
+                      :placeholder="property.placeholder"
+                      :required="property.required"
+                      class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-slate-700 dark:text-white"
+                      :class="{ 'border-red-500': errors[property.key] }"
+                    >
+                    <p v-if="property.hint" class="text-xs text-slate-500 dark:text-slate-400">
+                      {{ property.hint }}
+                    </p>
+                    <p v-if="errors[property.key]" class="text-xs text-red-500">
+                      {{ errors[property.key] }}
+                    </p>
+                  </div>
+                </div>
+                
                 <div class="space-y-4">
                   <button
-                    @click="integration.connected ? disconnectIntegration() : connectIntegration()"
+                    @click="integration.connected ? disconnectIntegration() : handleConnect()"
                     class="w-full rounded-lg px-4 py-2 text-sm font-medium transition-colors"
                     :class="integration.connected 
                       ? 'bg-red-600 text-white hover:bg-red-700' 
@@ -279,6 +305,8 @@ const router = useRouter();
 
 const integration = ref<Integration | null>(null);
 const currentImageIndex = ref(0);
+const formData = ref<Record<string, string>>({});
+const errors = ref<Record<string, string>>({});
 
 // Carousel functions
 const nextImage = () => {
@@ -311,6 +339,73 @@ const disconnectIntegration = () => {
   if (integration.value) {
     integration.value.connected = false;
     integrations[integration.value.id].connected = false;
+  }
+};
+
+// Validation functions
+const validateField = (property: any, value: string): string | null => {
+  if (property.required && (!value || value.trim() === '')) {
+    return `${property.title} is required`;
+  }
+  
+  if (!value) return null;
+  
+  if (property.validation) {
+    const { pattern, minLength, maxLength, min, max } = property.validation;
+    
+    if (pattern && !new RegExp(pattern).test(value)) {
+      return `${property.title} format is invalid`;
+    }
+    
+    if (minLength && value.length < minLength) {
+      return `${property.title} must be at least ${minLength} characters`;
+    }
+    
+    if (maxLength && value.length > maxLength) {
+      return `${property.title} must be no more than ${maxLength} characters`;
+    }
+    
+    if (property.type === 'number') {
+      const numValue = Number(value);
+      if (min !== undefined && numValue < min) {
+        return `${property.title} must be at least ${min}`;
+      }
+      if (max !== undefined && numValue > max) {
+        return `${property.title} must be no more than ${max}`;
+      }
+    }
+  }
+  
+  return null;
+};
+
+const validateForm = (): boolean => {
+  if (!integration.value?.properties) return true;
+  
+  errors.value = {};
+  let isValid = true;
+  
+  for (const property of integration.value.properties) {
+    const error = validateField(property, formData.value[property.key] || '');
+    if (error) {
+      errors.value[property.key] = error;
+      isValid = false;
+    }
+  }
+  
+  return isValid;
+};
+
+const handleConnect = () => {
+  if (!integration.value?.properties || integration.value.properties.length === 0) {
+    connectIntegration();
+    return;
+  }
+  
+  if (validateForm()) {
+    console.log('Form submitted with data:', formData.value);
+    // TODO: Handle the submitted data later as requested
+    connectIntegration();
   }
 };
 

@@ -23,6 +23,22 @@ export interface Integration {
     description: string;
     url: string;
   }>;
+  properties?: Array<{
+    key: string;
+    title: string;
+    hint: string;
+    type: 'text' | 'password' | 'email' | 'url' | 'number';
+    default?: string;
+    required: boolean;
+    placeholder?: string;
+    validation?: {
+      pattern?: string;
+      minLength?: number;
+      maxLength?: number;
+      min?: number;
+      max?: number;
+    };
+  }>;
 }
 
 export const integrations: Record<string, Integration> = {
@@ -89,6 +105,34 @@ export const integrations: Record<string, Integration> = {
         title: 'Best Practices',
         description: 'Tips and strategies for effective customer communication',
         url: 'https://www.intercom.com'
+      }
+    ],
+    properties: [
+      {
+        key: 'access_token',
+        title: 'Access Token',
+        hint: 'Your Intercom access token with proper permissions',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^dG9rOj[a-zA-Z0-9]{60}$',
+          minLength: 64,
+          maxLength: 64
+        }
+      },
+      {
+        key: 'app_id',
+        title: 'App ID',
+        hint: 'Your Intercom application ID',
+        type: 'text',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^[a-zA-Z0-9]{12}$',
+          minLength: 12,
+          maxLength: 12
+        }
       }
     ]
   },
@@ -157,6 +201,47 @@ export const integrations: Record<string, Integration> = {
         description: 'Complete reference for voice calling capabilities',
         url: 'https://www.twilio.com/docs/voice'
       }
+    ],
+    properties: [
+      {
+        key: 'account_sid',
+        title: 'Account SID',
+        hint: 'Your Twilio Account SID starting with AC',
+        type: 'text',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^AC[a-zA-Z0-9]{32}$',
+          minLength: 34,
+          maxLength: 34
+        }
+      },
+      {
+        key: 'auth_token',
+        title: 'Auth Token',
+        hint: 'Your Twilio authentication token',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^[a-zA-Z0-9]{32}$',
+          minLength: 32,
+          maxLength: 32
+        }
+      },
+      {
+        key: 'phone_number',
+        title: 'Twilio Phone Number',
+        hint: 'Your Twilio phone number in E.164 format',
+        type: 'text',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^\\+[1-9]\\d{1,14}$',
+          minLength: 10,
+          maxLength: 16
+        }
+      }
     ]
   },
 
@@ -224,6 +309,34 @@ export const integrations: Record<string, Integration> = {
         description: 'Best practices for successful email campaigns',
         url: 'https://blog.hubspot.com'
       }
+    ],
+    properties: [
+      {
+        key: 'api_key',
+        title: 'Private App API Key',
+        hint: 'Your HubSpot private app access token',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^pat-[a-z0-9]{3}-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',
+          minLength: 51,
+          maxLength: 51
+        }
+      },
+      {
+        key: 'portal_id',
+        title: 'Portal ID',
+        hint: 'Your HubSpot portal/account ID',
+        type: 'text',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^\\d{7,8}$',
+          minLength: 7,
+          maxLength: 8
+        }
+      }
     ]
   },
 
@@ -276,6 +389,11 @@ export const integrations: Record<string, Integration> = {
         url: 'https://api.slack.com'
       },
       {
+        title: 'Bot Token Guide',
+        description: 'How to create and configure Slack bot tokens',
+        url: 'https://api.slack.com/authentication/basics'
+      },
+      {
         title: 'Webhook Tutorial',
         description: 'Set up incoming and outgoing webhooks for automation',
         url: 'https://api.slack.com/messaging/webhooks'
@@ -284,6 +402,47 @@ export const integrations: Record<string, Integration> = {
         title: 'Best Practices',
         description: 'Tips for effective team communication on Slack',
         url: 'https://slack.com/resources'
+      }
+    ],
+    properties: [
+      {
+        key: 'bot_token',
+        title: 'Bot Token',
+        hint: 'Your Slack bot token starting with xoxb-',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^xoxb-[0-9]{10}-[0-9]{10}-[0-9]{10}-[a-zA-Z0-9]{24}$',
+          minLength: 51,
+          maxLength: 51
+        }
+      },
+      {
+        key: 'signing_secret',
+        title: 'Signing Secret',
+        hint: 'Used to verify that requests are coming from Slack',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^[a-zA-Z0-9]{32}$',
+          minLength: 32,
+          maxLength: 32
+        }
+      },
+      {
+        key: 'channel',
+        title: 'Channel',
+        hint: 'Default Slack channel for messages (e.g., #general)',
+        type: 'text',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^#?[a-z0-9-_]{1,21}$',
+          minLength: 2,
+          maxLength: 22
+        }
       }
     ]
   },
@@ -352,6 +511,41 @@ export const integrations: Record<string, Integration> = {
         description: 'Best practices for high email deliverability',
         url: 'https://www.mailgun.com/blog/deliverability'
       }
+    ],
+    properties: [
+      {
+        key: 'api_key',
+        title: 'API Key',
+        hint: 'Your Mailgun private API key',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^key-[a-zA-Z0-9]{32}$',
+          minLength: 35,
+          maxLength: 35
+        }
+      },
+      {
+        key: 'domain',
+        title: 'Domain',
+        hint: 'Your verified Mailgun domain',
+        type: 'text',
+        required: true,
+        placeholder: 'mg.yourdomain.com',
+        validation: {
+          pattern: '^[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$',
+          minLength: 3
+        }
+      },
+      {
+        key: 'from_email',
+        title: 'From Email',
+        hint: 'Default sender email address',
+        type: 'email',
+        required: true,
+        placeholder: 'noreply@yourdomain.com'
+      }
     ]
   },
 
@@ -418,6 +612,29 @@ export const integrations: Record<string, Integration> = {
         title: 'Getting Started',
         description: 'Quick start guide for new SendGrid users',
         url: 'https://sendgrid.com/docs/for-developers/sending-email/getting-started'
+      }
+    ],
+    properties: [
+      {
+        key: 'api_key',
+        title: 'API Key',
+        hint: 'Your SendGrid API key with email sending permissions',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^SG\\.[a-zA-Z0-9]{48}\\.[a-zA-Z0-9]{86}$',
+          minLength: 143,
+          maxLength: 143
+        }
+      },
+      {
+        key: 'from_email',
+        title: 'From Email',
+        hint: 'Default sender email address (must be verified in SendGrid)',
+        type: 'email',
+        required: true,
+        placeholder: 'noreply@yourdomain.com'
       }
     ]
   },
@@ -486,6 +703,45 @@ export const integrations: Record<string, Integration> = {
         description: 'Guidelines for effective WhatsApp communication',
         url: 'https://developers.facebook.com/docs/whatsapp/best-practices'
       }
+    ],
+    properties: [
+      {
+        key: 'phone_number_id',
+        title: 'Phone Number ID',
+        hint: 'Your WhatsApp Business phone number ID',
+        type: 'text',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^\\d{15}$',
+          minLength: 15,
+          maxLength: 15
+        }
+      },
+      {
+        key: 'access_token',
+        title: 'Access Token',
+        hint: 'Your WhatsApp Business API access token',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^EAAJ[a-zA-Z0-9]{150,200}$',
+          minLength: 153,
+          maxLength: 203
+        }
+      },
+      {
+        key: 'webhook_verify_token',
+        title: 'Webhook Verify Token',
+        hint: 'Token for webhook verification (optional)',
+        type: 'text',
+        required: false,
+        placeholder: 'your-verify-token',
+        validation: {
+          minLength: 8
+        }
+      }
     ]
   },
 
@@ -552,6 +808,29 @@ export const integrations: Record<string, Integration> = {
         title: 'Bot Examples',
         description: 'Sample bots and code examples to get started',
         url: 'https://core.telegram.org/bots/samples'
+      }
+    ],
+    properties: [
+      {
+        key: 'bot_token',
+        title: 'Bot Token',
+        hint: 'Your Telegram bot token from @BotFather',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^\\d{10}:[a-zA-Z0-9_-]{35}$',
+          minLength: 46,
+          maxLength: 46
+        }
+      },
+      {
+        key: 'webhook_url',
+        title: 'Webhook URL',
+        hint: 'URL for receiving bot updates (optional)',
+        type: 'url',
+        required: false,
+        placeholder: 'https://yourdomain.com/telegram-webhook'
       }
     ]
   },
@@ -620,6 +899,47 @@ export const integrations: Record<string, Integration> = {
         description: 'Best practices for Discord community management',
         url: 'https://discord.com/guidelines'
       }
+    ],
+    properties: [
+      {
+        key: 'bot_token',
+        title: 'Bot Token',
+        hint: 'Your Discord bot token',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^[a-zA-Z0-9_\\-\\.]{24}\\.[a-zA-Z0-9_\\-\\.]{6}\\.[a-zA-Z0-9_\\-\\.]{27}$',
+          minLength: 59,
+          maxLength: 59
+        }
+      },
+      {
+        key: 'client_id',
+        title: 'Client ID',
+        hint: 'Your Discord application client ID',
+        type: 'text',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^\\d{17,19}$',
+          minLength: 17,
+          maxLength: 19
+        }
+      },
+      {
+        key: 'guild_id',
+        title: 'Server ID',
+        hint: 'Discord server ID where the bot will operate',
+        type: 'text',
+        required: false,
+        placeholder: '',
+        validation: {
+          pattern: '^\\d{17,19}$',
+          minLength: 17,
+          maxLength: 19
+        }
+      }
     ]
   },
 
@@ -687,6 +1007,34 @@ export const integrations: Record<string, Integration> = {
         description: 'Tips for secure communication',
         url: 'https://signal.org/blog/security-best-practices/'
       }
+    ],
+    properties: [
+      {
+        key: 'phone_number',
+        title: 'Phone Number',
+        hint: 'Your Signal registered phone number in E.164 format',
+        type: 'text',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^\\+[1-9]\\d{1,14}$',
+          minLength: 10,
+          maxLength: 16
+        }
+      },
+      {
+        key: 'uuid',
+        title: 'UUID',
+        hint: 'Your Signal UUID (optional, can be retrieved via API)',
+        type: 'text',
+        required: false,
+        placeholder: '',
+        validation: {
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+          minLength: 36,
+          maxLength: 36
+        }
+      }
     ]
   },
 
@@ -753,6 +1101,47 @@ export const integrations: Record<string, Integration> = {
         title: 'Marketing Solutions',
         description: 'LinkedIn marketing and advertising solutions',
         url: 'https://business.linkedin.com/marketing-solutions/'
+      }
+    ],
+    properties: [
+      {
+        key: 'client_id',
+        title: 'Client ID',
+        hint: 'Your LinkedIn application client ID',
+        type: 'text',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^[a-zA-Z0-9]{16}$',
+          minLength: 16,
+          maxLength: 16
+        }
+      },
+      {
+        key: 'client_secret',
+        title: 'Client Secret',
+        hint: 'Your LinkedIn application client secret',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^[a-zA-Z0-9]{16}$',
+          minLength: 16,
+          maxLength: 16
+        }
+      },
+      {
+        key: 'access_token',
+        title: 'Access Token',
+        hint: 'OAuth 2.0 access token (optional, can be obtained during flow)',
+        type: 'password',
+        required: false,
+        placeholder: '',
+        validation: {
+          pattern: '^AQX[a-zA-Z0-9]{100,200}$',
+          minLength: 103,
+          maxLength: 203
+        }
       }
     ]
   }

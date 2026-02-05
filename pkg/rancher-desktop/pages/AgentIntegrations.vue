@@ -6,7 +6,7 @@
       <div class="flex w-full flex-col">
         <div class="overflow-hidden bg-slate-900 dark:-mt-19 dark:-mb-32 dark:pt-19 dark:pb-32">
           <div class="py-16 sm:px-2 lg:relative lg:px-0 lg:py-20">
-            <div class="mx-auto grid max-w-6xl grid-cols-1 items-center gap-x-8 gap-y-10 px-4 lg:grid-cols-2 lg:px-8 xl:gap-x-16">
+            <div class="mx-auto grid max-w-6xl md:grid-cols-2 lg:grid-cols-3 items-center gap-x-8 gap-y-10 px-4 md:px-6 lg:px-8 xl:gap-x-16">
               <div class="relative z-10 md:text-center lg:text-left">
                 <div class="relative">
                   <p class="inline bg-linear-to-r from-indigo-200 via-sky-400 to-indigo-200 bg-clip-text font-display text-5xl tracking-tight text-transparent">
@@ -74,7 +74,7 @@
 
               <div
                 v-else
-                class="grid grid-cols-3 gap-6"
+                class="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
               >
                 <div
                   v-for="integration in filteredIntegrations"
