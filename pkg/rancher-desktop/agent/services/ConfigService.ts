@@ -135,7 +135,7 @@ export function getAgentConfig(): AgentConfig {
     remoteTimeoutSeconds: 60,
     heartbeatEnabled: true,
     heartbeatDelayMinutes: 30,
-    heartbeatPrompt: 'This is the time for you to accomplish your goals',
+    heartbeatPrompt: '',
     heartbeatModel: 'default',
   };
 }
@@ -181,7 +181,7 @@ export function updateAgentConfigFull(settings: {
     remoteTimeoutSeconds: settings.remoteTimeoutSeconds ?? 60,
     heartbeatEnabled: settings.heartbeatEnabled ?? true,
     heartbeatDelayMinutes: settings.heartbeatDelayMinutes ?? 30,
-    heartbeatPrompt: settings.heartbeatPrompt || 'This is the time for you to accomplish your goals',
+    heartbeatPrompt: settings.heartbeatPrompt || '',
     heartbeatModel: settings.heartbeatModel || 'default',
   };
 

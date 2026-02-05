@@ -49,7 +49,12 @@ export class Graph {
   /**
    * Add a conditional edge
    */
-  addConditionalEdge(from: string, condition: (state: ThreadState) => string): this {
+  addConditionalEdge(from: string, condition: (state: ThreadState) => string): this;
+  addConditionalEdge(from: string, condition: (state: ThreadState, result: { next: 'loop' | 'end' | 'trigger_hierarchical' }) => string): this;
+  addConditionalEdge(
+    from: string, 
+    condition: ((state: ThreadState) => string) | ((state: ThreadState, result: { next: 'loop' | 'end' | 'trigger_hierarchical' }) => string)
+  ): this {
     const edges = this.edges.get(from) || [];
 
     edges.push({ from, to: condition });
@@ -218,8 +223,26 @@ export class Graph {
 
     for (const edge of edges) {
       if (typeof edge.to === 'function') {
-        // Conditional edge
-        const nextId = edge.to(state);
+        // Conditional edge - check function signature and call accordingly
+        let nextId: string;
+        
+        // Check if function expects 2 parameters (state, result) or 1 parameter (state)
+        if (edge.to.length === 2) {
+          // Function expects both state and result
+          let nextValue: 'loop' | 'end' | 'trigger_hierarchical';
+          if (result === 'loop') {
+            nextValue = 'loop';
+          } else if (result === 'end') {
+            nextValue = 'end';
+          } else {
+            nextValue = 'trigger_hierarchical';
+          }
+          const resultForConditional = { next: nextValue };
+          nextId = (edge.to as (state: ThreadState, result: { next: 'loop' | 'end' | 'trigger_hierarchical' }) => string)(state, resultForConditional);
+        } else {
+          // Function expects only state
+          nextId = (edge.to as (state: ThreadState) => string)(state);
+        }
 
         if (nextId && this.nodes.has(nextId)) {
           return nextId;
@@ -344,11 +367,18 @@ export function createHeartbeatGraph(): Graph {
   graph.addEdge('memory_recall', 'overlord_planner');
 
   // OverLord decides whether to enter hierarchical planning or end
-  graph.addConditionalEdge('overlord_planner', (state: ThreadState) => {
-    if ((state.metadata as any).__overlordRunHierarchy) {
+  graph.addConditionalEdge('overlord_planner', (state: ThreadState, result: { next: 'loop' | 'end' | 'trigger_hierarchical' }) => {
+    // Check if OverLord decided to trigger hierarchical planning
+    if (result.next === 'trigger_hierarchical') {
       return 'strategic_planner';
     }
-    return 'end';
+    
+    // Check if OverLord decided to stop
+    if (result.next === 'end') {
+      return 'end';
+    }
+    
+    return 'overlord_planner'; // Loop back to OverLord
   });
 
   // Hierarchical flow
