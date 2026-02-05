@@ -140,11 +140,13 @@
 <script setup lang="ts">
 import AgentHeader from './agent/AgentHeader.vue';
 import { integrations, type Integration } from '@pkg/agent/integrations/catalog';
+import { getIntegrationService } from '@pkg/agent/services/IntegrationService';
 
 import { computed, onMounted, ref } from 'vue';
 
 const THEME_STORAGE_KEY = 'agentTheme';
 const isDark = ref(false);
+const integrationService = getIntegrationService();
 
 const search = ref('');
 const activeCategory = ref<string | null>(null);
@@ -188,34 +190,73 @@ const toggleTheme = () => {
   localStorage.setItem(THEME_STORAGE_KEY, isDark.value ? 'dark' : 'light');
 };
 
-const connectIntegration = (id: string) => {
-  const integration = integrations[id];
-  if (integration) {
-    integration.connected = true;
-    const index = integrationsList.value.findIndex(i => i.id === id);
-    if (index !== -1) {
-      integrationsList.value[index] = { ...integration };
+const connectIntegration = async (id: string) => {
+  try {
+    await integrationService.setConnectionStatus(id, true);
+    const integration = integrations[id];
+    if (integration) {
+      integration.connected = true;
+      const index = integrationsList.value.findIndex(i => i.id === id);
+      if (index !== -1) {
+        integrationsList.value[index] = { ...integration };
+      }
     }
+  } catch (error) {
+    console.error('Failed to connect integration:', error);
   }
 };
 
-const disconnectIntegration = (id: string) => {
-  const integration = integrations[id];
-  if (integration) {
-    integration.connected = false;
-    const index = integrationsList.value.findIndex(i => i.id === id);
-    if (index !== -1) {
-      integrationsList.value[index] = { ...integration };
+const disconnectIntegration = async (id: string) => {
+  try {
+    await integrationService.setConnectionStatus(id, false);
+    const integration = integrations[id];
+    if (integration) {
+      integration.connected = false;
+      const index = integrationsList.value.findIndex(i => i.id === id);
+      if (index !== -1) {
+        integrationsList.value[index] = { ...integration };
+      }
     }
+  } catch (error) {
+    console.error('Failed to disconnect integration:', error);
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
   try {
     const saved = localStorage.getItem(THEME_STORAGE_KEY);
     isDark.value = saved === 'dark';
   } catch {
     isDark.value = false;
+  }
+
+  // Initialize integration service and load connection status
+  try {
+    await integrationService.initialize();
+    
+    // Load connection status for all integrations
+    const integrationIds = Object.keys(integrations);
+    const connectionPromises = integrationIds.map(async (id) => {
+      try {
+        const connectionStatus = await integrationService.getConnectionStatus(id);
+        return { id, connected: connectionStatus.connected };
+      } catch (error) {
+        console.warn(`Failed to load connection status for ${id}:`, error);
+        return { id, connected: false };
+      }
+    });
+
+    const connectionResults = await Promise.all(connectionPromises);
+    
+    // Update integrations with their connection status
+    connectionResults.forEach(({ id, connected }) => {
+      integrations[id].connected = connected;
+    });
+
+    // Update the list to trigger reactivity
+    integrationsList.value = Object.values(integrations);
+  } catch (error) {
+    console.error('Failed to load integration connection statuses:', error);
   }
 });
 </script>
