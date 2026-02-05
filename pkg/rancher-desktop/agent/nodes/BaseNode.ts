@@ -243,15 +243,24 @@ export abstract class BaseNode implements GraphNode {
     }
 
     const now = new Date();
-    const date = now.toISOString().slice(0, 10);
+    const formattedTime = now.toLocaleString('en-US', {
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
-    parts.push(`Current date: ${date}\nTime zone: ${timeZone}`);
+    parts.push(`Current datetime: ${formattedTime}\nComputers set time zone: ${timeZone}`);
 
     parts.push(basePrompt);
 
     return parts.join('\n\n');
   }
-
 
   /**
    * Build a context block showing strategic and tactical plan progress

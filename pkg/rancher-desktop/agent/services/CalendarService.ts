@@ -79,15 +79,15 @@ export class CalendarService {
         CREATE TABLE IF NOT EXISTS calendar_events (
           id SERIAL PRIMARY KEY,
           title VARCHAR(500) NOT NULL,
-          start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-          end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+          start_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
+          end_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
           description TEXT,
           location VARCHAR(500),
           people JSONB DEFAULT '[]'::jsonb,
           calendar_id VARCHAR(100),
           all_day BOOLEAN DEFAULT FALSE,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC')
         )
       `);
 

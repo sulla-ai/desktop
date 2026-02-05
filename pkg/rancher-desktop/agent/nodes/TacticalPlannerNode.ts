@@ -321,7 +321,6 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       "toolHints": ["tool_name_if_applicable"]
     }
   ],
-  "emit_chat_message": "fyi: this is your area to inform the user about your planning process and the steps you will take to complete the milestone.",
   "recommendedTools": ["tool_name_1", "tool_name_2"]
 }`;
 
@@ -360,10 +359,6 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         return null;
       }
       
-      // Execute tool calls using BaseNode's executeToolCalls
-      const tools = Array.isArray(parsed.tools) ? parsed.tools : [];
-      const results = tools.length > 0 ? await this.executeToolCalls(state, tools) : null;
-
       // Build tactical plan
       const steps: TacticalStep[] = parsed.steps.map((s: any, idx: number) => ({
         id: s.id || `step_${idx + 1}`,
@@ -372,11 +367,6 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         toolHints: Array.isArray(s.toolHints) ? s.toolHints : [],
         status: 'pending' as const,
       }));
-
-      const emit_chat_message = parsed.emit_chat_message || '';
-      if (emit_chat_message){
-        await this.emitChatMessage(state, emit_chat_message);
-      }
 
       const recommendedTools = Array.isArray(parsed.recommendedTools) ? parsed.recommendedTools.filter((t: unknown) => typeof t === 'string') : [];
       const recommendedSkills = Array.isArray(parsed.recommendedSkills) ? parsed.recommendedSkills.filter((s: unknown) => typeof s === 'string') : [];

@@ -216,8 +216,6 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     }
 
     if (decision.tools.length === 0) {
-      await this.emitChatMessage(state, decision.summary || '');
-      
       // Mark step as done even without tool calls
       state.metadata.todoExecution = {
         todoId: 0,
@@ -241,39 +239,14 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       return true;
     }
 
-    // Execute tools
-    let anyToolFailed = false;
-    let lastFailedTool = '';
-    let lastFailedError = '';
-
-    for (const toolItem of decision.tools) {
-      const toolName = toolItem.tool;
-      const toolArgs = toolItem.args || {};
-
-      agentLog(this.name, `Executing tool: ${toolName}`);
-      const result = await this.executeSingleToolAction(state, toolName, toolArgs);
-
-      if (result && result.success === false) {
-        anyToolFailed = true;
-        lastFailedTool = toolName;
-        lastFailedError = result.error || 'Unknown error';
-        agentWarn(this.name, `Tool ${toolName} failed: ${lastFailedError}`, {
-          tool: toolName,
-          error: lastFailedError,
-          args: toolArgs,
-        });
-      }
-    }
-
-    const allToolsSucceeded = decision.tools.length > 0 && !anyToolFailed;
-    const markDone = decision.markDone || allToolsSucceeded;
+    const markDone = decision.markDone;
 
     state.metadata.todoExecution = {
       todoId: 0,
       actions: decision.tools.map(t => t.tool),
       actionsCount: decision.tools.length,
       markDone,
-      status: markDone ? 'done' : (anyToolFailed ? 'failed' : 'in_progress'),
+      status: decision.markDone ? 'done' : 'in_progress',
       summary: decision.summary || '',
     };
 
@@ -281,16 +254,10 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     if (state.metadata.tacticalPlan) {
       const step = state.metadata.tacticalPlan.steps.find(s => s.id === tacticalStep.id);
       if (step) {
-        const newStatus = markDone ? 'done' : (anyToolFailed ? 'failed' : 'in_progress');
+        const newStatus = markDone ? 'done' : 'in_progress';
         step.status = newStatus;
         this.emitProgress(state, 'tactical_step_status', { stepId: step.id, action: step.action, status: newStatus });
       }
-    }
-
-    if (anyToolFailed) {
-      await this.emitChatMessage(state, `Tool failed (${lastFailedTool}): ${lastFailedError}`);
-      state.metadata.requestPlanRevision = { reason: `Tool failed: ${lastFailedTool} - ${lastFailedError}` };
-    } else if (markDone) {
     }
 
     state.metadata.planHasRemainingTodos = this.hasRemainingTacticalWork(state);
@@ -515,6 +482,10 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       }
 
       const parsed = parseJson<any>(response.content);
+      const tools = Array.isArray(parsed?.tools) ? parsed.tools : [];
+      // Execute tool calls using BaseNode's executeToolCalls
+      const results = tools.length > 0 ? await this.executeToolCalls(state, tools) : null;
+
       if (!parsed) {
         // LLM returned non-JSON - check if it looks like a completion summary
         const content = response.content.toLowerCase();
@@ -539,18 +510,14 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       if (parsed.markDone !== false) {
         state.metadata.markDone = true;
         return {
-            tools: [],
+            tools: tools,
             markDone: true,
             summary: parsed.summary || '',
           };
       }
 
-      const normalized = this.normalizeToolCalls(Array.isArray(parsed.tools) ? parsed.tools : []);
       return {
-        tools: normalized.map(n => ({ 
-          tool: n.toolName, 
-          args: Array.isArray(n.args) ? { args: n.args } : n.args 
-        })),
+        tools: tools,
         markDone: parsed.markDone !== false,
         summary: parsed.summary || '',
       };

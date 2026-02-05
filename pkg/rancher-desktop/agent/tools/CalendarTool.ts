@@ -59,6 +59,19 @@ export class CalendarTool extends BaseTool {
     }
     
     // Return original if no pattern matches
+    // But still ensure it's converted to UTC if it's a valid date string
+    try {
+      const parsedDate = new Date(timeStr);
+      if (!isNaN(parsedDate.getTime())) {
+        // Convert any valid date string to UTC zero
+        const utcTime = parsedDate.toISOString();
+        console.log(`[CalendarTool] Converted "${timeStr}" to UTC: ${utcTime}`);
+        return utcTime;
+      }
+    } catch (error) {
+      console.warn(`[CalendarTool] Failed to parse time: "${timeStr}"`);
+    }
+    
     return timeStr;
   }
 
@@ -115,6 +128,8 @@ Args:
           // Parse relative time expressions
           const startTime = this.parseTime(params.start || params.startTime) || new Date().toISOString();
           const endTime = this.parseTime(params.end || params.endTime) || new Date(Date.now() + 60 * 1000).toISOString(); // Default 1 minute later
+          
+          console.log(`[CalendarTool] Creating event with UTC times: start=${startTime}, end=${endTime}`);
           
           const event = {
             title: params.title,

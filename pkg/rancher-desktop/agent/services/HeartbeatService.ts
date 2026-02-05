@@ -27,7 +27,7 @@ export class HeartbeatService {
   private config: HeartbeatConfig = {
     enabled: true,
     delayMinutes: 30,
-    prompt: 'This is the time for you to accomplish your goals',
+    prompt: '',
     model: 'default',
   };
 
