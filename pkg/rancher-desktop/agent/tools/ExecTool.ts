@@ -4,8 +4,6 @@ import type { ToolContext } from './BaseTool';
 import { runCommand } from './CommandRunner';
 
 const ALLOWED_COMMANDS = new Set([
-  'kubectl',
-  'limactl',
   'ls',
   'cat',
   'pwd',
@@ -85,47 +83,73 @@ function splitCommandLine(commandLine: string): string[] {
   return out;
 }
 
-export class HostRunCommandTool extends BaseTool {
-  override readonly name = 'host_run_command';
-  override readonly category = 'host_exec';
+export class ExecTool extends BaseTool {
+  override readonly name = 'exec';
 
   override getPlanningInstructions(): string {
     return [
-      '33) host_run_command (Host)',
-      '   - Purpose: Run a safe allowlisted command on the host.',
-      '   - Args:',
-      '     - command (string, required) must be allowlisted',
-      '     - args (array, optional) string args',
-      '     - timeoutSeconds (number, optional, default 20)',
+      '["exec", "command", "arg1", "arg2"] - Is the exec shell runner to run a safe allowlisted commands on the host',
+`
+### Allowed Commands:
+- ls
+- cat
+- pwd
+- whoami
+- uname
+- id
+- hostname
+- date
+- printenv
+- ps
+- top
+- pgrep
+- lsof
+- sysctl
+- echo
+- stat
+- du
+- df
+- head
+- tail
+- sed
+- awk
+- wc
+- nslookup
+- dig
+- ping
+- ifconfig
+- git
+- rg
+- grep
+- find
+
+### Example Usage in exec form
+["exec", "pwd"]
+["exec", "ls", "-la", "/"]
+["exec", "grep", "-r", "pattern", "/path"]
+["exec", "tree", "-L", "2"]
+["exec", "find", ".", "-type", "f", "-name", "*.ts"]
+`,
       '   - Output: stdout/stderr/exitCode.',
     ].join('\n');
   }
 
   override async execute(_state: ThreadState, context: ToolContext): Promise<ToolResult> {
-    let command = String(context.args?.command || context.args?.cmd || (context.args as any)?.commandLine || (context.args as any)?.cmdLine || '');
-    let args = Array.isArray(context.args?.args) ? (context.args!.args as unknown[]).map(String) : [];
-    const timeoutSeconds = Number(context.args?.timeoutSeconds ?? 20);
 
+    // Handle exec form: args is string array like ["knowledge_base_delete_page", "slug"]
+    const argsArray = this.getArgsArray(context, 1);
+    const command = this.getFirstArg(context);
+    
     if (!command) {
       return { toolName: this.name, success: false, error: 'Missing args: command' };
-    }
-
-    // Some planners pass a full command line in args.command (e.g. "find ~ -type d ...").
-    // If args.args is empty and command contains whitespace, split it into command + args.
-    if (args.length === 0 && /\s/.test(command)) {
-      const parts = splitCommandLine(command);
-      if (parts.length > 0) {
-        command = parts[0];
-        args = parts.slice(1);
-      }
     }
 
     if (!ALLOWED_COMMANDS.has(command)) {
       return { toolName: this.name, success: false, error: `Command not allowlisted: ${command}` };
     }
 
-    const res = await runCommand(command, args, {
-      timeoutMs: (Number.isFinite(timeoutSeconds) ? timeoutSeconds : 20) * 1000,
+    const res = await runCommand(command, argsArray, {
+      timeoutMs: 20 * 1000,
       maxOutputChars: 200_000,
     });
 
@@ -133,6 +157,6 @@ export class HostRunCommandTool extends BaseTool {
       return { toolName: this.name, success: false, error: res.stderr || res.stdout || 'command failed' };
     }
 
-    return { toolName: this.name, success: true, result: { command, args, stdout: res.stdout, stderr: res.stderr || undefined, exitCode: res.exitCode } };
+    return { toolName: this.name, success: true, result: { command, args: argsArray, stdout: res.stdout, stderr: res.stderr || undefined, exitCode: res.exitCode } };
   }
 }

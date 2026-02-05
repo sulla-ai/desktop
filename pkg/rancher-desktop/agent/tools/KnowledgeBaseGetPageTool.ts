@@ -11,7 +11,6 @@ function normalizeSlug(name: string): string {
 export class KnowledgeBaseGetPageTool extends BaseTool {
   override readonly name = 'knowledge_base_get_page';
   override readonly aliases = ['kb_get_page', 'knowledgebase_get_page'];
-  override readonly category = 'memory';
 
   override getPlanningInstructions(): string {
     return [
@@ -26,7 +25,10 @@ export class KnowledgeBaseGetPageTool extends BaseTool {
   override async execute(state: ThreadState, context: ToolContext): Promise<ToolResult> {
     const chroma = getChromaService();
 
-    const slugRaw = String(context.args?.slug || context.args?.pageId || '').trim();
+    // Handle both positional array args and named object args
+    const slugRaw = Array.isArray(context.args)
+      ? String(context.args[0] || '')
+      : String(context.args?.slug || context.args?.pageId || '');
     const slug = normalizeSlug(slugRaw);
 
     if (!slug) {

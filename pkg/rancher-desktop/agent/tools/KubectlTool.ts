@@ -5,14 +5,10 @@ import { runCommand } from './CommandRunner';
 
 export class KubectlTool extends BaseTool {
   override readonly name = 'kubectl';
-  override readonly category = 'kubernetes';
 
   override getPlanningInstructions(): string {
     return [
-      '`kubectl` - Execute any kubectl command against the cluster using exec form',
-      '    kubectl client Version: v1.35.0, Server Version: v1.34.3+k3s3',
-      '',
-      '    EXEC FORM - JSON FORMAT TO USE (return Exec Form):',
+      '["kubectl"] - Execute any kubectl command against the cluster. kubectl Version: v1.35.0, Server Version: v1.34.3+k3s3. EXEC FORM - JSON FORMAT TO USE (return Exec Form):',
       '    ["kubectl", "get", "pods", "-n", "default"]',
       '',
       '    Required: JSON array where:',
@@ -34,7 +30,8 @@ export class KubectlTool extends BaseTool {
   }
 
   override async execute(_state: ThreadState, context: ToolContext): Promise<ToolResult> {
-    const argsArray = context.args?.args;
+    // Handle exec form: args is string array directly
+    const argsArray = this.getArgsArray(context);
 
     if (!Array.isArray(argsArray) || argsArray.length === 0) {
       return { toolName: this.name, success: false, error: 'Missing args: args (array of kubectl command arguments)' };

@@ -74,6 +74,7 @@
     "@xterm/xterm": "6.0.0",
     "async-mutex": "^0.5.0",
     "best-effort-json-parser": "^1.2.1",
+    "chromadb": "^3.2.2",
     "cookie-universal": "2.2.2",
     "cross-spawn": "7.0.6",
     "dayjs": "1.11.19",

@@ -280,7 +280,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeMemory: true,
       includeTools: true,
       toolDetail: 'names',
-      includeSkills: true,
+      includeSkills: false,
       includeStrategicPlan: false,
       includeKnowledgeGraphInstructions: 'planner',
     });

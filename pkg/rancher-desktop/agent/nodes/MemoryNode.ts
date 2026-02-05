@@ -127,7 +127,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeAwareness: true,
       includeTools: true,
       toolDetail: 'names',
-      includeSkills: true,
+      includeSkills: false,
       includeStrategicPlan: true,
     });
 

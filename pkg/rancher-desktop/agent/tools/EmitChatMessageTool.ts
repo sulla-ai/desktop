@@ -9,16 +9,12 @@ export class EmitChatMessageTool extends BaseTool {
 
   getPlanningInstructions(): string {
     return [
-      '35) emit_chat_message',
-      '- Purpose: Emit a user-visible chat bubble during plan execution to explain what you\'re doing.',
-      '- args:',
-      '  - content (string): The message to show to the user.',
-      '  - role (string, optional): "assistant" | "system". Defaults to "assistant".',
-      '  - kind (string, optional): Optional UI kind tag. Defaults to "progress".',
+      '["emit_chat_message", "this message will be shown to the user"]',
     ].join('\n');
   }
 
   async execute(state: ThreadState, context: ToolContext): Promise<ToolResult> {
+    console.log(`[emit_chat_message] executing with context:`, context);
     const args = (context.args && typeof context.args === 'object') ? context.args : {};
     const rawContent = typeof (args as any).content === 'string'
       ? String((args as any).content)
@@ -32,6 +28,7 @@ export class EmitChatMessageTool extends BaseTool {
     // Get connection ID from state metadata or use default
     const connectionId = (state.metadata?.wsConnectionId as string) || 'chat-controller';
 
+    console.log(`[emit_chat_message] websocket payload:`, { role, content, kind });
     if (content.trim()) {
       // Send via WebSocket so persona receives it
       const wsService = getWebSocketClientService();

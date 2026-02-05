@@ -279,7 +279,8 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
   "successScore": 0,                              // integer 0-10
   "decision": "approve" | "revise",              // if successScore >= 8 then approve
   "reason": "One-sentence verdict with evidence",
-  "suggestedFix": "Precise next action if revise (optional)"
+  "suggestedFix": "Precise next action if revise (optional)",
+  "emit_chat_message": "Inform the user about your review and what you need to do next"
 }`;
 
     const prompt = await this.enrichPrompt(basePrompt, state, {
@@ -288,7 +289,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeMemory: true,
       includeTools: true,
       toolDetail: 'names',
-      includeSkills: true,
+      includeSkills: false,
       includeStrategicPlan: true,
       includeTacticalPlan: true,
     });
@@ -304,6 +305,11 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       if (!parsed) {
         console.warn('[Agent:TacticalCritic] Could not parse LLM response, defaulting to heuristic');
         return this.fallbackHeuristic(context);
+      }
+
+      const emit_chat_message = (parsed as any).emit_chat_message || '';
+      if (emit_chat_message){
+        await this.emitChatMessage(state, emit_chat_message);
       }
 
       const scoreRaw = (parsed as any).successScore;

@@ -117,7 +117,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeMemory: true,
       includeTools: true,
       toolDetail: 'names',
-      includeSkills: true,
+      includeSkills: false,
       includeStrategicPlan: true,
       includeTacticalPlan: true,
       includeKnowledgeGraphInstructions: 'critic',

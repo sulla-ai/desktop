@@ -7,7 +7,6 @@ import type { ToolContext } from './BaseTool';
 export class KnowledgeBaseSearchTool extends BaseTool {
   override readonly name = 'knowledge_base_search';
   override readonly aliases = ['kb_search', 'knowledgebase_search'];
-  override readonly category = 'memory';
 
   override getPlanningInstructions(): string {
     return [
@@ -29,12 +28,13 @@ export class KnowledgeBaseSearchTool extends BaseTool {
   override async execute(state: ThreadState, context: ToolContext): Promise<ToolResult> {
     const chroma = getChromaService();
 
-    const query = String(context.args?.query || '').trim();
+    const args = this.getArgsArray(context, 1);
+    const query = String(args[0] || '').trim();
     if (!query) {
       return { toolName: this.name, success: false, error: 'Missing args: query' };
     }
 
-    const limitRaw = context.args?.limit;
+    const limitRaw = args[1];
     const limit = Number.isFinite(Number(limitRaw)) ? Math.max(1, Math.min(50, Number(limitRaw))) : 6;
 
     try {
@@ -65,7 +65,7 @@ export class KnowledgeBaseSearchTool extends BaseTool {
       return {
         toolName: this.name,
         success: true,
-        result: { query, count: top.length, limit },
+        result: { query, count: top.length, limit, documents: top },
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

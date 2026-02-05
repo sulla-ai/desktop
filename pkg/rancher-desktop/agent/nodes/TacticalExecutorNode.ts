@@ -1,11 +1,9 @@
 // TacticalExecutorNode - Executes the plan (LLM calls, tool execution)
 
-import type { ThreadState, NodeResult, ToolResult } from '../types';
+import type { ThreadState, NodeResult } from '../types';
 import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
 import { parseJson } from '../services/JsonParseService';
 import { agentError, agentLog, agentWarn } from '../services/AgentLogService';
-import { getToolRegistry, registerDefaultTools } from '../tools';
-import { getAwarenessService } from '../services/AwarenessService';
 import { getKnowledgeGraph } from '../services/KnowledgeGraph';
 
 export class TacticalExecutorNode extends BaseNode {
@@ -72,105 +70,26 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         return;
       }
 
-      const normalized = this.normalizeToolCalls(Array.isArray(parsed.tools) ? parsed.tools : []);
-      const actions = normalized.map(n => ({ action: n.toolName, args: n.args }));
+      // Execute tool calls using BaseNode's executeToolCalls
+      const tools = Array.isArray(parsed.tools) ? parsed.tools : [];
+      const results = await this.executeToolCalls(state, tools);
 
-      // Execute any tool actions
-      for (const actionItem of actions) {
-        const actionName = actionItem.action;
-        const actionArgs = actionItem.args || {};
-
-        agentLog(this.name, `[NoPlan] Executing tool: ${actionName}`);
-        const result = await this.executeSingleToolAction(state, actionName, actionArgs);
-
-        if (result && result.success === false) {
-          agentWarn(this.name, `[NoPlan] Tool ${actionName} failed: ${result.error || 'Unknown error'}`);
+      // Log any failures
+      for (const result of results) {
+        if (!result.success) {
+          agentWarn(this.name, `[NoPlan] Tool ${result.toolName} failed: ${result.error || 'Unknown error'}`);
         }
       }
 
       // If no actions were taken and there's a summary, emit it as a chat message
-      if (actions.length === 0 && parsed.summary) {
-        await this.emitChat(state, parsed.summary);
+      if (parsed.summary) {
+        await this.emitChatMessage(state, parsed.summary);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err ?? 'unknown error');
       const errorStack = err instanceof Error ? err.stack : undefined;
       agentError(this.name, `handleNoPlanResponse failed: ${errorMsg}`, errorStack);
       console.error('[Agent:TacticalExecutor] handleNoPlanResponse error:', err);
-    }
-  }
-
-  private appendToolResultMessage(state: ThreadState, action: string, result: ToolResult): void {
-    const content = JSON.stringify(
-      {
-        tool: action,
-        success: !!result.success,
-        error: result.error || null,
-        result: result.result,
-      },
-      null,
-      2,
-    );
-
-    const id = `internal_tool_result_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
-
-    state.messages.push({
-      id,
-      role: 'assistant',
-      content,
-      timestamp: Date.now(),
-      metadata: {
-        nodeId: this.id,
-        nodeName: this.name,
-        kind: 'tool_result',
-        toolName: action,
-        success: !!result.success,
-      },
-    });
-  }
-
-  private appendExecutionNote(state: ThreadState, note: string): void {
-    const text = String(note || '').trim();
-    if (!text) {
-      return;
-    }
-
-    const existing = Array.isArray((state.metadata as any).executionNotes)
-      ? ((state.metadata as any).executionNotes as unknown[]).map(String)
-      : [];
-
-    const next = [...existing, text].slice(-12);
-    (state.metadata as any).executionNotes = next;
-  }
-
-  private appendToolResult(state: ThreadState, action: string, result: ToolResult): void {
-    const prior = (state.metadata as any).toolResults;
-    const priorObj = (prior && typeof prior === 'object') ? (prior as Record<string, ToolResult>) : {};
-    (state.metadata as any).toolResults = { ...priorObj, [action]: result };
-
-    const historyExisting = Array.isArray((state.metadata as any).toolResultsHistory)
-      ? ((state.metadata as any).toolResultsHistory as unknown[])
-      : [];
-    const entry = {
-      at: Date.now(),
-      toolName: action,
-      success: !!result.success,
-      error: result.error || null,
-      result: result.result,
-    };
-    (state.metadata as any).toolResultsHistory = [...historyExisting, entry].slice(-12);
-  }
-
-  private async emitChat(state: ThreadState, content: string): Promise<void> {
-    const text = String(content || '').trim();
-    if (!text) {
-      return;
-    }
-    try {
-      await this.executeSingleToolAction(state, 'emit_chat_message', { content: text });
-      this.appendExecutionNote(state, text);
-    } catch {
-      // best effort
     }
   }
 
@@ -253,7 +172,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     }
 
     if (decision.tools.length === 0) {
-      await this.emitChat(state, decision.summary || 'No tool actions needed for this step.');
+      await this.emitChatMessage(state, decision.summary || '');
       
       // Mark step as done even without tool calls
       state.metadata.todoExecution = {
@@ -325,7 +244,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     }
 
     if (anyToolFailed) {
-      await this.emitChat(state, `Tool failed (${lastFailedTool}): ${lastFailedError}`);
+      await this.emitChatMessage(state, `Tool failed (${lastFailedTool}): ${lastFailedError}`);
       state.metadata.requestPlanRevision = { reason: `Tool failed: ${lastFailedTool} - ${lastFailedError}` };
     } else if (markDone) {
     }
@@ -346,7 +265,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 
     this.emitProgress(state, 'knowledgebase_generation_start', { milestone: milestone.title });
 
-    await this.emitChat(state, `Generating KnowledgeBase article: ${milestone.title || 'Documentation'}...`);
+    await this.emitChatMessage(state, `Generating KnowledgeBase article: ${milestone.title || 'Documentation'}...`);
 
     try {
       const result = await getKnowledgeGraph().runSync({
@@ -357,7 +276,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 
       if (result.success) {
         console.log(`[Agent:Executor] KnowledgeBase article created: ${result.slug}`);
-        await this.emitChat(state, `KnowledgeBase article created: **${result.title}** (${result.slug})`);
+        await this.emitChatMessage(state, `KnowledgeBase article created: **${result.title}** (${result.slug})`);
 
         state.metadata.todoExecution = {
           todoId: 0,
@@ -371,7 +290,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
         (state.metadata as any).knowledgeBaseGenerated = { slug: result.slug, title: result.title };
       } else {
         console.error(`[Agent:Executor] KnowledgeBase generation failed: ${result.error}`);
-        await this.emitChat(state, `KnowledgeBase generation failed: ${result.error}`);
+        await this.emitChatMessage(state, `KnowledgeBase generation failed: ${result.error}`);
 
         state.metadata.todoExecution = {
           todoId: 0,
@@ -421,7 +340,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[Agent:Executor] KnowledgeBase generation error:`, err);
-      await this.emitChat(state, `KnowledgeBase generation error: ${msg}`);
+      await this.emitChatMessage(state, `KnowledgeBase generation error: ${msg}`);
 
       state.metadata.todoExecution = {
         todoId: 0,
@@ -535,7 +454,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       includeMemory: true,
       includeTools: true,
       toolDetail: 'tactical',
-      includeSkills: true,
+      includeSkills: false,
       includeStrategicPlan: true,
       includeTacticalPlan: true,
       includeKnowledgeGraphInstructions: 'executor',
@@ -574,7 +493,10 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 
       const normalized = this.normalizeToolCalls(Array.isArray(parsed.tools) ? parsed.tools : []);
       return {
-        tools: normalized.map(n => ({ tool: n.toolName, args: n.args })),
+        tools: normalized.map(n => ({ 
+          tool: n.toolName, 
+          args: Array.isArray(n.args) ? { args: n.args } : n.args 
+        })),
         markDone: parsed.markDone !== false,
         summary: parsed.summary || '',
       };
@@ -582,41 +504,6 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
       agentError(this.name, 'Failed to plan tactical step', err);
       return null;
     }
-  }
-
-  private async executeSingleToolAction(
-    state: ThreadState,
-    action: string,
-    args?: Record<string, unknown>,
-  ): Promise<ToolResult> {
-    registerDefaultTools();
-    const registry = getToolRegistry();
-
-    const tool = registry.get(action);
-    if (!tool) {
-      return { toolName: action, success: false, error: `Unknown tool action: ${action}` };
-    }
-
-    const toolRunId = `${Date.now()}_${action}_${Math.floor(Math.random() * 1_000_000)}`;
-
-    this.emitProgress(state, 'tool_call', { toolRunId, toolName: action, args: args || {} });
-
-    const memorySearchQueries = Array.isArray(state.metadata?.plan && (state.metadata.plan as any)?.fullPlan?.context?.memorySearchQueries)
-      ? ((state.metadata.plan as any).fullPlan.context.memorySearchQueries as unknown[]).map(String)
-      : [];
-
-    const result = await tool.execute(state, {
-      threadId: state.threadId,
-      plannedAction: action,
-      memorySearchQueries,
-      args,
-    });
-
-    this.emitProgress(state, 'tool_result', { toolRunId, toolName: action, success: result.success, error: result.error || null, result: result.result });
-
-    this.appendToolResultMessage(state, action, result);
-
-    return result;
   }
 
 }

@@ -5,7 +5,6 @@ import { runCommand } from './CommandRunner';
 
 export class RdctlTool extends BaseTool {
   override readonly name = 'rdctl';
-  override readonly category = 'rancher-desktop';
 
   override getPlanningInstructions(): string {
     return [
@@ -35,7 +34,8 @@ export class RdctlTool extends BaseTool {
   }
 
   override async execute(_state: ThreadState, context: ToolContext): Promise<ToolResult> {
-    const argsArray = context.args?.args;
+    // Handle exec form: args is string array directly
+    const argsArray = Array.isArray(context.args) ? context.args : context.args?.args;
 
     if (!Array.isArray(argsArray) || argsArray.length === 0) {
       return { toolName: this.name, success: false, error: 'Missing args: args (array of rdctl command arguments)' };

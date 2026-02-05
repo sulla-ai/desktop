@@ -7,7 +7,6 @@ import type { ToolContext } from './BaseTool';
 export class KnowledgeBaseCountTool extends BaseTool {
   override readonly name = 'knowledge_base_count';
   override readonly aliases = ['kb_count', 'knowledgebase_count'];
-  override readonly category = 'memory';
 
   override getPlanningInstructions(): string {
     return [

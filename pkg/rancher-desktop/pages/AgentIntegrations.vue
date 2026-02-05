@@ -142,6 +142,8 @@ interface Integration {
   description: string;
   category: string;
   icon: string;
+  credentials: string[];
+  credentialLink: string;
   connected: boolean;
 }
 
@@ -150,7 +152,6 @@ const isDark = ref(false);
 
 const search = ref('');
 const activeCategory = ref<string | null>(null);
-
 const integrations = ref<Integration[]>([
   {
     id: 'intercom',
@@ -158,7 +159,9 @@ const integrations = ref<Integration[]>([
     description: 'Customer communication and support platform',
     category: 'Communication',
     icon: '💬',
-    connected: false
+    connected: false,
+    credentials: ['accessToken'],
+    credentialLink: 'https://app.intercom.com/a/apps/_/developer-hub/apps'
   },
   {
     id: 'hubspot',
@@ -166,7 +169,9 @@ const integrations = ref<Integration[]>([
     description: 'Marketing, sales, and service software',
     category: 'CRM',
     icon: '🎯',
-    connected: false
+    connected: false,
+    credentials: ['privateAppAccessToken'],
+    credentialLink: 'https://app.hubspot.com/private-apps'
   },
   {
     id: 'slack',
@@ -174,7 +179,9 @@ const integrations = ref<Integration[]>([
     description: 'Team collaboration and messaging',
     category: 'Communication',
     icon: '💭',
-    connected: false
+    connected: false,
+    credentials: ['botToken'],
+    credentialLink: 'https://api.slack.com/apps'
   },
   {
     id: 'onenote',
@@ -182,7 +189,9 @@ const integrations = ref<Integration[]>([
     description: 'Digital note-taking and organization',
     category: 'Productivity',
     icon: '📝',
-    connected: false
+    connected: false,
+    credentials: ['clientId', 'clientSecret', 'tenantId', 'refreshToken'],
+    credentialLink: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade'
   },
   {
     id: 'trello',
@@ -190,7 +199,9 @@ const integrations = ref<Integration[]>([
     description: 'Project management and collaboration',
     category: 'Productivity',
     icon: '📋',
-    connected: false
+    connected: false,
+    credentials: ['apiKey', 'apiToken'],
+    credentialLink: 'https://trello.com/app-key'
   },
   {
     id: 'zendesk',
@@ -198,7 +209,9 @@ const integrations = ref<Integration[]>([
     description: 'Customer service and engagement platform',
     category: 'Support',
     icon: '🎧',
-    connected: false
+    connected: false,
+    credentials: ['apiToken'],
+    credentialLink: 'https://YOUR-SUBDOMAIN.zendesk.com/agent/admin/api'
   },
   {
     id: 'evernote',
@@ -206,7 +219,9 @@ const integrations = ref<Integration[]>([
     description: 'Note-taking and task management',
     category: 'Productivity',
     icon: '📔',
-    connected: false
+    connected: false,
+    credentials: ['accessToken'],
+    credentialLink: 'https://sandbox.evernote.com/api/DeveloperToken.action'
   },
   {
     id: 'dropbox',
@@ -214,7 +229,9 @@ const integrations = ref<Integration[]>([
     description: 'Cloud storage and file sharing',
     category: 'Storage',
     icon: '☁️',
-    connected: false
+    connected: false,
+    credentials: ['accessToken'],
+    credentialLink: 'https://www.dropbox.com/developers/apps'
   },
   {
     id: 'tinder',
@@ -222,7 +239,9 @@ const integrations = ref<Integration[]>([
     description: 'Social discovery and dating platform',
     category: 'Social',
     icon: '🔥',
-    connected: false
+    connected: false,
+    credentials: [],
+    credentialLink: 'No official public API available'
   },
   {
     id: 'framer',
@@ -230,7 +249,9 @@ const integrations = ref<Integration[]>([
     description: 'Interactive design and prototyping',
     category: 'Design',
     icon: '🎨',
-    connected: false
+    connected: false,
+    credentials: ['apiKey'],
+    credentialLink: 'https://www.framer.com/developers/api'
   }
 ]);
 

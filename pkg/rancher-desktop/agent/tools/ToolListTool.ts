@@ -5,8 +5,7 @@ import { getToolRegistry } from './ToolRegistry';
 
 export class ToolListTool extends BaseTool {
   override readonly name = 'tool_list';
-  override readonly category = 'tools';
-
+  
   override getPlanningInstructions(): string {
     return [
       '37) tool_list (Tools)',
