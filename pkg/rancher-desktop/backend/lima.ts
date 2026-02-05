@@ -1794,7 +1794,7 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
     const status = await this.status;
     if (!status) {
       // Explicit create step
-      await this.progressTracker.action('Creating new Lima instance "0"', 20, async () => {
+      await this.progressTracker.action('Creating new Lima instance', 20, async () => {
         await this.lima('create', '--name=0', '--tty=false', this.CONFIG_PATH);
       });
     }
@@ -2026,8 +2026,15 @@ export default class LimaBackend extends events.EventEmitter implements VMBacken
             await this.applySullaManifests();
           });
 
-          await this.progressTracker.action('Waiting for Ollama deployment ready', 60, async () => {
-            await this.waitForDeployment('ollama', 600);
+          await this.progressTracker.action('Booting Virtual Container Environment...', 60, async () => {
+            const containers = ['ws-server', 'redis', 'postgres', 'chroma', 'coqui-tts', 'whisper-stt', 'ollama'];
+            
+            // Track each container individually
+            for (const container of containers) {
+              await this.progressTracker.action(`Downloading and Starting ${container}`, 100, async () => {
+                await this.waitForDeployment(`${container}`, 600);
+              });
+            }
           });
 
           await this.progressTracker.action('Waiting for Ollama pod scheduling', 60, async () => {
