@@ -393,9 +393,33 @@ export const integrations: Record<string, Integration> = {
     ],
     guideLinks: [
       {
-        title: 'Slack API Guide',
-        description: 'Learn to build apps and integrations for Slack',
-        url: 'https://api.slack.com'
+        title: 'Step 1 - Create a Custom App For Your Bot',
+        description: `For a personal workspace (you own it or have admin rights), create a custom Slack app → no marketplace listing/approval needed.
+Fastest path (5-7 min):
+
+1. https://api.slack.com/apps → Create New App → From scratch → name it → select your workspace. [save]
+2. In the left menu go to Socket Mode. [click]
+3. Enable Socket Mode. [save]
+4. Generate a new token. No special scopes. [save]
+6. Copy the token to Sulla [save]
+--
+7. In the left menu go to OAuth & Permissions. [click]
+8. Scroll to Bot Token Scopes. [click Add an OAuth Scope]
+9. Add the following scopes:
+   - chat:write
+   - files:write
+   - channels:read
+   - groups:read
+   - im:read
+   - mpim:read
+   - users:read
+   - users:read.email
+   [save]
+10. Install to Workspace (or Reinstall if already done) — top of OAuth & Permissions page.
+11. Bot User OAuth Token shows right there.
+12. Go to your slack channel and /invite @YourBotName
+        `,
+        url: 'https://api.slack.com/apps'
       },
       {
         title: 'Bot Token Guide',
@@ -411,42 +435,19 @@ export const integrations: Record<string, Integration> = {
     properties: [
       {
         key: 'bot_token',
-        title: 'Bot Token',
-        hint: 'Your Slack bot token starting with xoxb-',
+        title: 'Bot User OAuth Token',
+        hint: '',
         type: 'password',
         required: true,
-        placeholder: '',
-        validation: {
-          pattern: '^xoxb-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9_-]{24}$',
-          minLength: 50,
-          maxLength: 60
-        }
+        placeholder: ''
       },
       {
-        key: 'signing_secret',
-        title: 'Signing Secret',
-        hint: 'Used to verify that requests are coming from Slack',
+        key: 'scopes_token',
+        title: 'Scopes Token',
+        hint: '',
         type: 'password',
         required: true,
-        placeholder: '',
-        validation: {
-          pattern: '^[a-zA-Z0-9]{32}$',
-          minLength: 32,
-          maxLength: 32
-        }
-      },
-      {
-        key: 'channel',
-        title: 'Channel',
-        hint: 'Default Slack channel for messages (e.g., #general)',
-        type: 'text',
-        required: true,
-        placeholder: '',
-        validation: {
-          pattern: '^#?[a-z0-9-_]{1,21}$',
-          minLength: 2,
-          maxLength: 22
-        }
+        placeholder: ''
       }
     ]
   },

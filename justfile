@@ -57,7 +57,10 @@ rebuild-hard: clean-hard build
 
 # Start the development server (runs in foreground)
 start:
-    yarn dev
+    NODE_NO_WARNINGS=1 yarn dev
+
+up: 
+    NODE_NO_WARNINGS=1 just build start
 
 # Tail the development server logs
 logs:
@@ -115,13 +118,21 @@ pods:
 
 # Port-forward PostgreSQL to localhost:5432 for external access (e.g., pgAdmin, DBeaver)
 # Connection: host=localhost, port=5432, user=sulla, password=sulla_dev_password, database=sulla
-postgres:
+pg-forward:
     @echo "Port-forwarding PostgreSQL to localhost:5432..."
     @echo "Connect with: host=localhost, port=5432, user=sulla, password=sulla_dev_password, database=sulla"
     @echo "Press Ctrl+C to stop"
     LIMA_HOME=~/Library/Application\ Support/rancher-desktop/lima \
     resources/darwin/lima/bin/limactl shell 0 -- \
     sudo k3s kubectl port-forward -n sulla svc/postgres 5432:5432 --address=0.0.0.0
+
+pg-connect:
+    @echo "Starting port-forward in background (auto-stops on exit)..."
+    @trap 'kill 0' EXIT; \
+     just pg-forward & \
+     sleep 3 && \
+     echo "Connecting to psql..." && \
+     PGPASSWORD=sulla_dev_password psql -h localhost -p 5432 -U sulla -d sulla
 
 # Port-forward Redis to localhost:6379 for external access
 redis:

@@ -45,6 +45,7 @@ import { getHeartbeatService } from '@pkg/agent/services/HeartbeatService';
 import { getIntegrationService } from '@pkg/agent/services/IntegrationService';
 import { postgresClient } from '@pkg/agent/services/PostgresClient';
 import { getBackendGraphWebSocketService } from '@pkg/agent/services/BackendGraphWebSocketService';
+import { SullaIntegrations } from '@pkg/agent/integrations';
 import { spawnFile } from '@pkg/utils/childProcess';
 import getCommandLineArgs from '@pkg/utils/commandLine';
 import dockerDirManager from '@pkg/utils/dockerDirManager';
@@ -346,6 +347,7 @@ Electron.app.whenReady().then(async() => {
       const backendGraphWebSocketService = getBackendGraphWebSocketService();
       console.log('[Background] BackendGraphWebSocketService initialized - backend agent messages will be processed');
 
+      await SullaIntegrations();
 
       Electron.app.on('before-quit', async () => {
         try {

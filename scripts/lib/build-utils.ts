@@ -187,6 +187,10 @@ export default {
       plugins: [
         new webpack.EnvironmentPlugin({ NODE_ENV: mode }),
       ],
+      stats: {
+        warnings: false,
+        warningsFilter: /DeprecationWarning|export.*was not found|Critical dependency|Module not found/,
+      },
     };
 
     return config;
