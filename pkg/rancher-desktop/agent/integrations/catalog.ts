@@ -8,6 +8,7 @@ export interface Integration {
   version: string;
   lastUpdated: string;
   developer: string;
+  formGuide?: string;
   media?: Array<{
     type: 'image' | 'youtube';
     url: string;
@@ -52,6 +53,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Get your Access Token and App ID from your Intercom workspace settings. Go to Settings > Workspace > API Keys > Create new key.',
     media: [
       {
         type: 'youtube',
@@ -150,26 +152,8 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
-    media: [
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Twilio Console',
-        caption: 'Manage all your communication services from the centralized console'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'SMS Messaging',
-        caption: 'Send and receive SMS messages programmatically with SULLA'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Voice Calls',
-        caption: 'Make and receive voice calls through Twilio\'s VoIP infrastructure'
-      }
-    ],
+    formGuide: 'Get your Account SID, Auth Token, and Phone Number from your Twilio Console. Go to Console > Settings > General.',
+    media: [],
     features: [
       {
         title: 'SMS Messaging',
@@ -258,6 +242,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Get your API Key from HubSpot Developer Portal. Go to Settings > Integrations > API Key.',
     media: [
       {
         type: 'youtube',
@@ -367,6 +352,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Create a Slack app at api.slack.com/apps. Get your Bot Token and Signing Secret from OAuth & Permissions page.',
     media: [
       {
         type: 'youtube',
@@ -475,24 +461,23 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Get your API Key and Domain from Mailgun Control Panel. Go to Settings > API Keys and Domain Settings.',
     media: [
       {
-        type: 'image',
-        url: 'default-media.webp',
+        type: 'youtube',
+        url: 'Wxh6CDAVQsg',
         alt: 'Mailgun Analytics',
         caption: 'Track email delivery rates, opens, clicks, and bounces'
       },
       {
         type: 'image',
-        url: 'default-media.webp',
-        alt: 'Email Templates',
-        caption: 'Create dynamic email templates with personalization'
+        url: 'mailgun-media-1.webp',
+        alt: 'Mailgun Media 1'
       },
       {
         type: 'image',
-        url: 'default-media.webp',
-        alt: 'API Dashboard',
-        caption: 'Monitor API usage and configure email routing rules'
+        url: 'mailgun-media-2.webp',
+        alt: 'Mailgun Media 2'
       }
     ],
     features: [
@@ -577,26 +562,8 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
-    media: [
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'SendGrid Dashboard',
-        caption: 'Monitor email performance and campaign analytics'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Email Marketing',
-        caption: 'Create and automate email marketing campaigns'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Template Design',
-        caption: 'Design responsive email templates with drag-and-drop editor'
-      }
-    ],
+    formGuide: 'Get your API Key from SendGrid Dashboard. Go to Settings > API Keys > Create API Key.',
+    media: [],
     features: [
       {
         title: 'Email Delivery',
@@ -667,26 +634,8 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
-    media: [
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'WhatsApp Business Interface',
-        caption: 'Professional WhatsApp Business messaging interface'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Customer Conversations',
-        caption: 'Real-time customer support through WhatsApp'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Message Templates',
-        caption: 'Create and manage message templates for bulk messaging'
-      }
-    ],
+    formGuide: 'Get your API Token and Phone Number ID from Meta Business Suite. Go to Settings > WhatsApp Business API.',
+    media: [],
     features: [
       {
         title: 'Business Messaging',
@@ -773,26 +722,8 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
-    media: [
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Telegram Bot Interface',
-        caption: 'Powerful bot creation and management interface'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Group Management',
-        caption: 'Manage groups and channels with automated bots'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'API Integration',
-        caption: 'Seamless API integration for custom workflows'
-      }
-    ],
+    formGuide: 'Create a bot with @BotFather on Telegram to get your Bot Token. Use @userinfobot to get your Chat ID.',
+    media: [],
     features: [
       {
         title: 'Bot Development',
@@ -863,6 +794,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Create a Discord application at discord.com/developers/applications. Get your Bot Token from Bot page.',
     media: [
       {
         type: 'youtube',
@@ -950,6 +882,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Signal API access requires approval. Apply at support@signal.org for API credentials and documentation.',
     media: [
       {
         type: 'youtube',
@@ -1051,26 +984,8 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
-    media: [
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'LinkedIn Professional Network',
-        caption: 'Professional networking and business development platform'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'LinkedIn Business',
-        caption: 'Business networking and professional connections'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'LinkedIn Content',
-        caption: 'Share professional content and engage with industry leaders'
-      }
-    ],
+    formGuide: 'Create a LinkedIn app at developer.linkedin.com. Get your API credentials from the application dashboard.',
+    media: [],
     features: [
       {
         title: 'Professional Networking',

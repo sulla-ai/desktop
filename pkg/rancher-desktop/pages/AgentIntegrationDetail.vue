@@ -157,6 +157,13 @@
                   {{ integration.connected ? 'Manage Connection' : 'Connect Integration' }}
                 </h3>
                 
+                <!-- Form Guide -->
+                <div v-if="integration.formGuide && !integration.connected" class="mb-6">
+                  <p class="text-sm text-slate-600 dark:text-slate-400">
+                    <span class="font-medium">Where to find this information:</span> {{ integration.formGuide }}
+                  </p>
+                </div>
+                
                 <!-- Configuration Form -->
                 <div v-if="!integration.connected && integration.properties && integration.properties.length > 0" class="space-y-4 mb-6">
                   <div v-for="property in integration.properties" :key="property.key" class="space-y-2">
