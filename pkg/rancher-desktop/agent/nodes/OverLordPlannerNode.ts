@@ -7,9 +7,8 @@ import { parseJson } from '../services/JsonParseService';
 import { agentLog, agentWarn } from '../services/AgentLogService';
 import { getAgentConfig } from '../services/ConfigService';
 
-// Import heartbeat.md via raw-loader (configured in vue.config.mjs)
-// @ts-ignore - raw-loader import
-import heartbeatPromptRaw from '../prompts/heartbeat.md';
+// Import heartbeat prompt from TypeScript file
+import { heartbeatPrompt } from '../prompts/heartbeat';
 const WS_CONNECTION_ID = 'chat-controller-backend';
 
 type OverLordDecision = {
@@ -43,12 +42,12 @@ export class OverLordPlannerNode extends BaseNode {
 
       const config = getAgentConfig();
 
-      let heartbeatPrompt = heartbeatPromptRaw;
+      let finalHeartbeatPrompt = heartbeatPrompt;
       if (config.heartbeatPrompt) {
-        heartbeatPrompt = config.heartbeatPrompt;
+        finalHeartbeatPrompt = config.heartbeatPrompt;
       }
       
-      const decisionPrompt = `${heartbeatPrompt}
+      const decisionPrompt = `${finalHeartbeatPrompt}
 
 ## Safety Guidelines
 - Whenever possible, work on your projects inside of a kubernetes pod

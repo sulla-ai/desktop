@@ -6,9 +6,8 @@ import os from 'os';
 import { PathManagementStrategy } from '@pkg/integrations/pathManager';
 import { RecursivePartial } from '@pkg/utils/typeUtils';
 
-// Import heartbeat.md via raw-loader (configured in vue.config.mjs)
-// @ts-ignore - raw-loader import
-import heartbeatPromptRaw from '../agent/prompts/heartbeat.md';
+// Import heartbeat prompt from TypeScript file
+import { heartbeatPrompt } from '../agent/prompts/heartbeat';
 
 export const CURRENT_SETTINGS_VERSION = 17 as const;
 
@@ -161,9 +160,9 @@ export const defaultSettings = {
     /** Local Ollama retry count */
     localRetryCount: 2,
     /** Heartbeat settings */
-    heartbeatEnabled: true,
-    heartbeatDelayMinutes: 30,
-    heartbeatPrompt: heartbeatPromptRaw,
+    heartbeatEnabled: false,
+    heartbeatDelayMinutes: 15,
+    heartbeatPrompt: heartbeatPrompt,
     /** Heartbeat model: 'default' uses main settings, or specific model like 'local:tinyllama:latest' or 'remote:grok:grok-4-1-fast-reasoning' */
     heartbeatModel: 'default',
     virtualMachine:  {

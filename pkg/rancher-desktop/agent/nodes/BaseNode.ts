@@ -12,9 +12,8 @@ import type { AbortService } from '../services/AbortService';
 import { getToolRegistry, registerDefaultTools } from '../tools';
 import { getWebSocketClientService, type WebSocketMessageHandler } from '../services/WebSocketClientService';
 
-// Import soul.md via raw-loader (configured in vue.config.mjs)
-// @ts-ignore - raw-loader import
-import soulPromptRaw from '../prompts/soul.md';
+// Import soul prompt from TypeScript file
+import { soulPrompt } from '../prompts/soul';
 
 function getSoulPrompt(): string {
   let config;
@@ -38,9 +37,8 @@ function getSoulPrompt(): string {
   if (override.trim()) {
     soulContent = override.trim();
   } else {
-    // raw-loader may return { default: string } or string depending on config
-    const content = typeof soulPromptRaw === 'string' ? soulPromptRaw : soulPromptRaw.default;
-    soulContent = (content || '').trim();
+    // TypeScript export provides the content directly
+    soulContent = soulPrompt;
   }
 
   return prefix + soulContent;

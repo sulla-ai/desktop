@@ -22,9 +22,6 @@ clean-hard:
     rm -rf .yarn/cache
     rm -rf .yarn/install-state.gz
     rm -rf dist
-    rm -rf resources/darwin/lima
-    rm -rf resources/darwin/_output
-    rm -f resources/darwin/alpine-lima-*.iso
     rm -rf ~/.lima
     rm -rf ~/Library/Application\ Support/rancher-desktop
     rm -rf ~/Library/Application\ Support/sulla-desktop
@@ -34,6 +31,16 @@ clean-hard:
     rm -rf ~/Library/Logs/rancher-desktop
     rm -rf ~/.rd
     rm -rf ~/.kube/config
+    rm -rf resources/cert-manager*
+    rm -rf resources/darwin/lima
+    rm -rf resources/darwin/_output
+    rm -f resources/darwin/alpine-lima-*.iso
+    rm -rf resources/host/
+    rm -rf resources/preload.js*
+    rm -rf resources/rancher-dashboard/
+    rm -rf resources/rdx-proxy.tar
+    rm -rf resources/spin-operator*
+    rm -rf resources/win32/
     @echo "Cleanup complete. Run 'just build' for a fresh install."
 
 # Install dependencies and build the application for production

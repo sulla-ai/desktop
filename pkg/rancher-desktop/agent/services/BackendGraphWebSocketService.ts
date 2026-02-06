@@ -1,8 +1,11 @@
 import { getWebSocketClientService, type WebSocketMessage } from './WebSocketClientService';
 import { runHierarchicalGraph } from './GraphExecutionService';
 import { getSensory } from '../SensoryInput';
+import { getSchedulerService } from './SchedulerService';
+import type { CalendarEvent } from './CalendarClient';
 
 const BACKEND_CHANNEL_ID = 'chat-controller-backend';
+const CALENDAR_CHANNEL_ID = 'calendar_event';
 
 let backendGraphWebSocketServiceInstance: BackendGraphWebSocketService | null = null;
 
@@ -15,26 +18,40 @@ export function getBackendGraphWebSocketService(): BackendGraphWebSocketService 
 
 export class BackendGraphWebSocketService {
   private readonly wsService = getWebSocketClientService();
-  private unsubscribe: (() => void) | null = null;
+  private readonly schedulerService = getSchedulerService();
+  private unsubscribes: (() => void)[] = [];
 
   constructor() {
     this.initialize();
   }
 
   dispose(): void {
-    if (this.unsubscribe) {
-      this.unsubscribe();
-      this.unsubscribe = null;
-    }
+    this.unsubscribes.forEach(unsub => unsub());
+    this.unsubscribes = [];
   }
 
   private initialize(): void {
+    // Initialize chat controller backend channel
     this.wsService.connect(BACKEND_CHANNEL_ID);
     console.log('[Background] BackendGraphWebSocketService initialized');
     
-    this.unsubscribe = this.wsService.onMessage(BACKEND_CHANNEL_ID, (msg) => {
+    const chatUnsubscribe = this.wsService.onMessage(BACKEND_CHANNEL_ID, (msg) => {
       this.handleWebSocketMessage(msg);
     });
+    if (chatUnsubscribe) {
+      this.unsubscribes.push(chatUnsubscribe);
+    }
+
+    // Initialize calendar event channel
+    this.wsService.connect(CALENDAR_CHANNEL_ID);
+    console.log('[Background] BackendGraphWebSocketService calendar channel initialized');
+    
+    const calendarUnsubscribe = this.wsService.onMessage(CALENDAR_CHANNEL_ID, (msg) => {
+      this.handleCalendarMessage(msg);
+    });
+    if (calendarUnsubscribe) {
+      this.unsubscribes.push(calendarUnsubscribe);
+    }
   }
 
   private async handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
@@ -65,6 +82,44 @@ export class BackendGraphWebSocketService {
       });
     } catch (err) {
       console.error('[BackendGraphWebSocketService] Failed to process message:', err);
+    }
+  }
+
+  private async handleCalendarMessage(msg: WebSocketMessage): Promise<void> {
+    console.log('[BackendGraphWebSocketService] Received calendar message:', msg);
+
+    const data = typeof msg.data === 'string' ? JSON.parse(msg.data) : (msg.data as any);
+    
+    if (!data || typeof data.type !== 'string') {
+      console.warn('[BackendGraphWebSocketService] Invalid calendar message format:', data);
+      return;
+    }
+
+    const { type, event } = data;
+
+    if (type === 'scheduled' && event) {
+      try {
+        console.log('[BackendGraphWebSocketService] Scheduling calendar event:', event);
+        this.schedulerService.scheduleEvent(event as CalendarEvent);
+      } catch (err) {
+        console.error('[BackendGraphWebSocketService] Failed to schedule calendar event:', err);
+      }
+    } else if (type === 'cancel' && event?.id) {
+      try {
+        console.log('[BackendGraphWebSocketService] Canceling calendar event:', event.id);
+        this.schedulerService.cancelEvent(event.id);
+      } catch (err) {
+        console.error('[BackendGraphWebSocketService] Failed to cancel calendar event:', err);
+      }
+    } else if (type === 'reschedule' && event) {
+      try {
+        console.log('[BackendGraphWebSocketService] Rescheduling calendar event:', event);
+        this.schedulerService.rescheduleEvent(event as CalendarEvent);
+      } catch (err) {
+        console.error('[BackendGraphWebSocketService] Failed to reschedule calendar event:', err);
+      }
+    } else {
+      console.log('[BackendGraphWebSocketService] Unknown calendar message type:', type);
     }
   }
 }

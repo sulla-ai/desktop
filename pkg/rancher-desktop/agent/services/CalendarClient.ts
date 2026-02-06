@@ -4,6 +4,7 @@
 
 import { postgresClient } from '../services/PostgresClient'; // adjust path
 import type { QueryResult } from 'pg';
+import { getWebSocketClientService } from '../services/WebSocketClientService';
 
 export interface CalendarEvent {
   id: number;
@@ -116,6 +117,20 @@ export class CalendarClient {
     const row = res.rows[0];
     const event = this.rowToEvent(row);
     this.notifyEventChange(event, 'created');
+    
+    // Send WebSocket notification for scheduled event
+    try {
+      const wsService = getWebSocketClientService();
+      wsService.connect('calendar_event');
+      wsService.send('calendar_event', {
+        type: 'scheduled',
+        event: event
+      });
+      console.log('[CalendarClient] Sent scheduled event notification via WebSocket:', event.id);
+    } catch (err) {
+      console.error('[CalendarClient] Failed to send WebSocket notification:', err);
+    }
+    
     return event;
   }
 

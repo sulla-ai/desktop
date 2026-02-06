@@ -3,10 +3,9 @@ import { defineComponent } from 'vue';
 
 import { ipcRenderer } from '@pkg/utils/ipcRenderer';
 
-// @ts-ignore - raw-loader import
-import soulPromptRaw from '../agent/prompts/soul.md';
-// @ts-ignore - raw-loader import
-import heartbeatPromptRaw from '../agent/prompts/heartbeat.md';
+// Import soul prompt from TypeScript file
+import { soulPrompt } from '../agent/prompts/soul';
+import { heartbeatPrompt } from '../agent/prompts/heartbeat';
 
 // Nav items for the Language Model Settings sidebar
 const navItems = [
@@ -168,8 +167,8 @@ export default defineComponent({
   name: 'language-model-settings',
 
   data() {
-    const defaultSoulPrompt = (typeof soulPromptRaw === 'string' ? soulPromptRaw : soulPromptRaw.default) || '';
-    const defaultHeartbeatPrompt = (typeof heartbeatPromptRaw === 'string' ? heartbeatPromptRaw : heartbeatPromptRaw.default) || '';
+    const defaultSoulPrompt = soulPrompt;
+    const defaultHeartbeatPrompt = heartbeatPrompt;
 
     return {
       currentNav:       'overview' as string,

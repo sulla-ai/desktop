@@ -103,7 +103,7 @@ export class SchedulerService {
     this.scheduleEvent(event);
   }
 
-  private async triggerEvent(event: CalendarEvent): Promise<void> {
+  async triggerEvent(event: CalendarEvent): Promise<void> {
     try {
       console.log(`[SchedulerService] Sending event prompt via WS: ${event.id} - "${event.title}"`);
       const prompt = this.buildEventPrompt(event);
