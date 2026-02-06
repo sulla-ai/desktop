@@ -3,7 +3,10 @@ export interface Integration {
   name: string;
   description: string;
   category: string;
-  icon: string;
+  icon?: string;
+  sort: number;
+  beta: boolean;
+  comingSoon: boolean;
   connected: boolean;
   version: string;
   lastUpdated: string;
@@ -19,7 +22,7 @@ export interface Integration {
     importantNotes?: string[];
   };
   media?: Array<{
-    type: 'image' | 'youtube';
+    type: 'youtube' | 'image';
     url: string;
     alt: string;
     caption?: string;
@@ -37,16 +40,13 @@ export interface Integration {
     key: string;
     title: string;
     hint: string;
-    type: 'text' | 'password' | 'email' | 'url' | 'number';
-    default?: string;
+    type: 'text' | 'password' | 'url';
     required: boolean;
-    placeholder?: string;
+    placeholder: string;
     validation?: {
       pattern?: string;
       minLength?: number;
       maxLength?: number;
-      min?: number;
-      max?: number;
     };
   }>;
 }
@@ -55,6 +55,9 @@ export const integrations: Record<string, Integration> = {
 
   slack: {
     id: 'slack',
+    sort: 1,
+    beta: true,
+    comingSoon:false,
     name: 'Slack',
     description: 'Team collaboration platform that brings all your communication together. Enable SULLA to send notifications, share updates, and interact with team members through channels and direct messages.',
     category: 'Team Communication',
@@ -62,7 +65,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2026-02-06 21:00:00',
-    developer: 'Jonathon Byrdziak',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Follow the installation guide below to create and configure your Slack app.',
     installationGuide: {
       title: 'Slack Bot Setup Guide',
@@ -199,6 +202,9 @@ export const integrations: Record<string, Integration> = {
 
   messenger: {
     id: 'messenger',
+    sort: 2,
+    beta: false,
+    comingSoon: true,
     name: 'Facebook Messenger',
     description: 'Automate your customer support and handle all conversations through Facebook\'s popular messaging platform. Keep track of customer interactions, provide instant responses, and manage your business communications seamlessly from one central hub.',
     category: 'Messaging',
@@ -206,7 +212,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your Page Access Token from Meta for Developers. Go to Apps > Messenger > Settings.',
     installationGuide: {
       title: 'Facebook Messenger Setup Guide',
@@ -358,6 +364,9 @@ export const integrations: Record<string, Integration> = {
 
   whatsapp: {
     id: 'whatsapp',
+    sort: 3,
+    beta: false,
+    comingSoon: true,
     name: 'WhatsApp Business',
     description: 'Reach your customers wherever they are and manage all your business conversations in one place. Send notifications, provide support, and keep track of customer interactions through the world\'s most popular messaging app.',
     category: 'Messaging',
@@ -365,7 +374,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your API Token and Phone Number ID from Meta Business Suite. Go to Settings > WhatsApp Business API.',
     installationGuide: {
       title: 'WhatsApp Business API Setup Guide',
@@ -496,6 +505,9 @@ export const integrations: Record<string, Integration> = {
 
   telegram: {
     id: 'telegram',
+    sort: 4,
+    beta: false,
+    comingSoon: true,
     name: 'Telegram',
     description: 'Engage your community and automate your messaging workflows with powerful bots. Handle customer inquiries, send notifications, and manage all your Telegram conversations efficiently from a single interface.',
     category: 'Messaging',
@@ -503,7 +515,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Create a bot with @BotFather on Telegram to get your Bot Token. Use @userinfobot to get your Chat ID.',
     installationGuide: {
       title: 'Telegram Bot Setup Guide',
@@ -621,6 +633,9 @@ export const integrations: Record<string, Integration> = {
 
   youtube: {
     id: 'youtube',
+    sort: 5,
+    beta: false,
+    comingSoon: true,
     name: 'YouTube',
     description: 'Manage your YouTube content and grow your audience with automated workflows. Upload videos, track performance, engage with subscribers, and handle all your video publishing from one central dashboard.',
     category: 'Video Platform',
@@ -628,7 +643,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your API Key from Google Cloud Console. Go to APIs & Services > Credentials > Create Credentials > API Key.',
     installationGuide: {
       title: 'YouTube API Setup Guide',
@@ -793,6 +808,9 @@ export const integrations: Record<string, Integration> = {
 
   teams: {
     id: 'teams',
+    sort: 6,
+    beta: false,
+    comingSoon: true,
     name: 'Microsoft Teams',
     description: 'Collaborate with your team and automate your workflow in one powerful platform. Handle team conversations, share files, manage meetings, and keep all your project communication organized and accessible.',
     category: 'Collaboration',
@@ -800,7 +818,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Register your app in Azure Active Directory. Get Client ID, Client Secret, and Tenant ID from Azure Portal.',
     installationGuide: {
       title: 'Microsoft Teams Setup Guide',
@@ -962,6 +980,9 @@ export const integrations: Record<string, Integration> = {
 
   intercom: {
     id: 'intercom',
+    sort: 7,
+    beta: false,
+    comingSoon: true,
     name: 'Intercom',
     description: 'Deliver exceptional customer service and manage all your support conversations in one place. Handle live chat, automate responses, track customer history, and provide personalized support at scale.',
     category: 'Customer Support',
@@ -969,7 +990,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your Access Token and App ID from your Intercom workspace settings. Go to Settings > Workspace > API Keys > Create new key.',
     media: [
       {
@@ -1061,6 +1082,9 @@ export const integrations: Record<string, Integration> = {
 
   x: {
     id: 'x',
+    sort: 8,
+    beta: false,
+    comingSoon: true,
     name: 'X (Twitter)',
     description: 'Grow your brand and engage with your audience through real-time conversations. Post updates, monitor trends, respond to mentions, and manage all your social media presence from one unified platform.',
     category: 'Social Media',
@@ -1068,7 +1092,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your API Key, API Secret, Access Token, and Access Token Secret from X Developer Portal. Go to Projects & Apps > Your App > Keys and Tokens.',
     installationGuide: {
       title: 'X (Twitter) API Setup Guide',
@@ -1264,6 +1288,9 @@ export const integrations: Record<string, Integration> = {
 
   instagram: {
     id: 'instagram',
+    sort: 9,
+    beta: false,
+    comingSoon: true,
     name: 'Instagram',
     description: 'Showcase your visual content and engage with your followers effortlessly. Schedule posts, manage your business profile, track engagement, and handle all your visual marketing from one beautiful interface.',
     category: 'Social Media',
@@ -1271,7 +1298,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your App ID, App Secret, and Access Token from Facebook Developers. Go to Apps > Your App > Instagram Basic Display.',
     installationGuide: {
       title: 'Instagram API Setup Guide',
@@ -1438,6 +1465,9 @@ export const integrations: Record<string, Integration> = {
 
   tiktok: {
     id: 'tiktok',
+    sort: 10,
+    beta: false,
+    comingSoon: true,
     name: 'TikTok',
     description: 'Create viral content and grow your audience with automated workflows. Manage your TikTok presence, track performance, engage with trends, and handle all your short-form video marketing efficiently.',
     category: 'Social Media',
@@ -1445,7 +1475,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your App ID, App Secret, and Access Token from TikTok Developer Portal. Go to Apps > Your App > Manage Keys.',
     installationGuide: {
       title: 'TikTok for Business API Setup Guide',
@@ -1621,6 +1651,9 @@ export const integrations: Record<string, Integration> = {
 
   linkedin: {
     id: 'linkedin',
+    sort: 11,
+    beta: false,
+    comingSoon: true,
     name: 'LinkedIn',
     description: 'Build your professional network and grow your business connections effortlessly. Share business content, engage with industry leaders, manage your professional presence, and handle all your career networking from one platform.',
     category: 'Professional Network',
@@ -1628,7 +1661,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Create a LinkedIn app at developer.linkedin.com. Get your API credentials from the application dashboard.',
     media: [],
     features: [
@@ -1672,6 +1705,9 @@ export const integrations: Record<string, Integration> = {
 
   discord: {
     id: 'discord',
+    sort: 100,
+    beta: false,
+    comingSoon: true,
     name: 'Discord',
     description: 'Build and manage your community with powerful communication tools. Handle server conversations, automate community management, engage with members, and keep all your community interactions organized in one place.',
     category: 'Community',
@@ -1679,7 +1715,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Create a Discord application at discord.com/developers/applications. Get your Bot Token from Bot page.',
     installationGuide: {
       title: 'Discord Bot Setup Guide',
@@ -1816,6 +1852,9 @@ export const integrations: Record<string, Integration> = {
 
   gmail: {
     id: 'gmail',
+    sort: 12,
+    beta: false,
+    comingSoon: true,
     name: 'Gmail',
     description: 'Manage all your email communication and never miss an important message. Send emails, search your inbox, organize conversations, and automate your email workflows for maximum productivity.',
     category: 'Productivity',
@@ -1823,7 +1862,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your API credentials from Google Cloud Console. Go to APIs & Services > Credentials > Create Credentials > OAuth 2.0 Client ID.',
     installationGuide: {
       title: 'Gmail API Setup Guide',
@@ -2001,6 +2040,9 @@ export const integrations: Record<string, Integration> = {
 
   google_calendar: {
     id: 'google_calendar',
+    sort: 13,
+    beta: false,
+    comingSoon: true,
     name: 'Google Calendar',
     description: 'Organize your schedule and never miss an important meeting. Manage your calendar, schedule events, set reminders, and keep track of all your appointments in one unified system.',
     category: 'Productivity',
@@ -2008,7 +2050,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your API credentials from Google Cloud Console. Go to APIs & Services > Credentials > Create Credentials > OAuth 2.0 Client ID.',
     installationGuide: {
       title: 'Google Calendar API Setup Guide',
@@ -2170,6 +2212,9 @@ export const integrations: Record<string, Integration> = {
 
   google_docs: {
     id: 'google_docs',
+    sort: 14,
+    beta: false,
+    comingSoon: true,
     name: 'Google Docs',
     description: 'Create and edit documents seamlessly with your team in real-time. Write, collaborate, format content, and manage all your document workflows from one collaborative workspace.',
     category: 'Productivity',
@@ -2177,7 +2222,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your API credentials from Google Cloud Console. Go to APIs & Services > Credentials > Create Credentials > OAuth 2.0 Client ID.',
     installationGuide: {
       title: 'Google Docs API Setup Guide',
@@ -2339,6 +2384,9 @@ export const integrations: Record<string, Integration> = {
 
   zoom: {
     id: 'zoom',
+    sort: 15,
+    beta: false,
+    comingSoon: true,
     name: 'Zoom',
     description: 'Run professional meetings and collaborate with your team from anywhere. Schedule video calls, manage participants, record sessions, and handle all your video conferencing needs efficiently.',
     category: 'Productivity',
@@ -2346,7 +2394,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your API Key, API Secret, and JWT credentials from Zoom App Marketplace. Go to Develop > Build App.',
     installationGuide: {
       title: 'Zoom API Setup Guide',
@@ -2516,6 +2564,9 @@ export const integrations: Record<string, Integration> = {
 
   google_meet: {
     id: 'google_meet',
+    sort: 16,
+    beta: false,
+    comingSoon: true,
     name: 'Google Meet',
     description: 'Connect with your team through high-quality video meetings integrated with your calendar. Schedule calls, manage video conferences, sync with your schedule, and handle all your video collaboration needs seamlessly.',
     category: 'Productivity',
@@ -2523,7 +2574,7 @@ export const integrations: Record<string, Integration> = {
     connected: false,
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
+    developer: 'Jonathon Byrdziak & Alan Carvalho',
     formGuide: 'Get your API credentials from Google Cloud Console. Go to APIs & Services > Credentials > Create Credentials > OAuth 2.0 Client ID.',
     installationGuide: {
       title: 'Google Meet API Setup Guide',

@@ -1,7 +1,7 @@
 import type { ThreadState, ToolResult } from '../types';
 import { BaseTool } from './BaseTool';
 import type { ToolContext } from './BaseTool';
-import { chromaClient } from '../services/ChromaClient'; // adjust path if needed
+import { chromaClient } from '../database/ChromaClient'; // adjust path if needed
 
 export class ChromaTool extends BaseTool {
   override readonly name = 'chroma';

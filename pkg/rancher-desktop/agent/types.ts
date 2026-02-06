@@ -49,6 +49,12 @@ export interface TaskState {
   memories?: unknown[];
   memorySearchPlan?: unknown;
   retrievedMemories?: unknown[];
+  retrievedSummaries?: Array<{
+    threadId: string;
+    summary: string;
+    topics: string[];
+    entities: string[];
+  }>;
   
   // Strategic Planner Node (high-level goals/milestones)
   strategicPlanRetryCount?: number;
@@ -63,6 +69,7 @@ export interface TaskState {
       successCriteria: string;
       dependsOn: string[];
       status: 'pending' | 'in_progress' | 'completed' | 'failed';
+      todoId?: number;
     }>;
     requiresTools: boolean;
     estimatedComplexity: 'simple' | 'moderate' | 'complex';

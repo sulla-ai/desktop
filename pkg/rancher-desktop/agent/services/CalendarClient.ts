@@ -2,7 +2,7 @@
 // PostgreSQL-backed calendar events via postgresClient singleton
 // Mirrors ChromaClient/PostgresClient pattern: singleton, init test, methods throw on error
 
-import { postgresClient } from '../services/PostgresClient'; // adjust path
+import { postgresClient } from '../database/PostgresClient'; // adjust path
 import type { QueryResult } from 'pg';
 import { getWebSocketClientService } from '../services/WebSocketClientService';
 

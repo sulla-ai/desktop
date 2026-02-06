@@ -114,16 +114,31 @@
                         class="h-2 w-2 rounded-full"
                         :class="integration.connected ? 'bg-green-500' : 'bg-gray-300'"
                       ></div>
-                      <span class="text-sm text-slate-500 dark:text-slate-400">
-                        {{ integration.connected ? 'Connected' : 'Not Connected' }}
+                      <span class="text-xs text-slate-500 dark:text-slate-400">
+                        {{ integration.connected ? 'Connected' : 'Disconnected' }}
                       </span>
+                      <!-- Beta/Coming Soon Badges -->
+                      <div class="flex gap-1 ml-2">
+                        <span
+                          v-if="integration.beta"
+                          class="inline-flex items-center rounded-full bg-blue-500 text-white text-xs px-2 py-0.5 font-medium"
+                        >
+                          BETA
+                        </span>
+                        <span
+                          v-if="integration.comingSoon"
+                          class="inline-flex items-center rounded-full bg-orange-500 text-white text-xs px-2 py-0.5 font-medium"
+                        >
+                          COMING SOON
+                        </span>
+                      </div>
                     </div>
-                    <div class="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
-                      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>Updated {{ formatFuzzyTime(integration.lastUpdated) }}</span>
-                    </div>
+                  </div>
+                  <div class="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Updated {{ formatFuzzyTime(integration.lastUpdated) }}</span>
                   </div>
                 </div>
               </div>

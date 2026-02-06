@@ -1,5 +1,5 @@
 import type { SensoryInput, AgentResponse, ThreadState } from '../types';
-import { createHierarchicalGraph } from '../Graph';
+import { createHierarchicalGraph } from '../nodes/Graph';
 import { emitAgentEvent } from './AgentEventBus';
 import { AbortService } from './AbortService';
 

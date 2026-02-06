@@ -4,7 +4,7 @@
 import type { ThreadState, ToolResult } from '../types';
 import { BaseTool } from './BaseTool';
 import type { ToolContext } from './BaseTool';
-import { redisClient } from '../services/RedisClient'; // adjust path
+import { redisClient } from '../database/RedisClient'; // adjust path
 
 export class RedisTool extends BaseTool {
   override readonly name = 'redis';

@@ -5,7 +5,7 @@
 import type { ThreadState, NodeResult } from '../types';
 import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
 import { parseJson } from '../services/JsonParseService';
-import { StrategicStateService } from '../services/StrategicStateService';
+import { StrategicStateService } from './state/StrategicStateService';
 import { agentLog, agentWarn } from '../services/AgentLogService';
 
 interface TacticalStep {

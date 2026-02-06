@@ -6,7 +6,7 @@ import type { ILLMService } from '../services/ILLMService';
 import type { ChatMessage } from '../services/ILLMService';
 import { getLLMService, getCurrentMode } from '../services/LLMServiceFactory';
 import { getOllamaService } from '../services/OllamaService';
-import { getAwarenessService } from '../services/AwarenessService';
+import { AgentAwareness } from '../database/models/AgentAwareness';
 import { getAgentConfig } from '../services/ConfigService';
 import type { AbortService } from '../services/AbortService';
 import { getToolRegistry, registerDefaultTools } from '../tools';
@@ -118,11 +118,43 @@ export abstract class BaseNode implements GraphNode {
 
     if (options.includeAwareness) {
       try {
-        const awareness = getAwarenessService();
-        await awareness.initialize();
-        const identity = awareness.identityPrompt;
-        if (identity.trim()) {
-          parts.push(`Awareness context:\n${identity}`);
+        const awareness = await AgentAwareness.load();
+        if (awareness) {
+          const data = awareness.data;
+          const lines: string[] = [];
+
+          if (data.agent_identity) {
+            lines.push(data.agent_identity.trim());
+          }
+          if (data.job_description) {
+            lines.push(`Your job description: ${data.job_description.trim()}`);
+          }
+          if (data.personality_preferences) {
+            lines.push(`Your personality and preferences: ${data.personality_preferences.trim()}`);
+          }
+          if (data.primary_user_identity) {
+            lines.push(`Primary user identity: ${data.primary_user_identity.trim()}`);
+          }
+          if (data.other_user_identities) {
+            lines.push(`Other user identities: ${data.other_user_identities.trim()}`);
+          }
+          if (data.long_term_context) {
+            lines.push(`Long-term context: ${data.long_term_context.trim()}`);
+          }
+          if (data.mid_term_context) {
+            lines.push(`Mid-term context: ${data.mid_term_context.trim()}`);
+          }
+          if (data.short_term_context) {
+            lines.push(`Short-term context: ${data.short_term_context.trim()}`);
+          }
+          if (data.memory_search_hints) {
+            lines.push(`Memory search hints: ${data.memory_search_hints.trim()}`);
+          }
+
+          const identity = lines.join('\n');
+          if (identity.trim()) {
+            parts.push(`Awareness context:\n${identity}`);
+          }
         }
       } catch {
         // best effort
@@ -191,31 +223,6 @@ export abstract class BaseNode implements GraphNode {
         } else {
           const toolLines = registry.listUnique().map(t => `- ${t.name}`);
           parts.push(`Available tools:\n${toolLines.join('\n')}`);
-        }
-      } catch {
-        // best effort
-      }
-    }
-
-    if (options.includeSkills) {
-      try {
-        const { getSkillService } = await import('../services/SkillService');
-        const skillService = getSkillService();
-        await skillService.initialize();
-        const enabledSkills = await skillService.listEnabledSkills();
-
-        parts.push([
-          'Skill constraints (mandatory):',
-          '- You may ONLY use skills that appear in the "Enabled skills" list below.',
-          '- Do NOT invent skills, plugins, or capabilities.',
-          '- If a desired capability is not listed as a tool or enabled skill, you must proceed without it.',
-        ].join('\n'));
-
-        if (enabledSkills.length > 0) {
-          const lines = enabledSkills.map(s => `- ${s.id}: ${s.description || s.title || ''}`);
-          parts.push(`Enabled skills:\n${lines.join('\n')}`);
-        } else {
-          parts.push('Enabled skills:\n(none)');
         }
       } catch {
         // best effort
@@ -637,14 +644,52 @@ When to trigger KB generation:
   /**
    * Build a prompt with context from thread state
    */
-  protected buildContextualPrompt(
+  protected async buildContextualPrompt(
     instruction: string,
     state: ThreadState,
     options: { includeMemory?: boolean; includeHistory?: boolean; maxHistoryItems?: number } = {},
-  ): string {
+  ): Promise<string> {
     const parts: string[] = [];
 
-    parts.push(getAwarenessService().identityPrompt);
+    try {
+      const awareness = await AgentAwareness.load();
+      if (awareness) {
+        const data = awareness.data;
+        const lines: string[] = [];
+
+        if (data.agent_identity) {
+          lines.push(data.agent_identity.trim());
+        }
+        if (data.job_description) {
+          lines.push(`Your job description: ${data.job_description.trim()}`);
+        }
+        if (data.personality_preferences) {
+          lines.push(`Your personality and preferences: ${data.personality_preferences.trim()}`);
+        }
+        if (data.primary_user_identity) {
+          lines.push(`Primary user identity: ${data.primary_user_identity.trim()}`);
+        }
+        if (data.other_user_identities) {
+          lines.push(`Other user identities: ${data.other_user_identities.trim()}`);
+        }
+        if (data.long_term_context) {
+          lines.push(`Long-term context: ${data.long_term_context.trim()}`);
+        }
+        if (data.mid_term_context) {
+          lines.push(`Mid-term context: ${data.mid_term_context.trim()}`);
+        }
+        if (data.short_term_context) {
+          lines.push(`Short-term context: ${data.short_term_context.trim()}`);
+        }
+        if (data.memory_search_hints) {
+          lines.push(`Memory search hints: ${data.memory_search_hints.trim()}`);
+        }
+
+        parts.push(lines.join('\n'));
+      }
+    } catch {
+      // best effort
+    }
     parts.push('');
 
     const historyForLog: Array<{ role: string; content: string }> = [];

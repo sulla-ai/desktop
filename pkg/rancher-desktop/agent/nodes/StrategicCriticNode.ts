@@ -2,7 +2,7 @@
 
 import type { ThreadState, NodeResult } from '../types';
 import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
-import { StrategicStateService } from '../services/StrategicStateService';
+import { StrategicStateService } from './state/StrategicStateService';
 import { getKnowledgeGraph } from '../services/KnowledgeGraph';
 import { agentError, agentLog } from '../services/AgentLogService';
 
@@ -37,14 +37,14 @@ export class StrategicCriticNode extends BaseNode {
       return { state, next: 'end' };
     }
 
-    const goal = typeof (snapshot.plan.data as any)?.goal === 'string' ? String((snapshot.plan.data as any).goal) : '';
-    const todos = snapshot.todos.map(t => ({ id: t.id, title: t.title, description: t.description, status: t.status, orderIndex: t.orderIndex }));
+    const goal = typeof snapshot.plan?.attributes?.data?.goal === 'string' ? String(snapshot.plan.attributes.data.goal) : '';
+    const todos = snapshot.todos.map(t => ({ id: t.id, title: t.attributes.title, description: t.attributes.description, status: t.attributes.status, orderIndex: t.attributes.order_index }));
     const anyRemaining = strategicState.hasRemainingTodos();
 
     if (anyRemaining) {
       const reason = `Plan has remaining todos | ${snapshot.todos
-        .filter(t => t.status !== 'done')
-        .map(t => `${t.title} (${t.status})`)
+        .filter(t => t.attributes.status !== 'done')
+        .map(t => `${t.attributes.title} (${t.attributes.status})`)
         .join(', ')}`;
 
       await strategicState.requestRevision(reason);

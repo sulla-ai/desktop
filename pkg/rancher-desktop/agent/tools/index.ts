@@ -1,10 +1,5 @@
 import { getToolRegistry } from './ToolRegistry';
-import { KnowledgeBaseSearchTool } from './KnowledgeBaseSearchTool';
 import { ChromaTool } from './ChromaTool';
-import { KnowledgeBaseCountTool } from './KnowledgeBaseCountTool';
-import { KnowledgeBaseDeletePageTool } from './KnowledgeBaseDeletePageTool';
-import { KnowledgeBaseListPagesTool } from './KnowledgeBaseListPagesTool';
-import { KnowledgeBaseGetPageTool } from './KnowledgeBaseGetPageTool';
 import { KubectlTool } from './KubectlTool';
 import { RdctlTool } from './RdctlTool';
 import { LimactlTool } from './LimactlTool';
@@ -51,12 +46,7 @@ export function registerDefaultTools(): void {
 
 export { getToolRegistry } from './ToolRegistry';
 export { BaseTool } from './BaseTool';
-export { KnowledgeBaseSearchTool } from './KnowledgeBaseSearchTool';
 export { ChromaTool } from './ChromaTool';
-export { KnowledgeBaseCountTool } from './KnowledgeBaseCountTool';
-export { KnowledgeBaseDeletePageTool } from './KnowledgeBaseDeletePageTool';
-export { KnowledgeBaseListPagesTool } from './KnowledgeBaseListPagesTool';
-export { KnowledgeBaseGetPageTool } from './KnowledgeBaseGetPageTool';
 export { KubectlTool } from './KubectlTool';
 export { LimactlTool } from './LimactlTool';
 export { ExecTool } from './ExecTool';

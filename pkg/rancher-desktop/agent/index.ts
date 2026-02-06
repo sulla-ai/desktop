@@ -4,7 +4,7 @@
 export * from './types';
 export { Sensory, getSensory } from './SensoryInput';
 export { ResponseHandler, getResponseHandler } from './ResponseHandler';
-export { Graph, createHierarchicalGraph, createHeartbeatGraph } from './Graph';
+export { Graph, createHierarchicalGraph, createHeartbeatGraph } from './nodes/Graph';
 
 // Graph Nodes
 export { BaseNode } from './nodes/BaseNode';
@@ -20,12 +20,6 @@ export { KnowledgeCriticNode } from './nodes/KnowledgeCriticNode';
 export { KnowledgeWriterNode } from './nodes/KnowledgeWriterNode';
 
 // Services
-export { getPersistenceService } from './services/PersistenceService';
-export { getMemoryPedia, MemoryPedia } from './services/MemoryPedia';
-export { MemoryGraph } from './services/MemoryGraph';
-export { getAwarenessService, AwarenessService } from './services/AwarenessService';
-export { getAwarenessPlanner, AwarenessPlanner } from './services/AwarenessPlanner';
-export { getCalendarService, CalendarService } from './services/CalendarService';
 export { getSchedulerService, SchedulerService } from './services/SchedulerService';
 export { getHeartbeatService, HeartbeatService } from './services/HeartbeatService';
 export { getKnowledgeGraph, KnowledgeGraphClass } from './services/KnowledgeGraph';
@@ -35,9 +29,9 @@ export { getBackendGraphWebSocketService, BackendGraphWebSocketService } from '.
 export { getIntegrationService, IntegrationService } from './services/IntegrationService';
 
 // Models
-export { AgentPersonaService } from './models/AgentPersonaModel';
-export type { PersonaTemplateId, PersonaStatus, PersonaEmotion, TodoStatus, Todo, PlanState, AgentPersonaState } from './models/AgentPersonaModel';
+export { AgentPersonaService } from './database/models/AgentPersonaModel';
+export type { PersonaTemplateId, PersonaStatus, PersonaEmotion, TodoStatus, Todo, PlanState, AgentPersonaState } from './database/models/AgentPersonaModel';
 
 // Registry
-export { AgentPersonaRegistry, getAgentPersonaRegistry } from './registry/AgentPersonaRegistry';
-export type { ChatMessage, AgentRegistryEntry } from './registry/AgentPersonaRegistry';
+export { AgentPersonaRegistry, getAgentPersonaRegistry } from './database/registry/AgentPersonaRegistry';
+export type { ChatMessage, AgentRegistryEntry } from './database/registry/AgentPersonaRegistry';

@@ -43,7 +43,7 @@ import setupUpdate from '@pkg/main/update';
 import { getSchedulerService } from '@pkg/agent/services/SchedulerService';
 import { getHeartbeatService } from '@pkg/agent/services/HeartbeatService';
 import { getIntegrationService } from '@pkg/agent/services/IntegrationService';
-import { postgresClient } from '@pkg/agent/services/PostgresClient';
+import { postgresClient } from '@pkg/agent/database/PostgresClient';
 import { getBackendGraphWebSocketService } from '@pkg/agent/services/BackendGraphWebSocketService';
 import { SullaIntegrations } from '@pkg/agent/integrations';
 import { spawnFile } from '@pkg/utils/childProcess';
@@ -1340,6 +1340,13 @@ function newK8sManager() {
 
       if (state === K8s.State.STOPPING) {
         Steve.getInstance().stop();
+      } else {
+        // After all background services are initialized
+        const { getDatabaseManager } = require('@pkg/agent/database/DatabaseManager');
+        const dbManager = getDatabaseManager();
+        await dbManager.initialize().catch((err: any) => {
+          console.error('[Background] DatabaseManager failed to initialize:', err);
+        });
       }
       if (pendingRestartContext !== undefined && !backendIsBusy()) {
         // If we restart immediately the QEMU process in the VM doesn't always respond to a shutdown messages

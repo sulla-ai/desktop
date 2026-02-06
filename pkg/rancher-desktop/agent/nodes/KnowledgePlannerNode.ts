@@ -3,9 +3,8 @@
 
 import type { ThreadState, NodeResult } from '../types';
 import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
-import { getPersistenceService } from '../services/PersistenceService';
+import { Summary } from '../database/models/Summary';
 import type { KnowledgeGoal } from '../services/KnowledgeState';
-import { getLLMService } from '../services/LLMServiceFactory';
 
 interface PlannerLLMResponse {
   slug: string;
@@ -25,19 +24,18 @@ export class KnowledgePlannerNode extends BaseNode {
   async execute(state: ThreadState): Promise<{ state: ThreadState; next: NodeResult }> {
     console.log(`[KnowledgePlannerNode] Executing for thread: ${state.threadId}`);
 
-    // Load messages if not already present
+    // Load conversation summaries if not already present
     let messages = state.messages;
     if (!messages || messages.length === 0) {
-      const persistence = getPersistenceService();
-      await persistence.initialize();
-      const loaded = await persistence.loadConversation(state.threadId);
-      if (loaded && loaded.length > 0) {
-        messages = loaded.map((m, i) => ({
-          id: `msg_loaded_${i}`,
-          role: m.role as 'user' | 'assistant' | 'system',
-          content: m.content,
-          timestamp: Date.now(),
-        }));
+      const summary = await Summary.findByThread(state.threadId);
+      if (summary && summary.summary) {
+        // Create a synthetic message from the summary for LLM processing
+        messages = [{
+          id: `msg_summary_${summary.threadId}`,
+          role: 'system' as const,
+          content: `Conversation Summary:\n${summary.summary}\n\nTopics: ${summary.topics.join(', ')}\nEntities: ${summary.entities.join(', ')}`,
+          timestamp: summary.timestamp || Date.now(),
+        }];
         state.messages = messages;
       }
     }
@@ -49,17 +47,16 @@ export class KnowledgePlannerNode extends BaseNode {
 
     // Build conversation text for LLM
     const conversationText = messages
-      .filter(m => m.role === 'user' || m.role === 'assistant')
-      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .map(m => m.content)
       .join('\n')
       .substring(0, 8000);
 
-    const prompt = `You are planning a KnowledgeBase article based on this conversation.
+    const prompt = `You are planning a KnowledgeBase article based on this conversation summary.
 
-Conversation:
+Conversation Summary:
 ${conversationText}
 
-Analyze the conversation and plan the article structure.
+Analyze the conversation summary and plan the article structure.
 
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {

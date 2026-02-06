@@ -1,6 +1,10 @@
+// SchedulerService.ts
+// Updated: uses CalendarEvent model instead of old CalendarService
+// API unchanged for backward compatibility
+
 import schedule from 'node-schedule';
-import { getCalendarService, CalendarEvent } from './CalendarService';
 import { getWebSocketClientService, type WebSocketMessage } from './WebSocketClientService';
+import { CalendarEvent } from '../database/models/CalendarEvent'; // new model
 import { eventPrompt } from '../prompts/event';
 
 const FRONTEND_CHANNEL_ID = 'chat-controller';
@@ -18,7 +22,6 @@ export function getSchedulerService(): SchedulerService {
   if (!schedulerServiceInstance) {
     schedulerServiceInstance = new SchedulerService();
   }
-
   return schedulerServiceInstance;
 }
 
@@ -31,31 +34,18 @@ export class SchedulerService {
   private pendingAcks = new Map<number, { resolve: (value: boolean) => void; timer: ReturnType<typeof setTimeout> }>();
 
   async initialize(): Promise<void> {
-    if (this.initialized) {
-      return;
-    }
+    if (this.initialized) return;
 
     console.log('[SchedulerService] Initializing...');
 
     try {
-      const calendarService = getCalendarService();
-      await calendarService.initialize();
-
-      calendarService.onEventChange((event, action) => {
-        if (action === 'created') {
-          this.scheduleEvent(event);
-        } else if (action === 'updated') {
-          this.rescheduleEvent(event);
-        } else if (action === 'deleted') {
-          this.cancelEvent(event.id);
-        }
-      });
-
+      // Listen for model-level changes (via static events or pub/sub if added later)
+      // For now: load upcoming events directly
       const now = new Date().toISOString();
-      const events = await calendarService.getEvents({ startAfter: now });
+      const events = await CalendarEvent.findUpcoming(100, now);
 
       for (const event of events) {
-        this.scheduleEvent(event);
+        this.scheduleEvent(event.attributesSnapshot as any);
       }
 
       console.log(`[SchedulerService] Scheduled ${events.length} upcoming events`);
@@ -66,10 +56,10 @@ export class SchedulerService {
     this.initialized = true;
   }
 
-  scheduleEvent(event: CalendarEvent): void {
+  scheduleEvent(event: any): void { // any to match old CalendarEvent shape
     this.cancelEvent(event.id);
 
-    const startTime = new Date(event.start);
+    const startTime = new Date(event.start_time || event.start);
     const now = new Date();
 
     if (startTime <= now) {
@@ -77,11 +67,8 @@ export class SchedulerService {
       return;
     }
 
-    // Trigger the event reminder
     const job = schedule.scheduleJob(startTime, async () => {
       console.log(`[SchedulerService] CRON JOB FIRED for event: ${event.id} - "${event.title}"`);
-      console.log(`[SchedulerService]   Scheduled time: ${startTime.toISOString()}`);
-      console.log(`[SchedulerService]   Actual fire time: ${new Date().toISOString()}`);
       await this.triggerEvent(event);
       this.scheduledJobs.delete(event.id);
     });
@@ -101,11 +88,11 @@ export class SchedulerService {
     }
   }
 
-  rescheduleEvent(event: CalendarEvent): void {
+  rescheduleEvent(event: any): void {
     this.scheduleEvent(event);
   }
 
-  async triggerEvent(event: CalendarEvent): Promise<void> {
+  async triggerEvent(event: any): Promise<void> {
     try {
       console.log(`[SchedulerService] Sending event prompt via WS: ${event.id} - "${event.title}"`);
       const prompt = this.buildEventPrompt(event);
@@ -117,7 +104,7 @@ export class SchedulerService {
         return;
       }
 
-      console.warn(`[SchedulerService] Frontend did not ACK event ${event.id} - using backend channel`);
+      console.warn(`[SchedulerService] Frontend did not ACK event ${event.id} - using backend`);
       this.sendToBackend(event, prompt);
     } catch (err) {
       console.error(`[SchedulerService] Failed to trigger event ${event.id}:`, err);
@@ -125,26 +112,18 @@ export class SchedulerService {
   }
 
   private ensureFrontendListener(): void {
-    if (this.wsInitialized) {
-      return;
-    }
+    if (this.wsInitialized) return;
 
     this.wsService.connect(FRONTEND_CHANNEL_ID);
     this.unsubscribeFrontend = this.wsService.onMessage(FRONTEND_CHANNEL_ID, (msg: WebSocketMessage) => {
-      if (msg.type !== 'scheduler_ack') {
-        return;
-      }
+      if (msg.type !== 'scheduler_ack') return;
 
       const data = (msg.data && typeof msg.data === 'object') ? (msg.data as any) : null;
       const eventId = Number(data?.eventId);
-      if (!Number.isFinite(eventId)) {
-        return;
-      }
+      if (!Number.isFinite(eventId)) return;
 
       const pending = this.pendingAcks.get(eventId);
-      if (!pending) {
-        return;
-      }
+      if (!pending) return;
 
       clearTimeout(pending.timer);
       pending.resolve(true);
@@ -154,7 +133,7 @@ export class SchedulerService {
     this.wsInitialized = true;
   }
 
-  private buildEventPayload(event: CalendarEvent, prompt: string) {
+  private buildEventPayload(event: any, prompt: string) {
     return {
       type: 'user_message',
       data: {
@@ -170,13 +149,13 @@ export class SchedulerService {
     };
   }
 
-  private async sendToFrontend(event: CalendarEvent, prompt: string): Promise<boolean> {
+  private async sendToFrontend(event: any, prompt: string): Promise<boolean> {
     this.ensureFrontendListener();
     const message = this.buildEventPayload(event, prompt);
 
     const sent = this.wsService.send(FRONTEND_CHANNEL_ID, message);
     if (!sent) {
-      console.warn(`[SchedulerService] Failed to send event ${event.id} to frontend channel`);
+      console.warn(`[SchedulerService] Failed to send event ${event.id} to frontend`);
       return false;
     }
 
@@ -190,20 +169,20 @@ export class SchedulerService {
     });
   }
 
-  private sendToBackend(event: CalendarEvent, prompt: string): void {
+  private sendToBackend(event: any, prompt: string): void {
     const message = this.buildEventPayload(event, prompt);
 
     this.wsService.connect(BACKEND_CHANNEL_ID);
     const sent = this.wsService.send(BACKEND_CHANNEL_ID, message);
     if (!sent) {
-      console.error(`[SchedulerService] Failed to send event ${event.id} to backend channel`);
+      console.error(`[SchedulerService] Failed to send event ${event.id} to backend`);
     }
   }
 
-  private buildEventPrompt(event: CalendarEvent): string {
+  private buildEventPrompt(event: any): string {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const startDate = new Date(event.start);
-    const endDate = new Date(event.end);
+    const startDate = new Date(event.start_time || event.start);
+    const endDate = new Date(event.end_time || event.end);
     const startFormatted = startDate.toLocaleString('en-US', {
       timeZone: timezone,
       weekday: 'long',
@@ -226,22 +205,16 @@ export class SchedulerService {
       `## Event Details`,
       ``,
       `Title: ${event.title}`,
-      `Description: ${event.description}`,
-      `Invitees: ${event.people}`,
+      `Description: ${event.description ?? 'None'}`,
+      `Invitees: ${event.people?.join(', ') ?? 'None'}`,
       `Start datetime: ${startFormatted}`,
       `End datetime: ${endFormatted}`,
-      `allDay: ${event.allDay}`,
-      `createdAt: ${event.createdAt}`,
-      ``,
+      `All day: ${event.all_day ?? event.allDay ?? false}`,
+      `Created: ${event.created_at ?? event.createdAt ?? 'N/A'}`,
     ];
 
-    if (event.location) {
-      parts.push(`**Location:** ${event.location}`);
-    }
+    if (event.location) parts.push(`Location: ${event.location}`);
 
-    if (event.description) {
-      parts.push(`**Description:** ${event.description}`);
-    }
     return parts.join('\n');
   }
 

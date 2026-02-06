@@ -2,7 +2,7 @@
 // Uses setInterval for simple periodic scheduling based on config settings
 
 import type { ThreadState } from '../types';
-import { createHeartbeatGraph } from '../Graph';
+import { createHeartbeatGraph } from '../nodes/Graph';
 
 export interface HeartbeatConfig {
   enabled: boolean;

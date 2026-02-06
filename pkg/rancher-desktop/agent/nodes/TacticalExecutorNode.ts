@@ -131,7 +131,7 @@ ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
     const shouldContinue = this.shouldContinueExecution(state);
     state.metadata.executorContinue = shouldContinue;
     
-    return { state, next: shouldContinue ? 'continue' : 'end' };
+    return { state, next: shouldContinue ? 'continue' : 'next' };
   }
 
   /**

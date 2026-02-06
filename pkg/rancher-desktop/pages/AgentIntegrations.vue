@@ -93,13 +93,31 @@
                         <span v-else class="text-2xl">{{ integration.icon }}</span>
                       </div>
                       <div class="flex items-center gap-2">
-                        <div
-                          class="h-2 w-2 rounded-full"
-                          :class="integration.connected ? 'bg-green-500' : 'bg-gray-300'"
-                        ></div>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">
-                          {{ integration.connected ? 'Connected' : 'Disconnected' }}
-                        </span>
+                        <!-- Only show connection status for integrations that are not coming soon -->
+                        <div v-if="!integration.comingSoon" class="flex items-center gap-2">
+                          <div
+                            class="h-2 w-2 rounded-full"
+                            :class="integration.connected ? 'bg-green-500' : 'bg-gray-300'"
+                          ></div>
+                          <span class="text-xs text-slate-500 dark:text-slate-400">
+                            {{ integration.connected ? 'Connected' : 'Disconnected' }}
+                          </span>
+                        </div>
+                        <!-- Beta/Coming Soon Badges -->
+                        <div class="flex gap-1 ml-2">
+                          <span
+                            v-if="integration.beta"
+                            class="inline-flex items-center rounded-full bg-blue-500 text-white text-xs px-2 py-0.5 font-medium"
+                          >
+                            BETA
+                          </span>
+                          <span
+                            v-if="integration.comingSoon"
+                            class="inline-flex items-center rounded-full bg-gray-400 text-white text-xs px-2 py-0.5 font-medium"
+                          >
+                            COMING SOON
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -125,11 +143,13 @@
                       <router-link
                         :to="`/Integrations/${integration.id}`"
                         class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-                        :class="integration.connected 
-                          ? 'bg-red-600 text-white hover:bg-red-700' 
-                          : 'bg-blue-600 text-white hover:bg-blue-700'"
+                        :class="integration.comingSoon
+                          ? 'bg-gray-500 text-white hover:bg-gray-600'
+                          : integration.connected 
+                            ? 'bg-red-600 text-white hover:bg-red-700' 
+                            : 'bg-blue-600 text-white hover:bg-blue-700'"
                       >
-                        {{ integration.connected ? 'Manage' : 'Connect now' }}
+                        {{ integration.comingSoon ? 'Read more' : (integration.connected ? 'Manage' : 'Connect now') }}
                       </router-link>
                     </div>
                   </div>
@@ -189,7 +209,13 @@ const filteredIntegrations = computed(() => {
       const hay = `${integration.name} ${integration.description} ${integration.category}`.toLowerCase();
       return hay.includes(q);
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => {
+      // Use the sort field if available, otherwise fall back to name comparison
+      if (a.sort !== undefined && b.sort !== undefined) {
+        return a.sort - b.sort;
+      }
+      return a.name.localeCompare(b.name);
+    });
 });
 
 const toggleTheme = () => {

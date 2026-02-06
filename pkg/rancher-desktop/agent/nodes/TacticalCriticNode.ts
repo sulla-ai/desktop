@@ -5,7 +5,7 @@ import type { ThreadState, NodeResult } from '../types';
 import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
 import { parseJson } from '../services/JsonParseService';
 import { agentError, agentLog, agentWarn } from '../services/AgentLogService';
-import { StrategicStateService } from '../services/StrategicStateService';
+import { StrategicStateService } from './state/StrategicStateService';
 
 export type CriticDecision = 'approve' | 'revise' | 'reject';
 
@@ -62,7 +62,7 @@ export class TacticalCriticNode extends BaseNode {
       // Attach full todo state to the revision feedback so the planner has authoritative context.
       try {
         const snapshot = strategicState.getSnapshot();
-        const todos = snapshot.todos.map(t => ({ id: t.id, title: t.title, status: t.status, orderIndex: t.orderIndex }));
+        const todos = snapshot.todos.map(t => ({ id: t.id, title: t.attributes.title, status: t.attributes.status, orderIndex: t.attributes.order_index }));
         state.metadata.revisionFeedback = `${reason}\n\nCurrent todos (all statuses):\n${JSON.stringify(todos, null, 2)}`;
       } catch {
         state.metadata.revisionFeedback = reason;

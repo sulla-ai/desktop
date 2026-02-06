@@ -5,7 +5,7 @@
 import type { ThreadState, ToolResult } from '../types';
 import { BaseTool } from './BaseTool';
 import type { ToolContext } from './BaseTool';
-import { postgresClient } from '../services/PostgresClient'; // adjust path
+import { postgresClient } from '../database/PostgresClient'; // adjust path
 
 export class PgTool extends BaseTool {
   override readonly name = 'pg';
@@ -124,7 +124,25 @@ Subcommands:
           return { toolName: this.name, success: false, error: `Unknown subcommand: ${subcommand}` };
       }
     } catch (err: any) {
-      return { toolName: this.name, success: false, error: err.message || String(err) };
+      // Handle common database errors gracefully
+      let errorMessage = err.message || String(err);
+      
+      // Check for common PostgreSQL error codes
+      if (err.code === '42P01') {
+        // Undefined table
+        errorMessage = `Table does not exist. Available tables can be listed with: ["pg", "query", "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"]`;
+      } else if (err.code === '42703') {
+        // Undefined column
+        errorMessage = `Column does not exist. Check table schema with: ["pg", "query", "SELECT column_name FROM information_schema.columns WHERE table_name = 'your_table'"]`;
+      } else if (err.code === '08006' || err.code === '08001') {
+        // Connection failure
+        errorMessage = 'Database connection failed. Please check if PostgreSQL is running and accessible.';
+      } else if (err.code === '28000') {
+        // Authorization issue
+        errorMessage = 'Database authorization failed. Please check database credentials and permissions.';
+      }
+      
+      return { toolName: this.name, success: false, error: errorMessage };
     }
   }
 }

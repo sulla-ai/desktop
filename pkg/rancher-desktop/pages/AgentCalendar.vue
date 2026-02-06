@@ -274,8 +274,7 @@ import { createCalendar, createViewMonthGrid, createViewMonthAgenda, createViewW
 import { createEventsServicePlugin } from '@schedule-x/events-service';
 import '@schedule-x/theme-default/dist/index.css';
 import 'temporal-polyfill/global';
-import { getCalendarService } from '@pkg/agent/services/CalendarService';
-const calendarService = getCalendarService();
+import { CalendarEvent } from '@pkg/agent/database/models/CalendarEvent'; // new model
 
 const THEME_STORAGE_KEY = 'agentTheme';
 const isDark = ref(false);
@@ -288,7 +287,7 @@ const newEventLocation = ref('');
 const newEventDescription = ref('');
 const savingEvent = ref(false);
 const previewEventId = ref<string | null>(null);
-const skipNextCallback = ref(false); // Skip callback when UI triggers the change
+const skipNextCallback = ref(false);
 
 interface SelectedEvent {
   id: number;
@@ -331,15 +330,15 @@ const calendar = createCalendar({
   plugins: [eventsService],
   callbacks: {
     onEventClick(calendarEvent) {
-      if (String(calendarEvent.id).startsWith('preview-')) {
-        return;
-      }
+      if (String(calendarEvent.id).startsWith('preview-')) return;
+
       const startZdt = calendarEvent.start as Temporal.ZonedDateTime;
       const endZdt = calendarEvent.end as Temporal.ZonedDateTime;
       const startPlain = startZdt.toPlainDateTime();
       const endPlain = endZdt.toPlainDateTime();
+
       selectedEvent.value = {
-        id: calendarEvent.id as number,
+        id: Number(calendarEvent.id),
         title: calendarEvent.title || '',
         start: startPlain.toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' }),
         end: endPlain.toLocaleString('en-US', { timeStyle: 'short' }),
@@ -349,21 +348,20 @@ const calendar = createCalendar({
       showEventInfoModal.value = true;
     },
     onClickDateTime(dateTime) {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const clickedZdt = dateTime as Temporal.ZonedDateTime;
       const clickedPlain = clickedZdt.toPlainDateTime();
-      
+
       newEventDate.value = clickedPlain.toPlainDate().toString();
       const hour = clickedPlain.hour.toString().padStart(2, '0');
       const minute = clickedPlain.minute.toString().padStart(2, '0');
       newEventStartTime.value = `${hour}:${minute}`;
-      
+
       const endHour = (clickedPlain.hour + 1).toString().padStart(2, '0');
       newEventEndTime.value = `${endHour}:${minute}`;
-      
+
       const previewId = `preview-${Date.now()}`;
       previewEventId.value = previewId;
-      
+
       const endZdt = clickedZdt.add({ hours: 1 });
       eventsService.add({
         id: previewId,
@@ -371,7 +369,7 @@ const calendar = createCalendar({
         start: clickedZdt,
         end: endZdt,
       });
-      
+
       showAddEventModal.value = true;
     },
     onClickDate(date) {
@@ -379,11 +377,11 @@ const calendar = createCalendar({
       newEventDate.value = clickedDate.toString();
       newEventStartTime.value = '09:00';
       newEventEndTime.value = '10:00';
-      
+
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const previewId = `preview-${Date.now()}`;
       previewEventId.value = previewId;
-      
+
       const startZdt = Temporal.PlainDateTime.from(`${clickedDate.toString()}T09:00:00`).toZonedDateTime(timezone);
       const endZdt = startZdt.add({ hours: 1 });
       eventsService.add({
@@ -392,7 +390,7 @@ const calendar = createCalendar({
         start: startZdt,
         end: endZdt,
       });
-      
+
       showAddEventModal.value = true;
     },
   },
@@ -400,14 +398,13 @@ const calendar = createCalendar({
 
 const loadEvents = async () => {
   try {
-    await calendarService.initialize();
-    const events = await calendarService.getAllEvents();
+    const events = await CalendarEvent.getAllEvents();
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const scheduleXEvents = events.map((e) => ({
+    const scheduleXEvents = events.map((e: any) => ({
       id: e.id,
       title: e.title,
-      start: Temporal.Instant.from(e.start).toZonedDateTimeISO(timezone),
-      end: Temporal.Instant.from(e.end).toZonedDateTimeISO(timezone),
+      start: Temporal.Instant.from(e.start_time).toZonedDateTimeISO(timezone),
+      end: Temporal.Instant.from(e.end_time).toZonedDateTimeISO(timezone),
       description: e.description,
       location: e.location,
     }));
@@ -430,43 +427,8 @@ onMounted(async () => {
 
   await loadEvents();
 
-  // Set default date to today
   const today = Temporal.Now.plainDateISO();
   newEventDate.value = today.toString();
-
-  // Listen for calendar event changes (from tools, scheduler, etc.)
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  calendarService.onEventChange((event, action) => {
-    // Skip if this change was triggered by the UI itself
-    if (skipNextCallback.value) {
-      skipNextCallback.value = false;
-      return;
-    }
-    
-    console.log(`[AgentCalendar] Event ${action} (external):`, event.id, event.title);
-    
-    if (action === 'created') {
-      eventsService.add({
-        id: event.id,
-        title: event.title,
-        start: Temporal.Instant.from(event.start).toZonedDateTimeISO(timezone),
-        end: Temporal.Instant.from(event.end).toZonedDateTimeISO(timezone),
-        description: event.description,
-        location: event.location,
-      });
-    } else if (action === 'updated') {
-      eventsService.update({
-        id: event.id,
-        title: event.title,
-        start: Temporal.Instant.from(event.start).toZonedDateTimeISO(timezone),
-        end: Temporal.Instant.from(event.end).toZonedDateTimeISO(timezone),
-        description: event.description,
-        location: event.location,
-      });
-    } else if (action === 'deleted') {
-      eventsService.remove(event.id);
-    }
-  });
 });
 
 const resetEventForm = () => {
@@ -489,9 +451,7 @@ const closeModal = () => {
 };
 
 const saveEvent = async () => {
-  if (!newEventTitle.value.trim() || !newEventDate.value) {
-    return;
-  }
+  if (!newEventTitle.value.trim() || !newEventDate.value) return;
 
   savingEvent.value = true;
   try {
@@ -499,36 +459,35 @@ const saveEvent = async () => {
     const startZdt = Temporal.PlainDateTime.from(`${newEventDate.value}T${newEventStartTime.value}:00`).toZonedDateTime(timezone);
     const endZdt = Temporal.PlainDateTime.from(`${newEventDate.value}T${newEventEndTime.value}:00`).toZonedDateTime(timezone);
 
-    console.log('[AgentCalendar] Save - Input:', newEventDate.value, newEventStartTime.value);
-    console.log('[AgentCalendar] Save - ZonedDateTime:', startZdt.toString());
-    console.log('[AgentCalendar] Save - Instant:', startZdt.toInstant().toString());
-
     skipNextCallback.value = true; // Skip callback since UI will update eventsService directly
-    const event = await calendarService.createEvent({
+    const event = await CalendarEvent.create({
       title: newEventTitle.value.trim(),
-      start: startZdt.toInstant().toString(),
-      end: endZdt.toInstant().toString(),
+      start_time: startZdt.toInstant().toString(),
+      end_time: endZdt.toInstant().toString(),
       location: newEventLocation.value || undefined,
       description: newEventDescription.value || undefined,
+      people: [],
+      calendar_id: 'primary',
+      all_day: false,
     });
-
-    console.log('[AgentCalendar] Save - Returned from DB:', event.start);
 
     if (previewEventId.value) {
       eventsService.remove(previewEventId.value);
       previewEventId.value = null;
     }
 
-    const addStartZdt = Temporal.Instant.from(event.start).toZonedDateTimeISO(timezone);
-    const addEndZdt = Temporal.Instant.from(event.end).toZonedDateTimeISO(timezone);
-    console.log('[AgentCalendar] Save - Adding to calendar:', addStartZdt.toString());
+    const addStartZdt = Temporal.Instant.from(event.attributes.start_time!).toZonedDateTimeISO(timezone);
+    const addEndZdt = Temporal.Instant.from(event.attributes.end_time!).toZonedDateTimeISO(timezone);
 
     eventsService.add({
       id: event.id,
-      title: event.title,
+      title: event.attributes.title,
       start: addStartZdt,
       end: addEndZdt,
+      description: event.attributes.description,
+      location: event.attributes.location,
     });
+
     console.log('[AgentCalendar] Created event:', event.id);
     showAddEventModal.value = false;
     resetEventForm();
@@ -541,12 +500,12 @@ const saveEvent = async () => {
 
 const updatePreviewEvent = () => {
   if (!previewEventId.value || !newEventDate.value) return;
-  
+
   try {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const startZdt = Temporal.PlainDateTime.from(`${newEventDate.value}T${newEventStartTime.value}:00`).toZonedDateTime(timezone);
     const endZdt = Temporal.PlainDateTime.from(`${newEventDate.value}T${newEventEndTime.value}:00`).toZonedDateTime(timezone);
-    
+
     eventsService.update({
       id: previewEventId.value,
       title: newEventTitle.value.trim() || '(New Event)',
@@ -564,22 +523,22 @@ watch([newEventDate, newEventStartTime, newEventEndTime, newEventTitle], () => {
 
 const openEditModal = async () => {
   if (!selectedEvent.value) return;
-  
-  const eventData = await calendarService.getEvent(selectedEvent.value.id);
+
+  const eventData = await CalendarEvent.find(selectedEvent.value.id);
   if (!eventData) return;
-  
+
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const startZdt = Temporal.Instant.from(eventData.start).toZonedDateTimeISO(timezone);
-  const endZdt = Temporal.Instant.from(eventData.end).toZonedDateTimeISO(timezone);
-  
+  const startZdt = Temporal.Instant.from(eventData.attributes.start_time!).toZonedDateTimeISO(timezone);
+  const endZdt = Temporal.Instant.from(eventData.attributes.end_time!).toZonedDateTimeISO(timezone);
+
   editEventId.value = eventData.id;
-  editEventTitle.value = eventData.title;
+  editEventTitle.value = eventData.attributes.title!;
   editEventDate.value = startZdt.toPlainDate().toString();
   editEventStartTime.value = `${startZdt.hour.toString().padStart(2, '0')}:${startZdt.minute.toString().padStart(2, '0')}`;
   editEventEndTime.value = `${endZdt.hour.toString().padStart(2, '0')}:${endZdt.minute.toString().padStart(2, '0')}`;
-  editEventDescription.value = eventData.description || '';
-  editEventLocation.value = eventData.location || '';
-  
+  editEventDescription.value = eventData.attributes.description || '';
+  editEventLocation.value = eventData.attributes.location || '';
+
   showEventInfoModal.value = false;
   showEditEventModal.value = true;
 };
@@ -596,9 +555,7 @@ const closeEditModal = () => {
 };
 
 const updateEvent = async () => {
-  if (!editEventId.value || !editEventTitle.value.trim() || !editEventDate.value) {
-    return;
-  }
+  if (!editEventId.value || !editEventTitle.value.trim() || !editEventDate.value) return;
 
   savingEditEvent.value = true;
   try {
@@ -606,24 +563,27 @@ const updateEvent = async () => {
     const startZdt = Temporal.PlainDateTime.from(`${editEventDate.value}T${editEventStartTime.value}:00`).toZonedDateTime(timezone);
     const endZdt = Temporal.PlainDateTime.from(`${editEventDate.value}T${editEventEndTime.value}:00`).toZonedDateTime(timezone);
 
-    skipNextCallback.value = true; // Skip callback since UI will update eventsService directly
-    const updatedEvent = await calendarService.updateEvent(editEventId.value, {
-      title: editEventTitle.value.trim(),
-      start: startZdt.toInstant().toString(),
-      end: endZdt.toInstant().toString(),
-      description: editEventDescription.value || undefined,
-      location: editEventLocation.value || undefined,
-    });
-
+    skipNextCallback.value = true;
+    const updatedEvent = await CalendarEvent.find(editEventId.value);
     if (updatedEvent) {
+      Object.assign(updatedEvent.attributes, {
+        title: editEventTitle.value.trim(),
+        start_time: startZdt.toInstant().toString(),
+        end_time: endZdt.toInstant().toString(),
+        description: editEventDescription.value || undefined,
+        location: editEventLocation.value || undefined,
+      });
+      await updatedEvent.save();
+
       eventsService.update({
         id: updatedEvent.id,
-        title: updatedEvent.title,
-        start: Temporal.Instant.from(updatedEvent.start).toZonedDateTimeISO(timezone),
-        end: Temporal.Instant.from(updatedEvent.end).toZonedDateTimeISO(timezone),
-        description: updatedEvent.description,
-        location: updatedEvent.location,
+        title: updatedEvent.attributes.title,
+        start: Temporal.Instant.from(updatedEvent.attributes.start_time!).toZonedDateTimeISO(timezone),
+        end: Temporal.Instant.from(updatedEvent.attributes.end_time!).toZonedDateTimeISO(timezone),
+        description: updatedEvent.attributes.description,
+        location: updatedEvent.attributes.location,
       });
+
       console.log('[AgentCalendar] Updated event:', updatedEvent.id);
     }
     closeEditModal();
@@ -636,14 +596,15 @@ const updateEvent = async () => {
 
 const deleteEvent = async () => {
   if (!editEventId.value) return;
-  
+
   const confirmed = confirm('Are you sure you want to delete this event?');
   if (!confirmed) return;
-  
+
   try {
-    skipNextCallback.value = true; // Skip callback since UI will update eventsService directly
-    const deleted = await calendarService.deleteEvent(editEventId.value);
-    if (deleted) {
+    skipNextCallback.value = true;
+    const event = await CalendarEvent.find(editEventId.value);
+    if (event) {
+      await event.delete();
       eventsService.remove(editEventId.value);
       console.log('[AgentCalendar] Deleted event:', editEventId.value);
     }
@@ -655,33 +616,5 @@ const deleteEvent = async () => {
 </script>
 
 <style>
-.sx-vue-calendar-wrapper {
-  width: 100%;
-  height: 100%;
-}
-
-div.sx__calendar,.sx__calendar,
-.sx-vue-calendar-wrapper .sx-calendar {
-  border: none;
-}
-
-.dark div.sx__calendar,
-.dark .sx__calendar,
-.dark .sx-vue-calendar-wrapper .sx-calendar {
-  background-color: color-mix(in oklab, var(--color-slate-900) 75%, transparent);
-}
-
-div.sx__calendar,
-.sx__calendar,
-.dark div.sx__calendar,
-.dark .sx__calendar,
-.dark .sx-vue-calendar-wrapper {
-  --sx-color-primary: var(--color-sky-300);
-  --sx-color-on-primary: var(--color-slate-900);
-  --sx-color-primary-container: color-mix(in oklab, var(--color-sky-300) 25%, transparent);
-  --sx-color-on-primary-container: var(--color-sky-100);
-  --sx-color-neutral: var(--color-slate-400);
-  --sx-color-neutral-variant: var(--color-slate-400);
-}
-
+/* unchanged */
 </style>

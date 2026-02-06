@@ -21,15 +21,17 @@
                     Long-term memories Sulla has collected and organized through dreaming.
                   </p>
                   <div class="mt-8 flex gap-4 md:justify-center lg:justify-start">
-                    <a
-                      class="rounded-full bg-sky-300 py-2 px-4 text-sm font-semibold text-slate-900 hover:bg-sky-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300/50 active:bg-sky-500"
-                      href="#quick-start"
+
+                    <router-link
+                      to="/KnowledgeBase/Create"
+                      class="text-sm font-semibold"
+                      :class="['rounded-full bg-sky-300 py-2 px-4 text-sm font-semibold text-slate-900 hover:bg-sky-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300/50 active:bg-sky-500']"
                     >
-                      Getting started
-                    </a>
+                      Create new page
+                    </router-link>
                     <a
                       class="rounded-full bg-slate-800 py-2 px-4 text-sm font-medium text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50 active:text-slate-400"
-                      href="https://github.com/rancher-sandbox/rancher-desktop"
+                      href="https://github.com/sulla-ai/sulla-desktop"
                       target="_blank"
                       rel="noopener noreferrer"
                     >

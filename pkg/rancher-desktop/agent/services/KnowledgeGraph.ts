@@ -1,13 +1,13 @@
-// KnowledgeGraph - Orchestrates KnowledgeBase page generation
-// Flow: KnowledgePlannerNode → KnowledgeExecutorNode → KnowledgeCriticNode → KnowledgeWriterNode
-// Supports sync and async dispatch modes
+// KnowledgeGraph.ts
+// Orchestrates KnowledgeBase page generation
+// Updated: uses Summary model instead of PersistenceService.loadConversation
 
-import { Graph } from '../Graph';
+import { Graph } from '../nodes/Graph';
 import { KnowledgePlannerNode } from '../nodes/KnowledgePlannerNode';
 import { KnowledgeExecutorNode } from '../nodes/KnowledgeExecutorNode';
 import { KnowledgeCriticNode } from '../nodes/KnowledgeCriticNode';
 import { KnowledgeWriterNode } from '../nodes/KnowledgeWriterNode';
-import { getPersistenceService } from './PersistenceService';
+import { Summary } from '../database/models/Summary'; 
 import type { ThreadState } from '../types';
 
 export interface KnowledgeGraphRequest {
@@ -42,8 +42,6 @@ class KnowledgeGraphClass {
     graph.addNode(new KnowledgeCriticNode());
     graph.addNode(new KnowledgeWriterNode());
 
-    // Flow: Planner → Executor → Critic → Writer
-    // Critic returns 'knowledge_executor' directly for refinement, or 'continue' to proceed
     graph.addEdge('knowledge_planner', 'knowledge_executor');
     graph.addEdge('knowledge_executor', 'knowledge_critic');
     graph.addEdge('knowledge_critic', 'knowledge_writer');
@@ -56,18 +54,13 @@ class KnowledgeGraphClass {
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) {
-      return;
-    }
+    if (this.initialized) return;
 
     this.graph = this.buildGraph();
     await this.graph.initialize();
     this.initialized = true;
   }
 
-  /**
-   * Run the KnowledgeGraph synchronously - blocks until complete
-   */
   async runSync(request: KnowledgeGraphRequest): Promise<KnowledgeGraphResponse> {
     await this.initialize();
 
@@ -87,17 +80,11 @@ class KnowledgeGraphClass {
     }
   }
 
-  /**
-   * Enqueue a request for async processing - returns immediately
-   */
   enqueueAsync(request: KnowledgeGraphRequest): void {
     this.queue.push({ request });
     this.processQueue();
   }
 
-  /**
-   * Run the KnowledgeGraph - auto-selects sync or async based on request.mode
-   */
   async run(request: KnowledgeGraphRequest): Promise<KnowledgeGraphResponse> {
     if (request.mode === 'async') {
       this.enqueueAsync(request);
@@ -107,32 +94,24 @@ class KnowledgeGraphClass {
   }
 
   private async processQueue(): Promise<void> {
-    if (this.processing || this.queue.length === 0) {
-      return;
-    }
+    if (this.processing || this.queue.length === 0) return;
 
     this.processing = true;
 
     while (this.queue.length > 0) {
       const item = this.queue.shift();
-      if (!item) {
-        continue;
-      }
+      if (!item) continue;
 
       try {
         const response = await this.runSync(item.request);
-        if (item.resolve) {
-          item.resolve(response);
-        }
-        console.log(`[KnowledgeGraph] Async processing complete: ${response.slug || 'error'}`);
+        item.resolve?.(response);
+        console.log(`[KnowledgeGraph] Async complete: ${response.slug || 'error'}`);
       } catch (err) {
-        console.error(`[KnowledgeGraph] Async processing failed:`, err);
-        if (item.resolve) {
-          item.resolve({
-            success: false,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+        console.error(`[KnowledgeGraph] Async failed:`, err);
+        item.resolve?.({
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -142,15 +121,18 @@ class KnowledgeGraphClass {
   private async buildInitialState(request: KnowledgeGraphRequest): Promise<ThreadState | null> {
     let messages = request.messages;
 
-    // Load messages from persistence if not provided
+    // Load messages from Summary model (last relevant summary for thread)
     if (!messages || messages.length === 0) {
-      const persistence = getPersistenceService();
-      await persistence.initialize();
-      const loaded = await persistence.loadConversation(request.threadId);
-      if (!loaded || loaded.length === 0) {
+      const summary = await Summary.findByThread(request.threadId);
+      if (!summary?.summary) {
         return null;
       }
-      messages = loaded;
+
+      // Reconstruct minimal messages from summary
+      messages = [
+        { role: 'system', content: `Summary of previous conversation in thread ${request.threadId}:\n${summary.summary}` },
+        { role: 'user', content: 'Continue from previous context.' },
+      ];
     }
 
     const now = Date.now();
@@ -184,27 +166,16 @@ class KnowledgeGraphClass {
       };
     }
 
-    // Check for errors from any node
-    const plannerError = (state.metadata as any).knowledgePlannerError;
-    const executorError = (state.metadata as any).knowledgeExecutorError;
-    const criticError = (state.metadata as any).knowledgeCriticError;
-
-    const error = writerError || criticError || executorError || plannerError || 'Unknown error';
-
-    return {
-      success: false,
-      error,
-    };
+    const error = writerError || 'Unknown error';
+    return { success: false, error };
   }
 }
 
-// Singleton instance
+// Singleton
 let instance: KnowledgeGraphClass | null = null;
 
 export function getKnowledgeGraph(): KnowledgeGraphClass {
-  if (!instance) {
-    instance = new KnowledgeGraphClass();
-  }
+  if (!instance) instance = new KnowledgeGraphClass();
   return instance;
 }
 
