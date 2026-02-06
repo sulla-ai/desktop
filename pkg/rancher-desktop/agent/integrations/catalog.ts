@@ -490,15 +490,13 @@ export const integrations: Record<string, Integration> = {
       },
       {
         type: 'image',
-        url: 'default-media.webp',
-        alt: 'Email Templates',
-        caption: 'Create dynamic email templates with personalization'
+        url: 'mailgun-media-1.webp',
+        alt: 'Mailgun Media 1'
       },
       {
         type: 'image',
-        url: 'default-media.webp',
-        alt: 'API Dashboard',
-        caption: 'Monitor API usage and configure email routing rules'
+        url: 'mailgun-media-2.webp',
+        alt: 'Mailgun Media 2'
       }
     ],
     features: [
