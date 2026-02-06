@@ -178,7 +178,14 @@ class WebSocketConnection {
   private startHeartbeat() {
     this.heartbeatTimer = setInterval(() => {
       if (this.isConnected()) {
-        this.sendNow({ type: 'ping', data: null, id: generateUUID(), timestamp: Date.now() });
+        // Send heartbeat on dedicated heartbeat channel, not the data channel
+        this.sendNow({ 
+          type: 'ping', 
+          data: null, 
+          channel: 'heartbeat', // Dedicated heartbeat channel
+          id: generateUUID(), 
+          timestamp: Date.now() 
+        });
       }
     }, 30000);
   }
