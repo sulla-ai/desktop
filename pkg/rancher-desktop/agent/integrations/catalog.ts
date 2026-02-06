@@ -153,26 +153,7 @@ export const integrations: Record<string, Integration> = {
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
     formGuide: 'Get your Account SID, Auth Token, and Phone Number from your Twilio Console. Go to Console > Settings > General.',
-    media: [
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Twilio Console',
-        caption: 'Manage all your communication services from the centralized console'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'SMS Messaging',
-        caption: 'Send and receive SMS messages programmatically with SULLA'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Voice Calls',
-        caption: 'Make and receive voice calls through Twilio\'s VoIP infrastructure'
-      }
-    ],
+    media: [],
     features: [
       {
         title: 'SMS Messaging',
@@ -582,26 +563,7 @@ export const integrations: Record<string, Integration> = {
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
     formGuide: 'Get your API Key from SendGrid Dashboard. Go to Settings > API Keys > Create API Key.',
-    media: [
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'SendGrid Dashboard',
-        caption: 'Monitor email performance and campaign analytics'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Email Marketing',
-        caption: 'Create and automate email marketing campaigns'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Template Design',
-        caption: 'Design responsive email templates with drag-and-drop editor'
-      }
-    ],
+    media: [],
     features: [
       {
         title: 'Email Delivery',
@@ -673,26 +635,7 @@ export const integrations: Record<string, Integration> = {
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
     formGuide: 'Get your API Token and Phone Number ID from Meta Business Suite. Go to Settings > WhatsApp Business API.',
-    media: [
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'WhatsApp Business Interface',
-        caption: 'Professional WhatsApp Business messaging interface'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Customer Conversations',
-        caption: 'Real-time customer support through WhatsApp'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Message Templates',
-        caption: 'Create and manage message templates for bulk messaging'
-      }
-    ],
+    media: [],
     features: [
       {
         title: 'Business Messaging',
@@ -780,26 +723,7 @@ export const integrations: Record<string, Integration> = {
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
     formGuide: 'Create a bot with @BotFather on Telegram to get your Bot Token. Use @userinfobot to get your Chat ID.',
-    media: [
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Telegram Bot Interface',
-        caption: 'Powerful bot creation and management interface'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'Group Management',
-        caption: 'Manage groups and channels with automated bots'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'API Integration',
-        caption: 'Seamless API integration for custom workflows'
-      }
-    ],
+    media: [],
     features: [
       {
         title: 'Bot Development',
@@ -1061,26 +985,7 @@ export const integrations: Record<string, Integration> = {
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
     formGuide: 'Create a LinkedIn app at developer.linkedin.com. Get your API credentials from the application dashboard.',
-    media: [
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'LinkedIn Professional Network',
-        caption: 'Professional networking and business development platform'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'LinkedIn Business',
-        caption: 'Business networking and professional connections'
-      },
-      {
-        type: 'image',
-        url: 'default-media.webp',
-        alt: 'LinkedIn Content',
-        caption: 'Share professional content and engage with industry leaders'
-      }
-    ],
+    media: [],
     features: [
       {
         title: 'Professional Networking',
