@@ -874,6 +874,7 @@ When to trigger KB generation:
   protected async executeToolCalls(
     state: ThreadState,
     tools: unknown[],
+    allowedTools?: string[],
   ): Promise<Array<{ toolName: string; success: boolean; result?: unknown; error?: string }>> {
     console.log(`[BaseNode:${this.name}] Executing ${tools.length} tool calls:`, JSON.stringify(tools, null, 2));
     
@@ -881,11 +882,31 @@ When to trigger KB generation:
     registerDefaultTools();
     const registry = getToolRegistry();
 
+    // Get all available tool names including aliases
+    const allAvailableToolNames = new Set<string>();
+    for (const tool of registry.listUnique()) {
+      allAvailableToolNames.add(tool.name);
+      for (const alias of tool.aliases || []) {
+        allAvailableToolNames.add(alias);
+      }
+    }
+
     const normalized = this.normalizeToolCalls(tools);
     const results: Array<{ toolName: string; success: boolean; result?: unknown; error?: string }> = [];
 
     for (const { toolName, args } of normalized) {
       console.log(`[BaseNode:${this.name}] Executing tool: ${toolName} with args:`, JSON.stringify(args, null, 2));
+      
+      // Check if tool is in allowed list (if provided)
+      if (allowedTools && allowedTools.length > 0 && !allowedTools.includes(toolName)) {
+        console.log(`[BaseNode:${this.name}] Tool ${toolName} attempted but not in allowed list: [${allowedTools.join(', ')}]`);
+        results.push({ 
+          toolName, 
+          success: false, 
+          error: `Tool ${toolName} is not in the allowed tools list for this node` 
+        });
+        continue;
+      }
       
       const tool = registry.get(toolName);
       if (!tool) {

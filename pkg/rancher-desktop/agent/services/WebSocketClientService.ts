@@ -254,10 +254,16 @@ class WebSocketConnection {
 
 export class WebSocketClientService {
   private connections: Map<string, WebSocketConnection> = new Map();
+  
+  // Make it static and properly typed
   private static instance: WebSocketClientService | null = null;
 
-  static getInstance() {
-    return this.instance ??= new WebSocketClientService();
+  // Now this works correctly
+  public static getInstance(): WebSocketClientService {
+    if (!WebSocketClientService.instance) {
+      WebSocketClientService.instance = new WebSocketClientService();
+    }
+    return WebSocketClientService.instance;
   }
 
   connect(connectionId: string, url: string = DEFAULT_WS_URL): boolean {

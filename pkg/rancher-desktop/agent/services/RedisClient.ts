@@ -9,21 +9,31 @@ const REDIS_URL = 'redis://127.0.0.1:30117';
 export class RedisClient {
   private client: Redis;
   private connected = false;
+  private connectionAttempts = 0;
+  private maxConnectionAttempts = 10;
+  private connectionRetryDelay = 2000;
 
   constructor() {
     this.client = new Redis(REDIS_URL, {
       retryStrategy: times => Math.min(times * 50, 2000),
       maxRetriesPerRequest: 3,
+      lazyConnect: true, // Don't auto-connect on construction
     });
 
     this.client.on('connect', () => {
       this.connected = true;
+      this.connectionAttempts = 0;
       console.log('[RedisClient] Connected');
     });
 
     this.client.on('error', err => {
       this.connected = false;
-      console.error('[RedisClient] Error:', err);
+      // Reduce error verbosity for common startup errors
+      if ((err as any).code === 'ECONNREFUSED' || (err as any).code === 'EPIPE' || (err as any).code === 'ECONNRESET') {
+        console.log(`[RedisClient] Connection error (${(err as any).code}): Redis server not available yet`);
+      } else {
+        console.error('[RedisClient] Error:', err);
+      }
     });
 
     this.client.on('close', () => {
@@ -45,12 +55,21 @@ export class RedisClient {
   async initialize(): Promise<boolean> {
     if (this.connected) return true;
 
+    // Stop trying if we've exceeded max attempts
+    if (this.connectionAttempts >= this.maxConnectionAttempts) {
+      console.log(`[RedisClient] Max connection attempts (${this.maxConnectionAttempts}) reached, giving up`);
+      return false;
+    }
+
     try {
       await this.client.ping();
       this.connected = true;
+      this.connectionAttempts = 0; // Reset on successful connection
       return true;
     } catch (error) {
-      console.error('[RedisClient] Connection failed:', error);
+      this.connectionAttempts++;
+      console.log(`[RedisClient] Connection attempt ${this.connectionAttempts}/${this.maxConnectionAttempts} failed`);
+      this.connected = false;
       return false;
     }
   }
@@ -139,7 +158,13 @@ export class RedisClient {
   private async ensureConnected(): Promise<void> {
     if (!this.connected) {
       const ok = await this.initialize();
-      if (!ok) throw new Error('Redis not connected');
+      if (!ok) {
+        if (this.connectionAttempts >= this.maxConnectionAttempts) {
+          throw new Error(`Redis not connected after ${this.maxConnectionAttempts} attempts`);
+        } else {
+          throw new Error('Redis server not available yet');
+        }
+      }
     }
   }
 }
