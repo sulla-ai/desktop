@@ -4,6 +4,14 @@ import { getSensory } from '../SensoryInput';
 import { getSchedulerService } from './SchedulerService';
 import type { CalendarEvent } from './CalendarClient';
 
+interface CalendarWebSocketMessage {
+  type: 'scheduled' | 'cancel' | 'reschedule';
+  event?: CalendarEvent;
+  id: string;
+  timestamp: number;
+  channel: string;
+}
+
 const BACKEND_CHANNEL_ID = 'chat-controller-backend';
 const CALENDAR_CHANNEL_ID = 'calendar_event';
 
@@ -88,19 +96,20 @@ export class BackendGraphWebSocketService {
   private async handleCalendarMessage(msg: WebSocketMessage): Promise<void> {
     console.log('[BackendGraphWebSocketService] Received calendar message:', msg);
 
-    const data = typeof msg.data === 'string' ? JSON.parse(msg.data) : (msg.data as any);
+    // The calendar message data is directly on the message object, not in msg.data
+    const calendarMsg = msg as CalendarWebSocketMessage;
     
-    if (!data || typeof data.type !== 'string') {
-      console.warn('[BackendGraphWebSocketService] Invalid calendar message format:', data);
+    if (!calendarMsg || typeof calendarMsg.type !== 'string') {
+      console.warn('[BackendGraphWebSocketService] Invalid calendar message format:', calendarMsg);
       return;
     }
 
-    const { type, event } = data;
+    const { type, event } = calendarMsg;
 
     if (type === 'scheduled' && event) {
       try {
         console.log('[BackendGraphWebSocketService] Scheduling calendar event:', event);
-        this.schedulerService.scheduleEvent(event as CalendarEvent);
+        this.schedulerService.scheduleEvent(event);
       } catch (err) {
         console.error('[BackendGraphWebSocketService] Failed to schedule calendar event:', err);
       }
@@ -114,7 +123,7 @@ export class BackendGraphWebSocketService {
     } else if (type === 'reschedule' && event) {
       try {
         console.log('[BackendGraphWebSocketService] Rescheduling calendar event:', event);
-        this.schedulerService.rescheduleEvent(event as CalendarEvent);
+        this.schedulerService.rescheduleEvent(event);
       } catch (err) {
         console.error('[BackendGraphWebSocketService] Failed to reschedule calendar event:', err);
       }
