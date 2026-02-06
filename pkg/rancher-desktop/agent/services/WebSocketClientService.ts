@@ -1,10 +1,11 @@
-// WebSocketClientService - Manages WebSocket connections for agent nodes
-// Provides singleton pattern for shared connections across nodes
+// WebSocketClientService.ts - Fixed version (all TS errors resolved)
 
 export interface WebSocketMessage {
   type: string;
   data: unknown;
-  timestamp?: number;
+  id: string;
+  originalId?: string;
+  timestamp: number;
   channel?: string;
 }
 
@@ -15,187 +16,239 @@ interface ConnectionConfig {
   channel?: string;
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
+  ackTimeout?: number;
+  maxMessageAgeMs?: number;
 }
 
 const DEFAULT_WS_URL = 'ws://localhost:30118/';
 
+function generateUUID(): string {
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    // Fallback random fill
+    for (let i = 0; i < 16; i++) {
+      bytes[i] = (Math.random() * 256) | 0;
+    }
+  }
+
+  // Set version 4 bits
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  // Set variant bits
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  return Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+}
+
 class WebSocketConnection {
-  private ws: WebSocket | null = null;
-  private config: ConnectionConfig;
-  private reconnectAttempts = 0;
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private messageHandlers: Set<WebSocketMessageHandler> = new Set();
-  private isConnecting = false;
-  private subscribedChannels: Set<string> = new Set();
+  public ws: WebSocket | null = null;
+  public pending = new Map<string, {
+    message: WebSocketMessage;
+    queuedAt: number;
+    firstSentAt: number;
+    lastSentAt?: number;
+    attempts: number;
+    timeoutTimer?: NodeJS.Timeout;
+  }>();
+  public heartbeatTimer: NodeJS.Timeout | null = null;
+  public reconnectTimer: NodeJS.Timeout | null = null;
+  public reconnectAttempts = 0;
+  public messageHandlers = new Set<WebSocketMessageHandler>();
+  public subscribed = new Set<string>();
+
+  private config: Required<ConnectionConfig>;
 
   constructor(config: ConnectionConfig) {
     this.config = {
-      reconnectInterval: 5000,
-      maxReconnectAttempts: 10,
-      ...config,
+      ...config,  // user overrides come first
+      url: config.url,
+      channel: config.channel || '',
+      reconnectInterval: 4000,
+      maxReconnectAttempts: 12,
+      ackTimeout: 9000,
+      maxMessageAgeMs: 240_000,
     };
   }
 
   connect(): void {
-    if (this.isConnecting || this.ws?.readyState === WebSocket.CONNECTING) {
-      console.log(`[WebSocket] Already connecting to ${this.config.url}`);
-      return;
-    }
+    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) return;
 
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log(`[WebSocket] Already connected to ${this.config.url}`);
-      return;
-    }
-
-    this.isConnecting = true;
-    console.log(`[WebSocket] Initializing connection to ${this.config.url}...`);
+    this.cleanup();
 
     try {
       this.ws = new WebSocket(this.config.url);
 
       this.ws.onopen = () => {
-        console.log(`[WebSocket] Connected to ${this.config.url}`);
-
-        if (this.config.channel) {
-          const subscribeMsg = {
-            type: 'subscribe',
-            channel: this.config.channel
-          };
-          console.log(`[WebSocket] Auto-subscribing to channel: ${this.config.channel}`);
-          this.ws?.send(JSON.stringify(subscribeMsg));
-          this.subscribedChannels.add(this.config.channel);
-        }
-
-        this.isConnecting = false;
+        console.log(`[WS ${this.config.channel}] Connected`);
         this.reconnectAttempts = 0;
+        if (this.config.channel && !this.subscribed.has(this.config.channel)) {
+          this.sendNow({
+            type: 'subscribe',
+            data: null,                    // required field
+            channel: this.config.channel,
+            id: generateUUID(),
+            timestamp: Date.now()
+          });
+          this.subscribed.add(this.config.channel);
+        }
+        this.startHeartbeat();
+        this.retryPending();
       };
 
       this.ws.onmessage = async (event) => {
-        console.log(`[WebSocket] Message received:`, event.data);
-        let rawData: string;
-        if (event.data instanceof Blob) {
-          rawData = await event.data.text();
-          console.log(`[WebSocket] Unpacked Blob:`, rawData);
-        } else {
-          rawData = event.data as string;
-        }
+        let text = event.data instanceof Blob ? await event.data.text() : event.data as string;
+        let msg: WebSocketMessage;
 
         try {
-          const parsed = JSON.parse(rawData) as WebSocketMessage;
-
-          if (parsed.type === 'subscribed' && parsed.channel) {
-            this.subscribedChannels.add(parsed.channel);
-            console.log(`[WebSocket] Confirmed subscription to ${parsed.channel}`);
-          }
-
-          console.log(`[WebSocket] Parsed message type: ${parsed.type}`);
-          this.messageHandlers.forEach(handler => {
-            try {
-              handler(parsed);
-            } catch (err) {
-              console.error('[WebSocket] Message handler error:', err);
-            }
-          });
-        } catch (parseErr) {
-          console.warn('[WebSocket] Failed to parse message as JSON, wrapping as raw:', parseErr);
-          const msg: WebSocketMessage = {
-            type: 'raw',
-            data: rawData,
-            timestamp: Date.now(),
-          };
-          this.messageHandlers.forEach(handler => {
-            try {
-              handler(msg);
-            } catch (err) {
-              console.error('[WebSocket] Message handler error:', err);
-            }
-          });
+          msg = JSON.parse(text);
+        } catch {
+          const fallbackIdMatch = text.match(/"id":"([a-f0-9-]+)"/i);
+          if (fallbackIdMatch) this.ack(fallbackIdMatch[1]);
+          return;
         }
+
+        if (msg.type === 'ack' && msg.originalId) {
+          this.clearPending(msg.originalId);
+          return;
+        }
+
+        if (msg.id) this.ack(msg.id);
+
+        this.messageHandlers.forEach(h => {
+          try { h(msg); } catch (e) { console.error('[WS handler error]', e); }
+        });
       };
 
-      this.ws.onerror = (error) => {
-        console.error(`[WebSocket] Connection error:`, error);
-        this.isConnecting = false;
-      };
-
-      this.ws.onclose = (event) => {
-        console.log(`[WebSocket] Disconnected from ${this.config.url} (code: ${event.code}, wasClean: ${event.wasClean})`);
-        this.isConnecting = false;
-        this.attemptReconnect();
-      };
-    } catch (err) {
-      console.error(`[WebSocket] Failed to create connection:`, err);
-      this.isConnecting = false;
-      this.attemptReconnect();
+      this.ws.onerror = () => this.scheduleReconnect();
+      this.ws.onclose = () => this.scheduleReconnect();
+    } catch {
+      this.scheduleReconnect();
     }
   }
 
-  private attemptReconnect(): void {
+  private ack(originalId: string) {
+    this.sendNow({
+      type: 'ack',
+      originalId,
+      data: null,
+      id: generateUUID(),
+      timestamp: Date.now(),
+      channel: this.config.channel
+    });
+  }
+
+  private sendNow(msg: WebSocketMessage) {
+    if (this.isConnected()) {
+      try { this.ws!.send(JSON.stringify(msg)); } catch {}
+    }
+  }
+
+  private clearPending(id: string) {
+    const entry = this.pending.get(id);
+    if (entry?.timeoutTimer) clearTimeout(entry.timeoutTimer);
+    this.pending.delete(id);
+  }
+
+  private cleanup() {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.heartbeatTimer = this.reconnectTimer = null;
+    this.ws?.close();
+    this.ws = null;
+  }
+
+  private scheduleReconnect() {
+    this.cleanup();
+
+    if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
+      console.warn(`[WS ${this.config.channel}] Max reconnect attempts reached`);
+      return;
+    }
+
     this.reconnectAttempts++;
-    console.log(`[WebSocket] Auto-reconnect scheduled in ${this.config.reconnectInterval}ms (attempt ${this.reconnectAttempts}/${this.config.maxReconnectAttempts || 10})`);
-
-    this.reconnectTimer = setTimeout(() => {
-      console.log(`[WebSocket] Attempting reconnect...`);
-      this.connect();
-    }, this.config.reconnectInterval);
+    const delay = Math.min(this.config.reconnectInterval * (1.618 ** this.reconnectAttempts) + Math.random() * 600, 45000);
+    console.log(`[WS ${this.config.channel}] Reconnect attempt ${this.reconnectAttempts} in ${Math.round(delay/1000)}s`);
+    this.reconnectTimer = setTimeout(() => this.connect(), delay);
   }
 
-  disconnect(): void {
-    console.log(`[WebSocket] Disconnecting from ${this.config.url}`);
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-      console.log('[WebSocket] Cleared reconnect timer');
-    }
-
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-      console.log('[WebSocket] Connection closed');
-    }
-
-    this.messageHandlers.clear();
-    this.subscribedChannels.clear();
-    this.reconnectAttempts = 0;
-    console.log('[WebSocket] Disconnected and cleaned up');
+  private startHeartbeat() {
+    this.heartbeatTimer = setInterval(() => {
+      if (this.isConnected()) {
+        this.sendNow({ type: 'ping', data: null, id: generateUUID(), timestamp: Date.now() });
+      }
+    }, 30000);
   }
 
-  send(message: unknown): boolean {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.warn('[WebSocket] Cannot send - not connected');
-      return false;
-    }
+  private retryPending() {
+    if (!this.isConnected()) return;
 
-    let payload = message;
-    if (typeof message === 'object' && message !== null && this.config.channel && !('channel' in message as any)) {
-      payload = {
-        ...(message as object),
-        channel: this.config.channel
-      };
-      console.log(`[WebSocket] Auto-injected channel: ${this.config.channel}`);
-    }
+    const now = Date.now();
+    for (const [id, entry] of [...this.pending.entries()]) {
+      if (now - entry.queuedAt > this.config.maxMessageAgeMs) {
+        console.warn(`[WS ${this.config.channel}] Dropping aged message ${id} (age ${(now - entry.queuedAt)/1000|0}s)`);
+        this.pending.delete(id);
+        continue;
+      }
 
-    try {
-      const data = typeof payload === 'string' ? payload : JSON.stringify(payload);
-      console.log(`[WebSocket] Sending message:`, data.substring(0, 200) + (data.length > 200 ? '...' : ''));
-      this.ws.send(data);
-      console.log('[WebSocket] Message sent successfully');
-      return true;
-    } catch (err) {
-      console.error('[WebSocket] Send error:', err);
-      return false;
+      if (entry.timeoutTimer) continue;
+
+      try {
+        this.ws!.send(JSON.stringify(entry.message));
+        entry.lastSentAt = now;
+        entry.attempts++;
+
+        entry.timeoutTimer = setTimeout(() => {
+          entry.timeoutTimer = undefined;
+          if (this.isConnected()) this.retryPending();
+        }, this.config.ackTimeout * (1.5 ** Math.min(entry.attempts, 7)));
+
+        if (entry.attempts >= 8 && this.pending.size > 12) {
+          console.warn(`[WS ${this.config.channel}] Emergency reconnect - ${this.pending.size} pending, high retry`);
+          this.scheduleReconnect();
+          return;
+        }
+      } catch {}
     }
+  }
+
+  send(message: Omit<WebSocketMessage, 'timestamp'> & { id?: string }): void {
+    const fullMsg: WebSocketMessage = {
+      ...message,
+      id: message.id ?? generateUUID(),
+      timestamp: Date.now(),
+      channel: message.channel ?? this.config.channel
+    };
+
+    if (this.pending.has(fullMsg.id)) return;
+
+    this.pending.set(fullMsg.id, {
+      message: fullMsg,
+      queuedAt: Date.now(),
+      firstSentAt: 0,
+      attempts: 0
+    });
+
+    if (this.isConnected()) this.retryPending();
   }
 
   onMessage(handler: WebSocketMessageHandler): () => void {
     this.messageHandlers.add(handler);
-    return () => {
-      this.messageHandlers.delete(handler);
-    };
+    return () => this.messageHandlers.delete(handler);
   }
 
   isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  disconnect(): void {
+    this.cleanup();
+    this.pending.clear();
+    this.subscribed.clear();
+    this.reconnectAttempts = 0;
   }
 }
 
@@ -203,83 +256,59 @@ export class WebSocketClientService {
   private connections: Map<string, WebSocketConnection> = new Map();
   private static instance: WebSocketClientService | null = null;
 
-  static getInstance(): WebSocketClientService {
-    if (!WebSocketClientService.instance) {
-      WebSocketClientService.instance = new WebSocketClientService();
-    }
-    return WebSocketClientService.instance;
+  static getInstance() {
+    return this.instance ??= new WebSocketClientService();
   }
 
   connect(connectionId: string, url: string = DEFAULT_WS_URL): boolean {
-    console.log(`[WebSocket] Service connect called for connectionId: ${connectionId}, url: ${url}`);
-    if (this.connections.has(connectionId)) {
-      const conn = this.connections.get(connectionId);
-      if (conn?.isConnected()) {
-        console.log(`[WebSocket] Connection ${connectionId} already exists and is connected`);
-        return true;
-      }
-      console.log(`[WebSocket] Connection ${connectionId} exists but not connected, recreating...`);
+    let conn = this.connections.get(connectionId);
+    if (conn) {
+      if (conn.isConnected()) return true;
+      conn.disconnect();
     }
 
-    const connection = new WebSocketConnection({
-      url,
-      channel: connectionId
-    });
-    this.connections.set(connectionId, connection);
-    connection.connect();
-
+    conn = new WebSocketConnection({ url, channel: connectionId });
+    this.connections.set(connectionId, conn);
+    conn.connect();
     return true;
   }
 
-  disconnect(connectionId: string): void {
-    console.log(`[WebSocket] Service disconnect called for connectionId: ${connectionId}`);
-    const connection = this.connections.get(connectionId);
-    if (connection) {
-      connection.disconnect();
-      this.connections.delete(connectionId);
-      console.log(`[WebSocket] Connection ${connectionId} removed from service`);
-    } else {
-      console.warn(`[WebSocket] No connection found for ${connectionId}`);
-    }
-  }
-
   send(connectionId: string, message: unknown): boolean {
-    console.log(`[WebSocket] Service send called for connectionId: ${connectionId}`);
-    const connection = this.connections.get(connectionId);
-    if (!connection) {
-      console.warn(`[WebSocket] No connection found for ${connectionId}, cannot send`);
-      return false;
+    const conn = this.connections.get(connectionId);
+    if (!conn) return false;
+
+    if (typeof message === 'object' && message && 'type' in message) {
+      conn.send(message as any);
+    } else {
+      conn.send({
+        type: 'message',
+        data: message,
+        id: generateUUID()
+      });
     }
-    return connection.send(message);
+    return true;
   }
 
   onMessage(connectionId: string, handler: WebSocketMessageHandler): (() => void) | null {
-    console.log(`[WebSocket] Service onMessage called for connectionId: ${connectionId}`);
-    const connection = this.connections.get(connectionId);
-    if (!connection) {
-      console.warn(`[WebSocket] No connection found for ${connectionId}, cannot register handler`);
-      return null;
-    }
-    console.log(`[WebSocket] Registered message handler for ${connectionId}`);
-    return connection.onMessage(handler);
+    return this.connections.get(connectionId)?.onMessage(handler) ?? null;
   }
 
   isConnected(connectionId: string): boolean {
-    const connection = this.connections.get(connectionId);
-    return connection?.isConnected() ?? false;
+    return this.connections.get(connectionId)?.isConnected() ?? false;
   }
 
-  getActiveConnections(): string[] {
-    return Array.from(this.connections.entries())
-      .filter(([, conn]) => conn.isConnected())
-      .map(([id]) => id);
+  disconnect(connectionId: string): void {
+    this.connections.get(connectionId)?.disconnect();
+    this.connections.delete(connectionId);
   }
 
   disconnectAll(): void {
-    this.connections.forEach((connection) => {
-      connection.disconnect();
-    });
+    this.connections.forEach(c => c.disconnect());
     this.connections.clear();
+  }
+
+  getPendingCount(connectionId: string): number {
+    return this.connections.get(connectionId)?.pending.size ?? 0;
   }
 }
 
