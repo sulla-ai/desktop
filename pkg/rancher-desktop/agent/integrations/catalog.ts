@@ -9,6 +9,15 @@ export interface Integration {
   lastUpdated: string;
   developer: string;
   formGuide?: string;
+  installationGuide?: {
+    title: string;
+    description: string;
+    steps: Array<{
+      title: string;
+      content: string;
+    }>;
+    importantNotes?: string[];
+  };
   media?: Array<{
     type: 'image' | 'youtube';
     url: string;
@@ -43,6 +52,295 @@ export interface Integration {
 }
 
 export const integrations: Record<string, Integration> = {
+
+  slack: {
+    id: 'slack',
+    name: 'Slack',
+    description: 'Team collaboration platform that brings all your communication together. Enable SULLA to send notifications, share updates, and interact with team members through channels and direct messages.',
+    category: 'Team Communication',
+    icon: 'slack.svg',
+    connected: false,
+    version: '1.0.0',
+    lastUpdated: '2026-02-06 21:00:00',
+    developer: 'Jonathon Byrdziak',
+    formGuide: 'Follow the installation guide below to create and configure your Slack app.',
+    installationGuide: {
+      title: 'Slack Bot Setup Guide',
+      description: 'Create a custom Slack app for your personal workspace (5-7 minutes)',
+      steps: [
+        {
+          title: 'Create Slack App',
+          content: `1. Go to https://api.slack.com/apps
+2. Click "Create New App" → "From scratch"
+3. Name your app and select your workspace
+4. Click "Create App"`
+        },
+        {
+          title: 'Enable Socket Mode',
+          content: `1. In the left menu, go to "Socket Mode"
+2. Toggle "Enable Socket Mode" to ON
+3. Click "Generate" to create a new App-Level Token
+4. No special scopes needed for this token
+5. Copy the generated token (starts with xapp-)
+6. Save this token as your "Scopes Token" in Sulla`
+        },
+        {
+          title: 'Configure Bot Permissions',
+          content: `1. In the left menu, go to "OAuth & Permissions"
+2. Scroll to "Bot Token Scopes"
+3. Click "Add an OAuth Scope" and add:
+   • chat:write
+   • files:write
+   • channels:read
+   • groups:read
+   • im:read
+   • mpim:read
+   • users:read
+   • users:read.email
+4. Click "Save Changes"`
+        },
+        {
+          title: 'Install App to Workspace',
+          content: `1. Scroll to top of "OAuth & Permissions" page
+2. Click "Install to Workspace" (or "Reinstall" if updating)
+3. Review permissions and click "Allow"
+4. Copy the "Bot User OAuth Token" (starts with xoxb-)
+5. Save this token as your "Bot Token" in Sulla`
+        },
+        {
+          title: 'Invite Bot to Channel',
+          content: `1. Go to any Slack channel where you want the bot to work
+2. Type: /invite @YourBotName
+3. Or click the channel name → "Integrations" → "Add apps"
+4. Find and add your bot to the channel`
+        }
+      ],
+      importantNotes: [
+        'Keep both tokens secure - they provide full access to your workspace',
+        'The bot can only see messages in channels where it\'s been invited',
+        'Socket Mode is required for local development without public webhooks',
+        'You must be a workspace admin to create custom apps'
+      ]
+    },
+    guideLinks: [
+      {
+        title: 'Slack App Dashboard',
+        description: 'Manage your Slack apps and configurations',
+        url: 'https://api.slack.com/apps'
+      },
+      {
+        title: 'Bot Token Documentation',
+        description: 'Learn about Slack bot tokens and permissions',
+        url: 'https://api.slack.com/authentication/basics'
+      },
+      {
+        title: 'Socket Mode Guide',
+        description: 'Understanding Socket Mode for local development',
+        url: 'https://api.slack.com/apis/connections/socket'
+      }
+    ],
+    media: [
+      {
+        type: 'youtube',
+        url: 'EDATYbzYGiE',
+        alt: 'Slack Platform Overview',
+        caption: 'Watch how Slack transforms team communication and collaboration'
+      },
+      {
+        type: 'image',
+        url: 'slack-media-1.jpeg',
+        alt: 'Slack Desktop Client',
+        caption: 'Native Slack desktop application'
+      },
+      {
+        type: 'image',
+        url: 'slack-media-2.png',
+        alt: 'Slack Integrations',
+        caption: 'Slack integrations marketplace'
+      }
+    ],
+    features: [
+      {
+        title: 'Channel Organization',
+        description: 'Organize conversations by topic, project, or team with unlimited channels'
+      },
+      {
+        title: 'Direct Messaging',
+        description: 'One-on-one and group conversations with team members'
+      },
+      {
+        title: 'File Sharing',
+        description: 'Share documents, images, and integrate with cloud storage services'
+      },
+      {
+        title: 'App Integrations',
+        description: 'Connect thousands of apps for automated workflows and notifications'
+      }
+    ],
+    properties: [
+      {
+        key: 'bot_token',
+        title: 'Bot User OAuth Token',
+        hint: '',
+        type: 'password',
+        required: true,
+        placeholder: ''
+      },
+      {
+        key: 'scopes_token',
+        title: 'Scopes Token',
+        hint: '',
+        type: 'password',
+        required: true,
+        placeholder: ''
+      }
+    ]
+  },
+
+  discord: {
+    id: 'discord',
+    name: 'Discord',
+    description: 'Voice, video, and text communication platform designed for communities. Enable SULLA to join servers, send messages, and automate community management through Discord bots.',
+    category: 'Community',
+    icon: 'discord.svg',
+    connected: false,
+    version: '1.0.0',
+    lastUpdated: '2025-02-08 21:00:00',
+    developer: 'Sulla Team',
+    formGuide: 'Create a Discord application at discord.com/developers/applications. Get your Bot Token from Bot page.',
+    installationGuide: {
+      title: 'Discord Bot Setup Guide',
+      description: 'Create a Discord bot for your server (5-10 minutes)',
+      steps: [
+        {
+          title: 'Create Discord Application',
+          content: `1. Go to https://discord.com/developers/applications
+2. Click "New Application" 
+3. Select "Bot" 
+4. Name your bot and agree to terms
+5. Click "Create"`
+        },
+        {
+          title: 'Create Bot Token',
+          content: `1. In your application dashboard, go to "Bot" section
+2. Click "Add Bot" 
+3. Copy the Bot Token (starts with your bot prefix)
+4. Save this token securely - it gives full access to your bot`
+        },
+        {
+          title: 'Invite Bot to Server',
+          content: `1. Generate an OAuth2 invite link:
+   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=8&scope=bot
+2. Replace YOUR_CLIENT_ID with your actual Client ID
+3. Send this link to server members or post it in a welcome channel
+4. Users can click the link to add your bot to their server`
+        },
+        {
+          title: 'Configure Bot Permissions',
+          content: `1. In Discord Developer Portal, go to your bot
+2. Click "OAuth2" -> "URL Generator"
+3. Set the redirect URL to your server callback
+4. Select required permissions:
+   • Send Messages
+   • Read Messages/View Channels
+   • Embed Links
+   • Add Reactions
+5. Save the changes`
+        },
+        {
+          title: 'Test Your Bot',
+          content: `1. Invite your bot to a test server
+2. Send a test message like "!help" or "!ping"
+3. Verify the bot responds correctly
+4. Check that all slash commands work as expected`
+        }
+      ],
+      importantNotes: [
+        'Keep your Bot Token secure - anyone with the token can control your bot',
+        'Use HTTPS for redirect URLs in production',
+        'Regularly rotate your Bot Token for security',
+        'Test bot permissions in a private server before deploying',
+        'Discord bots must follow Discord Terms of Service'
+      ]
+    },
+    media: [
+      {
+        type: 'youtube',
+        url: 'TJ13BA3-NR4',
+        alt: 'Discord Overview',
+        caption: 'How Discord Works in 148,000 Miliseconds or Less'
+      },
+      {
+        type: 'image',
+        url: 'discord-media-1.jpg',
+        alt: 'Destop Interface',
+        caption: 'Discord interface of desktop app'
+      },
+      {
+        type: 'image',
+        url: 'discord-media-2.webp',
+        alt: 'Desktop and Mobile',
+        caption: 'Discord available on desktop and mobile'
+      },
+      {
+        type: 'image',
+        url: 'discord-media-3.webp',
+        alt: 'Features',
+        caption: 'Voice channels, video calls, and rich presence'
+      }
+    ],
+    features: [
+      {
+        title: 'Server Management',
+        description: 'Automate server moderation and member management'
+      },
+      {
+        title: 'Voice & Video',
+        description: 'Integrate with voice channels for audio communication'
+      },
+      {
+        title: 'Rich Embeds',
+        description: 'Create beautiful message embeds with images and interactions'
+      },
+      {
+        title: 'Slash Commands',
+        description: 'Implement custom commands for server functionality'
+      }
+    ],
+    guideLinks: [
+      {
+        title: 'Discord Developer Portal',
+        description: 'Create and manage Discord applications and bots',
+        url: 'https://discord.com/developers/applications'
+      },
+      {
+        title: 'Bot Documentation',
+        description: 'Complete guide for Discord bot development',
+        url: 'https://discord.com/developers/docs/intro'
+      },
+      {
+        title: 'Community Guidelines',
+        description: 'Best practices for Discord community management',
+        url: 'https://discord.com/guidelines'
+      }
+    ],
+    properties: [
+      {
+        key: 'bot_token',
+        title: 'Bot Token',
+        hint: 'Your Discord bot token',
+        type: 'password',
+        required: true,
+        placeholder: '',
+        validation: {
+          pattern: '^[a-zA-Z0-9_\\-\\.]{24}\\.[a-zA-Z0-9_\\-\\.]{6}\\.[a-zA-Z0-9_\\-\\.]{27}$',
+          minLength: 59,
+          maxLength: 59
+        }
+      }
+    ]
+  },
+
   intercom: {
     id: 'intercom',
     name: 'Intercom',
@@ -342,115 +640,6 @@ export const integrations: Record<string, Integration> = {
     ]
   },
 
-  slack: {
-    id: 'slack',
-    name: 'Slack',
-    description: 'Team collaboration platform that brings all your communication together. Enable SULLA to send notifications, share updates, and interact with team members through channels and direct messages.',
-    category: 'Team Communication',
-    icon: 'slack.svg',
-    connected: false,
-    version: '1.0.0',
-    lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
-    formGuide: 'Create a Slack app at api.slack.com/apps. Get your Bot Token and Signing Secret from OAuth & Permissions page.',
-    media: [
-      {
-        type: 'youtube',
-        url: 'EDATYbzYGiE',
-        alt: 'Slack Platform Overview',
-        caption: 'Watch how Slack transforms team communication and collaboration'
-      },
-      {
-        type: 'image',
-        url: 'slack-media-1.jpeg',
-        alt: 'Slack Desktop Client',
-        caption: 'Native Slack desktop application'
-      },
-      {
-        type: 'image',
-        url: 'slack-media-2.png',
-        alt: 'Slack Integrations',
-        caption: 'Slack integrations marketplace'
-      }
-    ],
-    features: [
-      {
-        title: 'Channel Organization',
-        description: 'Organize conversations by topic, project, or team with unlimited channels'
-      },
-      {
-        title: 'Direct Messaging',
-        description: 'One-on-one and group conversations with team members'
-      },
-      {
-        title: 'File Sharing',
-        description: 'Share documents, images, and integrate with cloud storage services'
-      },
-      {
-        title: 'App Integrations',
-        description: 'Connect thousands of apps for automated workflows and notifications'
-      }
-    ],
-    guideLinks: [
-      {
-        title: 'Step 1 - Create a Custom App For Your Bot',
-        description: `For a personal workspace (you own it or have admin rights), create a custom Slack app → no marketplace listing/approval needed.
-Fastest path (5-7 min):
-
-1. https://api.slack.com/apps → Create New App → From scratch → name it → select your workspace. [save]
-2. In the left menu go to Socket Mode. [click]
-3. Enable Socket Mode. [save]
-4. Generate a new token. No special scopes. [save]
-6. Copy the token to Sulla [save]
---
-7. In the left menu go to OAuth & Permissions. [click]
-8. Scroll to Bot Token Scopes. [click Add an OAuth Scope]
-9. Add the following scopes:
-   - chat:write
-   - files:write
-   - channels:read
-   - groups:read
-   - im:read
-   - mpim:read
-   - users:read
-   - users:read.email
-   [save]
-10. Install to Workspace (or Reinstall if already done) — top of OAuth & Permissions page.
-11. Bot User OAuth Token shows right there.
-12. Go to your slack channel and /invite @YourBotName
-        `,
-        url: 'https://api.slack.com/apps'
-      },
-      {
-        title: 'Bot Token Guide',
-        description: 'How to create and configure Slack bot tokens',
-        url: 'https://api.slack.com/authentication/basics'
-      },
-      {
-        title: 'Best Practices',
-        description: 'Tips for effective team communication on Slack',
-        url: 'https://slack.com/resources'
-      }
-    ],
-    properties: [
-      {
-        key: 'bot_token',
-        title: 'Bot User OAuth Token',
-        hint: '',
-        type: 'password',
-        required: true,
-        placeholder: ''
-      },
-      {
-        key: 'scopes_token',
-        title: 'Scopes Token',
-        hint: '',
-        type: 'password',
-        required: true,
-        placeholder: ''
-      }
-    ]
-  },
 
   mailgun: {
     id: 'mailgun',
@@ -781,94 +970,6 @@ Fastest path (5-7 min):
         type: 'url',
         required: false,
         placeholder: 'https://yourdomain.com/telegram-webhook'
-      }
-    ]
-  },
-
-  discord: {
-    id: 'discord',
-    name: 'Discord',
-    description: 'Voice, video, and text communication platform designed for communities. Enable SULLA to join servers, send messages, and automate community management through Discord bots.',
-    category: 'Community',
-    icon: 'discord.svg',
-    connected: false,
-    version: '1.0.0',
-    lastUpdated: '2025-02-08 21:00:00',
-    developer: 'Sulla Team',
-    formGuide: 'Create a Discord application at discord.com/developers/applications. Get your Bot Token from Bot page.',
-    media: [
-      {
-        type: 'youtube',
-        url: 'TJ13BA3-NR4',
-        alt: 'Discord Overview',
-        caption: 'How Discord Works in 148,000 Miliseconds or Less'
-      },
-      {
-        type: 'image',
-        url: 'discord-media-1.jpg',
-        alt: 'Destop Interface',
-        caption: 'Discord interface of desktop app'
-      },
-      {
-        type: 'image',
-        url: 'discord-media-2.webp',
-        alt: 'Desktop and Mobile',
-        caption: 'Discord available on desktop and mobile'
-      },
-      {
-        type: 'image',
-        url: 'discord-media-3.webp',
-        alt: 'Features'
-      }
-    ],
-    features: [
-      {
-        title: 'Server Management',
-        description: 'Automate server moderation and member management'
-      },
-      {
-        title: 'Voice & Video',
-        description: 'Integrate with voice channels for audio communication'
-      },
-      {
-        title: 'Rich Embeds',
-        description: 'Create beautiful message embeds with images and interactions'
-      },
-      {
-        title: 'Slash Commands',
-        description: 'Implement custom commands for server functionality'
-      }
-    ],
-    guideLinks: [
-      {
-        title: 'Discord Developer Portal',
-        description: 'Create and manage Discord applications and bots',
-        url: 'https://discord.com/developers/applications'
-      },
-      {
-        title: 'Bot Documentation',
-        description: 'Complete guide for Discord bot development',
-        url: 'https://discord.com/developers/docs/intro'
-      },
-      {
-        title: 'Community Guidelines',
-        description: 'Best practices for Discord community management',
-        url: 'https://discord.com/guidelines'
-      }
-    ],
-    properties: [
-      {
-        key: 'bot_token',
-        title: 'Bot Token',
-        hint: 'Your Discord bot token',
-        type: 'password',
-        required: true,
-        placeholder: '',
-        validation: {
-          pattern: '^[a-zA-Z0-9_\\-\\.]{24}\\.[a-zA-Z0-9_\\-\\.]{6}\\.[a-zA-Z0-9_\\-\\.]{27}$',
-          minLength: 59,
-          maxLength: 59
-        }
       }
     ]
   },

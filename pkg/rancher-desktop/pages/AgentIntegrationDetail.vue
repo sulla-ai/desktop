@@ -19,50 +19,8 @@
           <div v-if="integration" class="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <!-- Main Content -->
             <div class="lg:col-span-2 space-y-8">
-              <!-- Header -->
-              <div class="flex items-start gap-6">
-                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
-                  <img
-                    v-if="integration.icon.endsWith('.svg')"
-                    :src="require(`@pkg/assets/images/${integration.icon}`)"
-                    :alt="integration.name"
-                    class="h-12 w-12 object-contain"
-                  >
-                  <span v-else class="text-3xl">{{ integration.icon }}</span>
-                </div>
-                <div class="flex-1">
-                  <h1 class="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-                    {{ integration.name }}
-                  </h1>
-                  <p class="text-lg text-slate-600 dark:text-slate-300 mb-4">
-                    {{ integration.description }}
-                  </p>
-                  <div class="flex items-center gap-4">
-                    <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-800 dark:bg-slate-700 dark:text-slate-200">
-                      {{ integration.category }}
-                    </span>
-                    <div class="flex items-center gap-2">
-                      <div
-                        class="h-2 w-2 rounded-full"
-                        :class="integration.connected ? 'bg-green-500' : 'bg-gray-300'"
-                      ></div>
-                      <span class="text-sm text-slate-500 dark:text-slate-400">
-                        {{ integration.connected ? 'Connected' : 'Not Connected' }}
-                      </span>
-                    </div>
-                    <div class="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
-                      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>Updated {{ formatFuzzyTime(integration.lastUpdated) }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <!-- Media -->
               <div v-if="integration.media && integration.media.length > 0" class="space-y-4">
-                <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Media</h2>
                 <div class="relative">
                   <!-- Carousel Container -->
                   <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
@@ -111,7 +69,7 @@
                   </div>
                   
                   <!-- Thumbnail Navigation -->
-                  <div v-if="integration.media.length > 1" class="mt-4 flex gap-2 overflow-x-auto">
+                  <div v-if="integration.media.length > 1" class="mt-4 flex gap-2 overflow-x-auto justify-end">
                     <button
                       v-for="(image, index) in integration.media"
                       :key="index"
@@ -125,6 +83,47 @@
                         class="h-16 w-24 object-cover"
                       >
                     </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Header -->
+              <div class="flex items-start gap-6">
+                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+                  <img
+                    v-if="integration.icon.endsWith('.svg')"
+                    :src="require(`@pkg/assets/images/${integration.icon}`)"
+                    :alt="integration.name"
+                    class="h-12 w-12 object-contain"
+                  >
+                  <span v-else class="text-3xl">{{ integration.icon }}</span>
+                </div>
+                <div class="flex-1">
+                  <h1 class="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+                    {{ integration.name }}
+                  </h1>
+                  <p class="text-lg text-slate-600 dark:text-slate-300 mb-4">
+                    {{ integration.description }}
+                  </p>
+                  <div class="flex items-center gap-4">
+                    <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-800 dark:bg-slate-700 dark:text-slate-200">
+                      {{ integration.category }}
+                    </span>
+                    <div class="flex items-center gap-2">
+                      <div
+                        class="h-2 w-2 rounded-full"
+                        :class="integration.connected ? 'bg-green-500' : 'bg-gray-300'"
+                      ></div>
+                      <span class="text-sm text-slate-500 dark:text-slate-400">
+                        {{ integration.connected ? 'Connected' : 'Not Connected' }}
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
+                      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Updated {{ formatFuzzyTime(integration.lastUpdated) }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -245,25 +244,99 @@
 
             <!-- Sidebar -->
             <div class="lg:col-span-2 space-y-8">
-              <!-- Quick Info -->
-              <div class="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-slate-800">
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Quick Info</h3>
-                <div class="space-y-3">
-                  <div>
-                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Category</p>
-                    <p class="text-sm text-slate-900 dark:text-white">{{ integration.category }}</p>
+              <!-- Installation Guide and Resources Row -->
+              <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <!-- Installation Guide - 70% width (8 columns) -->
+                <div class="lg:col-span-8">
+                  <div v-if="integration.installationGuide" class="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-slate-800">
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">{{ integration.installationGuide.title }}</h3>
+                    <p class="text-sm text-slate-600 dark:text-slate-300 mb-6">{{ integration.installationGuide.description }}</p>
+                    
+                    <div class="space-y-6">
+                      <div
+                        v-for="(step, index) in integration.installationGuide.steps"
+                        :key="index"
+                        class="border-l-2 border-blue-200 dark:border-blue-800 pl-4"
+                      >
+                        <div class="flex items-center gap-2 mb-2">
+                          <div class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-medium">
+                            {{ index + 1 }}
+                          </div>
+                          <h4 class="font-medium text-slate-900 dark:text-white">{{ step.title }}</h4>
+                        </div>
+                        <div class="prose prose-sm max-w-none dark:prose-invert">
+                          <div class="whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{{ step.content }}</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div v-if="integration.installationGuide.importantNotes && integration.installationGuide.importantNotes.length > 0" class="mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <h5 class="font-medium text-amber-900 dark:text-amber-100 mb-2">Important Notes</h5>
+                      <ul class="space-y-1 text-sm text-amber-800 dark:text-amber-200">
+                        <li v-for="(note, index) in integration.installationGuide.importantNotes" :key="index" class="flex items-start gap-2">
+                          <svg class="h-4 w-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                          </svg>
+                          {{ note }}
+                        </li>
+                      </ul>
+                    </div>
                   </div>
-                  <div>
-                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Version</p>
-                    <p class="text-sm text-slate-900 dark:text-white">{{ integration.version || '1.0.0' }}</p>
+                </div>
+
+                <!-- Right Column - 30% width (4 columns) -->
+                <div class="lg:col-span-4 space-y-8">
+                  <!-- Additional Resources -->
+                  <div v-if="integration.guideLinks && integration.guideLinks.length > 0" class="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-slate-800">
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Additional Resources</h3>
+                    <div class="space-y-3">
+                      <a
+                        v-for="link in integration.guideLinks"
+                        :key="link.url"
+                        :href="link.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="flex items-center justify-between rounded-lg border border-gray-200 p-4 hover:bg-slate-50 dark:border-gray-700 dark:hover:bg-slate-800"
+                      >
+                        <div class="flex items-center gap-3">
+                          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700">
+                            <svg class="h-4 w-4 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h4 class="font-medium text-slate-900 dark:text-white text-sm">{{ link.title }}</h4>
+                            <p class="text-xs text-slate-600 dark:text-slate-400">{{ link.description }}</p>
+                          </div>
+                        </div>
+                        <svg class="h-4 w-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    </div>
                   </div>
-                  <div>
-                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Last Updated</p>
-                    <p class="text-sm text-slate-900 dark:text-white capitalize">{{ formatFuzzyTime(integration.lastUpdated) }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Developer</p>
-                    <p class="text-sm text-slate-900 dark:text-white">{{ integration.developer }}</p>
+
+                  <!-- Quick Info -->
+                  <div class="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-slate-800">
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Quick Info</h3>
+                    <div class="space-y-3">
+                      <div>
+                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Category</p>
+                        <p class="text-sm text-slate-900 dark:text-white">{{ integration.category }}</p>
+                      </div>
+                      <div>
+                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Version</p>
+                        <p class="text-sm text-slate-900 dark:text-white">{{ integration.version || '1.0.0' }}</p>
+                      </div>
+                      <div>
+                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Last Updated</p>
+                        <p class="text-sm text-slate-900 dark:text-white capitalize">{{ formatFuzzyTime(integration.lastUpdated) }}</p>
+                      </div>
+                      <div>
+                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Developer</p>
+                        <p class="text-sm text-slate-900 dark:text-white">{{ integration.developer }}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
