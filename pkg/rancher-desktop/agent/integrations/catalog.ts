@@ -8,6 +8,7 @@ export interface Integration {
   version: string;
   lastUpdated: string;
   developer: string;
+  formGuide?: string;
   media?: Array<{
     type: 'image' | 'youtube';
     url: string;
@@ -52,6 +53,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Get your Access Token and App ID from your Intercom workspace settings. Go to Settings > Workspace > API Keys > Create new key.',
     media: [
       {
         type: 'youtube',
@@ -150,6 +152,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Get your Account SID, Auth Token, and Phone Number from your Twilio Console. Go to Console > Settings > General.',
     media: [
       {
         type: 'image',
@@ -258,6 +261,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Get your API Key from HubSpot Developer Portal. Go to Settings > Integrations > API Key.',
     media: [
       {
         type: 'youtube',
@@ -367,6 +371,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Create a Slack app at api.slack.com/apps. Get your Bot Token and Signing Secret from OAuth & Permissions page.',
     media: [
       {
         type: 'youtube',
@@ -475,10 +480,11 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Get your API Key and Domain from Mailgun Control Panel. Go to Settings > API Keys and Domain Settings.',
     media: [
       {
-        type: 'image',
-        url: 'default-media.webp',
+        type: 'youtube',
+        url: 'Wxh6CDAVQsg',
         alt: 'Mailgun Analytics',
         caption: 'Track email delivery rates, opens, clicks, and bounces'
       },
@@ -577,6 +583,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Get your API Key from SendGrid Dashboard. Go to Settings > API Keys > Create API Key.',
     media: [
       {
         type: 'image',
@@ -667,6 +674,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Get your API Token and Phone Number ID from Meta Business Suite. Go to Settings > WhatsApp Business API.',
     media: [
       {
         type: 'image',
@@ -773,6 +781,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Create a bot with @BotFather on Telegram to get your Bot Token. Use @userinfobot to get your Chat ID.',
     media: [
       {
         type: 'image',
@@ -863,6 +872,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Create a Discord application at discord.com/developers/applications. Get your Bot Token from Bot page.',
     media: [
       {
         type: 'youtube',
@@ -950,6 +960,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Signal API access requires approval. Apply at support@signal.org for API credentials and documentation.',
     media: [
       {
         type: 'youtube',
@@ -1051,6 +1062,7 @@ export const integrations: Record<string, Integration> = {
     version: '1.0.0',
     lastUpdated: '2025-02-08 21:00:00',
     developer: 'Sulla Team',
+    formGuide: 'Create a LinkedIn app at developer.linkedin.com. Get your API credentials from the application dashboard.',
     media: [
       {
         type: 'image',
