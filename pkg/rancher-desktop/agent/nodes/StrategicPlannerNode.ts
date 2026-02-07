@@ -14,8 +14,8 @@ For this request you're job is to be the StrategicPlannerNode in a hierarchical 
 Think like a 20+ year battle-tested strategist: Amazon predictive scaling (40% efficiency), Zappos personalization (30% repeat rate), nonprofit SWOT pivots (25% donation lift). Avoid generic fluff. Focus on high-leverage, low-risk sequences with proven multipliers.
 
 Core Rules:
-- If the user goal needs >1 meaningful step → planNeeded: true
-- If simple/direct answer suffices → planNeeded: false + emit_chat_message = full response
+- If the user goal needs >1 meaningful step → planneeded: true
+- If simple/direct answer suffices → planneeded: false + emit_chat_message = full response
 - Never ask questions
 - Never call tools yourself
 - Prefer 3–6 tight milestones max
@@ -25,24 +25,24 @@ Core Rules:
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
   "goal": "One-sentence primary objective",
-  "goalDescription": "What true success looks like",
-  "requiresTools": boolean,
-  "estimatedComplexity": "simple" | "moderate" | "complex",
-  "planNeeded": boolean,
+  "goaldescription": "What true success looks like",
+  "requirestools": boolean,
+  "estimatedcomplexity": "simple" | "moderate" | "complex",
+  "planneeded": boolean,
   "milestones": [
     {
       "id": "m1",
       "title": "Short actionable title",
       "description": "What this step achieves",
-      "successCriteria": "Measurable completion condition",
-      "dependsOn": ["m0"]   // empty array if none
+      "successcriteria": "Measurable completion condition",
+      "dependson": ["m0"]   // empty array if none
     }
   ],
-  "responseGuidance": {
+  "responseguidance": {
     "tone": "technical" | "casual" | "formal" | "friendly",
     "format": "brief" | "detailed" | "markdown" | "conversational"
   },
-  "emit_chat_message": "Optional message to show user immediately (only if planNeeded)"
+  "emit_chat_message": "Optional message to show user immediately (only if planneeded)"
 }`;
 
 /**
@@ -114,7 +114,7 @@ export class StrategicPlannerNode extends BaseNode {
     // No complete plan needed
     // ============================================================================
 
-    if (!plan.planNeeded) {
+    if (!plan.planneeded) {
       return { state, decision: { type: 'end' } };
     }
 
@@ -133,15 +133,13 @@ export class StrategicPlannerNode extends BaseNode {
           thread_id: state.metadata.threadId,
           status: 'active',
           goal: plan.goal,
-          goalDescription: plan.goalDescription,
-          complexity: plan.estimatedComplexity,
-          requiresTools: plan.requiresTools,
-          wsChannel: state.metadata.wsChannel,
+          goaldescription: plan.goaldescription,
+          complexity: plan.estimatedcomplexity,
+          requirestools: plan.requirestools,
+          wschannel: state.metadata.wsChannel,
         });
         await planModel.incrementRevision();
         await planModel.deleteAllTodos();
-
-        console.log('[StrategicPlanner] edit Plan created:', planModel.attributes);
 
       // Create a new plan
       } else {
@@ -151,13 +149,11 @@ export class StrategicPlannerNode extends BaseNode {
           thread_id: state.metadata.threadId,
           status: 'active',
           goal: plan.goal,
-          goalDescription: plan.goalDescription,
-          complexity: plan.estimatedComplexity,
-          requiresTools: plan.requiresTools,
-          wsChannel: state.metadata.wsChannel,
+          goaldescription: plan.goaldescription,
+          complexity: plan.estimatedcomplexity,
+          requirestools: plan.requirestools,
+          wschannel: state.metadata.wsChannel,
         })
-
-        console.log('[StrategicPlanner] create Plan created:', planModel.attributes);
 
         await planModel.save();
         state.metadata.plan.model = planModel;
@@ -171,7 +167,7 @@ export class StrategicPlannerNode extends BaseNode {
         todo.fill({
           plan_id: planModel.attributes.id!,
           title: m.title,
-          description: `${m.description}\n\nSuccess: ${m.successCriteria}`,
+          description: `${m.description}\n\nSuccess: ${m.successcriteria}`,
           order_index: idx,
           status: idx === 0 ? 'in_progress' : 'pending',
         });
@@ -197,18 +193,18 @@ export class StrategicPlannerNode extends BaseNode {
 
 interface StrategicPlan {
   goal: string;
-  goalDescription: string;
-  requiresTools: boolean;
-  estimatedComplexity: 'simple' | 'moderate' | 'complex';
-  planNeeded: boolean;
+  goaldescription: string;
+  requirestools: boolean;
+  estimatedcomplexity: 'simple' | 'moderate' | 'complex';
+  planneeded: boolean;
   milestones: Array<{
     id: string;
     title: string;
     description: string;
-    successCriteria: string;
-    dependsOn: string[];
+    successcriteria: string;
+    dependson: string[];
   }>;
-  responseGuidance: {
+  responseguidance: {
     tone: string;
     format: string;
   };

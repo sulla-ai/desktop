@@ -89,11 +89,11 @@ export class AgentPlanTodo extends BaseModel<PlanTodoAttributes> implements Agen
     return plans[0] ?? null;
   }
 
-  async getWsChannel(): Promise<string | false> {
+  async getwschannel(): Promise<string | false> {
     const plan = await this.getParentPlan();
     if (plan) {
-      if (plan.attributes.wsChannel) {
-        return plan.attributes.wsChannel;
+      if (plan.attributes.wschannel) {
+        return plan.attributes.wschannel;
       }
     }
     return false;
@@ -104,11 +104,11 @@ export class AgentPlanTodo extends BaseModel<PlanTodoAttributes> implements Agen
 
     const planId = this.attributes.plan_id;
     const todoId = this.attributes.id;
-    const wsChannel = await this.getWsChannel();
+    const wschannel = await this.getwschannel();
     
-    if (wsChannel) {
+    if (wschannel) {
       // Emit todo deleted event before actual deletion
-      getWebSocketClientService().send(wsChannel, {
+      getWebSocketClientService().send(wschannel, {
         type: 'progress',
         threadId: 'unknown', // Will be set by service layer
         data: {
@@ -127,13 +127,13 @@ export class AgentPlanTodo extends BaseModel<PlanTodoAttributes> implements Agen
 
   async save(): Promise<this> {
     const result = await super.save();
-    const wsChannel = await this.getWsChannel();
+    const wschannel = await this.getwschannel();
     
-    if (wsChannel) {
+    if (wschannel) {
       // Emit WebSocket events for todo changes
       if (!this.exists && this.attributes.status === 'pending') {
         // Todo was created
-        getWebSocketClientService().send(wsChannel, {
+        getWebSocketClientService().send(wschannel, {
           type: 'progress',
           threadId: 'unknown', // Will be set by service layer
           data: {
@@ -148,7 +148,7 @@ export class AgentPlanTodo extends BaseModel<PlanTodoAttributes> implements Agen
         });
       } else if (this.exists && this.attributes.status === 'done') {
         // Todo was completed
-        getWebSocketClientService().send(wsChannel, {
+        getWebSocketClientService().send(wschannel, {
           type: 'progress',
           threadId: 'unknown', // Will be set by service layer
           data: {
@@ -163,7 +163,7 @@ export class AgentPlanTodo extends BaseModel<PlanTodoAttributes> implements Agen
         });
       } else if (this.exists) {
         // Todo was updated
-        getWebSocketClientService().send(wsChannel, {
+        getWebSocketClientService().send(wschannel, {
           type: 'progress',
           threadId: 'unknown', // Will be set by service layer
           data: {

@@ -12,10 +12,10 @@ export interface PlanAttributes {
   revision?: number;
   status?: PlanStatus;
   goal: string;
-  goalDescription: string;
+  goaldescription: string;
   complexity: 'simple' | 'moderate' | 'complex';
-  requiresTools: boolean;
-  wsChannel: string;
+  requirestools: boolean;
+  wschannel: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -37,7 +37,7 @@ export class AgentPlan extends BaseModel<PlanAttributes> {
   protected primaryKey = 'id';
 
   // Explicit fillable – required for mass assignment
-  public fillable = ['thread_id', 'revision', 'status', 'goal', 'goalDescription', 'complexity', 'requiresTools', 'wsChannel'];
+  public fillable = ['thread_id', 'revision', 'status', 'goal', 'goaldescription', 'complexity', 'requirestools', 'wschannel'];
   public attributes: Partial<PlanAttributes> = {};
 
   // Guard everything else
@@ -67,24 +67,23 @@ export class AgentPlan extends BaseModel<PlanAttributes> {
     const threadId = this.attributes.thread_id;
     const planId = this.id;
 
-    console.log('[agentplan] wsChannel', this.attributes.wsChannel);
-    if (this.attributes.wsChannel){
+    if (this.attributes.wschannel){
       if (this.attributes.status === 'active') {
-        getWebSocketClientService().send(this.attributes.wsChannel, {
+        getWebSocketClientService().send(this.attributes.wschannel, {
           type: 'progress',
           threadId,
           data: { phase: 'plan_created', planId, goal: (this.attributes as any)?.goal },
           timestamp: Date.now()
         });
       } else if (this.attributes.status === 'completed') {
-        getWebSocketClientService().send(this.attributes.wsChannel, {
+        getWebSocketClientService().send(this.attributes.wschannel, {
           type: 'progress',
           threadId,
           data: { phase: 'plan_completed', planId },
           timestamp: Date.now()
         });
       } else if (Number(this.attributes.revision) > 1) {
-        getWebSocketClientService().send(this.attributes.wsChannel, {
+        getWebSocketClientService().send(this.attributes.wschannel, {
           type: 'progress',
           threadId,
           data: { phase: 'plan_revised', planId, revision: this.attributes.revision, goal: (this.attributes as any)?.goal },
@@ -100,8 +99,8 @@ export class AgentPlan extends BaseModel<PlanAttributes> {
     const planId = this.id;
     const threadId = this.attributes.thread_id;
 
-    if (this.attributes.wsChannel){
-      getWebSocketClientService().send(this.attributes.wsChannel, {
+    if (this.attributes.wschannel){
+      getWebSocketClientService().send(this.attributes.wschannel, {
         type: 'progress',
         threadId,
         data: { phase: 'plan_deleted', planId },
