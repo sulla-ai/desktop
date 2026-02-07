@@ -90,7 +90,7 @@ export class SummaryNode extends BaseNode {
       { format: 'json' }
     );
 
-    if (!llmResponse?.content) {
+    if (!llmResponse) {
       return { state, decision: { type: 'end' } };
     }
 

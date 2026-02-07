@@ -81,7 +81,7 @@ export class TacticalPlannerNode extends BaseNode {
     const plan = state.metadata.plan;
     if (!plan?.model || !plan.milestones?.length) {
       console.log('TacticalPlanner: No plan or milestones found', plan);
-      return { state, decision: { type: 'continue' } };
+      return { state, decision: { type: 'continue' } }; //continue
     }
 
     const idx = plan.activeMilestoneIndex;
@@ -97,7 +97,7 @@ export class TacticalPlannerNode extends BaseNode {
         activeStepIndex: state.metadata.activeStepIndex,
         condition: state.metadata.currentSteps?.length && state.metadata.activeStepIndex < state.metadata.currentSteps.length
       });
-      return { state, decision: { type: 'next' } };
+      return { state, decision: { type: 'next' } }; //next
     }
 
     // Generate fresh tactical plan
@@ -121,8 +121,8 @@ export class TacticalPlannerNode extends BaseNode {
       { format: 'json' }
     );
 
-    if (!llmResponse?.content) {
-      return { state, decision: { type: 'continue' } };
+    if (!llmResponse) {
+      return { state, decision: { type: 'continue' } }; //continue
     }
 
     const data = llmResponse as { steps: any[] };
@@ -135,12 +135,12 @@ export class TacticalPlannerNode extends BaseNode {
     }));
 
     if (steps.length === 0) {
-      return { state, decision: { type: 'continue' } };
+      return { state, decision: { type: 'continue' } }; //continue
     }
 
     state.metadata.currentSteps = steps;
     state.metadata.activeStepIndex = 0;
 
-    return { state, decision: { type: 'next' } };
+    return { state, decision: { type: 'next' } }; //next
   }
 }

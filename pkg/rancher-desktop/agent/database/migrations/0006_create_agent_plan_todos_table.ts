@@ -7,6 +7,7 @@ export const up = `
     title           TEXT NOT NULL,
     description     TEXT NOT NULL,
     category_hints  JSONB NOT NULL DEFAULT '[]'::jsonb,
+    wschannel       VARCHAR(255) NOT NULL default 'chat-controller',
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );

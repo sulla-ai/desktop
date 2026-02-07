@@ -560,6 +560,65 @@ export abstract class BaseNode {
     }
 
     /**
+     * Emit a tool call event to create/update tool cards in the UI
+     * @param state BaseThreadState containing the WebSocket channel
+     * @param toolRunId Unique identifier for this tool execution
+     * @param toolName Name of the tool being called
+     * @param args Arguments passed to the tool
+     * @returns true if event was sent via WebSocket
+     */
+    protected emitToolCallEvent(
+        state: BaseThreadState,
+        toolRunId: string,
+        toolName: string,
+        args: Record<string, any>
+    ): boolean {
+        const connectionId = (state.metadata.wsChannel as string) || DEFAULT_WS_CHANNEL;
+        
+        return this.dispatchToWebSocket(connectionId, {
+            type: 'progress',
+            data: {
+                phase: 'tool_call',
+                toolRunId,
+                toolName,
+                args
+            },
+            timestamp: Date.now()
+        });
+    }
+
+    /**
+     * Emit a tool result event to update tool card status in the UI
+     * @param state BaseThreadState containing the WebSocket channel
+     * @param toolRunId Same ID from the tool_call event
+     * @param success Whether the tool execution succeeded
+     * @param error Optional error message if success is false
+     * @param result Optional result data if success is true
+     * @returns true if event was sent via WebSocket
+     */
+    protected emitToolResultEvent(
+        state: BaseThreadState,
+        toolRunId: string,
+        success: boolean,
+        error?: string,
+        result?: any
+    ): boolean {
+        const connectionId = (state.metadata.wsChannel as string) || DEFAULT_WS_CHANNEL;
+        
+        return this.dispatchToWebSocket(connectionId, {
+            type: 'progress',
+            data: {
+                phase: 'tool_result',
+                toolRunId,
+                success,
+                error,
+                result
+            },
+            timestamp: Date.now()
+        });
+    }
+
+    /**
      * Normalize tool calls from exec form arrays
      * Exec form: ["tool_name", "arg1", "arg2"]
      * Tool name is used directly from the first element (must match tool.name exactly)
@@ -605,8 +664,14 @@ export abstract class BaseNode {
         const normalized = this.normalizeToolCalls(tools);
 
         for (const { toolName, args } of normalized) {
-            // Disallowed → append failure message
+            // Generate unique tool run ID for this execution
+            const toolRunId = `${toolName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Disallowed → emit tool call and failure, then continue
             if (allowedTools?.length && !allowedTools.includes(toolName)) {
+                this.emitToolCallEvent(state, toolRunId, toolName, { args });
+                this.emitToolResultEvent(state, toolRunId, false, `Tool not allowed in this node: ${toolName}`);
+                
                 await this.appendToolResultMessage(state, toolName, {
                     toolName,
                     success: false,
@@ -618,6 +683,9 @@ export abstract class BaseNode {
 
             const tool = registry.get(toolName);
             if (!tool) {
+                this.emitToolCallEvent(state, toolRunId, toolName, { args });
+                this.emitToolResultEvent(state, toolRunId, false, `Unknown tool: ${toolName}`);
+                
                 await this.appendToolResultMessage(state, toolName, {
                     toolName,
                     success: false,
@@ -627,8 +695,14 @@ export abstract class BaseNode {
                 continue;
             }
 
+            // Emit tool call event before execution
+            this.emitToolCallEvent(state, toolRunId, toolName, { args });
+
             try {
                 const outcome = await tool.execute(state, { toolName, args });
+
+                // Emit tool result event on success
+                this.emitToolResultEvent(state, toolRunId, outcome.success, outcome.error, outcome.result);
 
                 await this.appendToolResultMessage(state, toolName, outcome);
 
@@ -640,6 +714,10 @@ export abstract class BaseNode {
                 });
             } catch (err: any) {
                 const error = err.message || String(err);
+                
+                // Emit tool result event on error
+                this.emitToolResultEvent(state, toolRunId, false, error);
+                
                 await this.appendToolResultMessage(state, toolName, {
                     toolName,
                     success: false,
@@ -663,6 +741,11 @@ export abstract class BaseNode {
         action: string,
         result: ToolResult
     ): Promise<void> {
+        // Skip appending tool results for emit_chat_message
+        if (action === 'emit_chat_message') {
+            return;
+        }
+
         const summary = result.success
             ? `Tool ${action} succeeded`
             : `Tool ${action} failed: ${result.error || 'unknown error'}`;

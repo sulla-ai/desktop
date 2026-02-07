@@ -106,7 +106,7 @@ export class TacticalCriticNode extends BaseNode {
       { format: 'json' }
     );
 
-    if (!llmResponse?.content) {
+    if (!llmResponse) {
       return { state, decision: { type: 'next' } };
     }
 

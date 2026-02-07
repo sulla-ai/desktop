@@ -104,7 +104,7 @@ export class KnowledgePlannerNode extends BaseNode {
       { format: 'json' }
     );
 
-    if (!llmResponse?.content) {
+    if (!llmResponse) {
       return { state, decision: { type: 'end' } };
     }
 

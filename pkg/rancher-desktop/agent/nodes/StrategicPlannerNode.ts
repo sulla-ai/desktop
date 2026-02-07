@@ -118,7 +118,6 @@ export class StrategicPlannerNode extends BaseNode {
       return { state, decision: { type: 'end' } };
     }
 
-
     // ============================================================================
     // Thorough thought processes need to carry out this task
     // First task is to get or update the plan
@@ -128,6 +127,7 @@ export class StrategicPlannerNode extends BaseNode {
       // check if the plan is already in the state object
       let planModel = state.metadata.plan?.model;
       if (planModel) {
+        console.log('[StrategicPlanner] Plan already exists:', planModel.attributes);
 
         planModel.fill({
           thread_id: state.metadata.threadId,
@@ -143,7 +143,8 @@ export class StrategicPlannerNode extends BaseNode {
 
       // Create a new plan
       } else {
-
+        console.log('[StrategicPlanner] Creating new plan:', plan);
+        
         planModel = new AgentPlan();
         planModel.fill({
           thread_id: state.metadata.threadId,
@@ -160,9 +161,12 @@ export class StrategicPlannerNode extends BaseNode {
 
       }
 
+      console.log('[StrategicPlanner] Plan created:', plan.milestones);
+
       // Create new todos
       const todos: AgentPlanTodo[] = [];
       for (const [idx, m] of plan.milestones.entries()) {
+        console.log('[StrategicPlanner] Milestone:', m);
         const todo = new AgentPlanTodo();
         todo.fill({
           plan_id: planModel.attributes.id!,
@@ -170,6 +174,7 @@ export class StrategicPlannerNode extends BaseNode {
           description: `${m.description}\n\nSuccess: ${m.successcriteria}`,
           order_index: idx,
           status: idx === 0 ? 'in_progress' : 'pending',
+          wschannel: state.metadata.wsChannel,
         });
         await todo.save();
         todos.push(todo);
@@ -183,10 +188,10 @@ export class StrategicPlannerNode extends BaseNode {
         allMilestonesComplete: false,
       };
 
-      return { state, decision: { type: 'end' } };
+      return { state, decision: { type: 'next' } };
     } catch(err) {
       console.error('[StrategicPlanner] Plan persistence failed:', err);
-      return { state, decision: { type: 'end' } };
+      return { state, decision: { type: 'continue' } };
     }
   }
 }

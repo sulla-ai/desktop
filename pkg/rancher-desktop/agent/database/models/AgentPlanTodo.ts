@@ -14,6 +14,7 @@ export interface PlanTodoAttributes {
   category_hints?: string[];
   created_at?: string;
   updated_at?: string;
+  wschannel?: string;
 }
 
 export interface AgentPlanTodoInterface {
@@ -44,7 +45,7 @@ export interface AgentPlanTodoInterface {
 export class AgentPlanTodo extends BaseModel<PlanTodoAttributes> implements AgentPlanTodoInterface {
   protected tableName = 'agent_plan_todos';
   protected primaryKey = 'id';
-  protected fillable = ['plan_id', 'status', 'order_index', 'title', 'description', 'category_hints'];
+  protected fillable = ['plan_id', 'status', 'order_index', 'title', 'description', 'category_hints','wschannel'];
 
   // Interface properties
   get id(): string {
@@ -89,14 +90,8 @@ export class AgentPlanTodo extends BaseModel<PlanTodoAttributes> implements Agen
     return plans[0] ?? null;
   }
 
-  async getwschannel(): Promise<string | false> {
-    const plan = await this.getParentPlan();
-    if (plan) {
-      if (plan.attributes.wschannel) {
-        return plan.attributes.wschannel;
-      }
-    }
-    return false;
+  getwschannel(): string | undefined {
+    return this.attributes.wschannel;
   }
 
   async delete(): Promise<boolean> {
@@ -104,7 +99,7 @@ export class AgentPlanTodo extends BaseModel<PlanTodoAttributes> implements Agen
 
     const planId = this.attributes.plan_id;
     const todoId = this.attributes.id;
-    const wschannel = await this.getwschannel();
+    const wschannel = this.getwschannel();
     
     if (wschannel) {
       // Emit todo deleted event before actual deletion
@@ -127,7 +122,7 @@ export class AgentPlanTodo extends BaseModel<PlanTodoAttributes> implements Agen
 
   async save(): Promise<this> {
     const result = await super.save();
-    const wschannel = await this.getwschannel();
+    const wschannel = this.getwschannel();
     
     if (wschannel) {
       // Emit WebSocket events for todo changes

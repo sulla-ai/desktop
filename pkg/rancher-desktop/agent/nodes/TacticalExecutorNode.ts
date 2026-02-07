@@ -126,7 +126,7 @@ export class TacticalExecutorNode extends BaseNode {
       { format: 'json' }
     );
 
-    if (!llmResponse?.content) {
+    if (!llmResponse) {
       step.done = false; // retry next loop
       return { state, decision: { type: 'continue' } };
     }
@@ -151,12 +151,6 @@ export class TacticalExecutorNode extends BaseNode {
       if (idx + 1 < steps.length) {
         state.metadata.activeStepIndex = idx + 1;
         return { state, decision: { type: 'continue' } };
-      }
-
-      // Milestone complete
-      if (currentTodo) {
-        currentTodo.markStatus('done');
-        await currentTodo.save();
       }
 
       if (plan) {

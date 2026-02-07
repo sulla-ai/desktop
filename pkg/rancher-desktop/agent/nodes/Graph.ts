@@ -164,8 +164,10 @@ export interface HierarchicalThreadState extends BaseThreadState {
   metadata: BaseThreadState['metadata'] & {
     // Strategic
     plan: {
-      model: AgentPlanInterface | undefined;
-      milestones: Array<{ model: AgentPlanTodoInterface }>;
+      model?: AgentPlanInterface;
+      milestones?: Array<{ 
+        model?: AgentPlanTodoInterface,
+      }>;
       activeMilestoneIndex: number;
       allMilestonesComplete: boolean;
     };
@@ -796,7 +798,7 @@ export function createHierarchicalGraph(): Graph<HierarchicalThreadState> {
     }
 
     // Approve: mark plan complete & end
-    if (plan && plan.model && plan.milestones.every(m => m.model.done)) {
+    if (plan && plan.model && plan.milestones && plan.milestones.every(m => m.model?.done)) {
       plan.model.setStatus('completed');
       plan.model.save();
       return 'summary';
