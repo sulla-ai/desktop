@@ -1,10 +1,10 @@
 // CalendarTool.ts
-// Exec-form tool for calendar operations using CalendarEvent model
+// Exec-form tool for calendar operations — now delegates to CalendarClient
 
 import type { ThreadState, ToolResult } from '../types';
 import { BaseTool } from './BaseTool';
 import type { ToolContext } from './BaseTool';
-import { CalendarEvent } from '../database/models/CalendarEvent';
+import { calendarClient } from '../services/CalendarClient';
 
 export class CalendarTool extends BaseTool {
   override readonly name = 'calendar';
@@ -20,6 +20,7 @@ Examples:
 ["calendar", "update", "42", "--title", "Updated: High-ticket close", "--end", "2026-02-10T16:00:00Z"]
 ["calendar", "delete", "42"]
 ["calendar", "listUpcoming", "7"]   // days from now
+["calendar", "cancel", "42"]
 
 Subcommands:
 - create  --title "..." --start ISO --end ISO [--description] [--location] [--people "email1" "email2"] [--calendarId] [--allDay]
@@ -27,12 +28,13 @@ Subcommands:
 - get      <eventId>
 - update   <eventId> [--title] [--start] [--end] [--description] [--location] [--people] [--calendarId] [--allDay]
 - delete   <eventId>
+- cancel   <eventId>     // mark as cancelled
 - listUpcoming <daysFromNow>
 
 Args:
---title "Event title" (required)
---start ISO datetime (required)
---end ISO datetime (required)
+--title "Event title" (required for create)
+--start ISO datetime (required for create)
+--end ISO datetime (required for create)
 --description "Details or notes"
 --location "Physical or virtual location"
 --people "email1@example.com" "email2@example.com" (multiple allowed)
@@ -56,20 +58,18 @@ Args:
         case 'create': {
           const params = this.argsToObject(rest);
 
-          const event = await CalendarEvent.create({
+          const event = await calendarClient.create({
             title: params.title,
-            start_time: params.start || params.startTime,
-            end_time: params.end || params.endTime,
+            start: params.start || params.startTime,
+            end: params.end || params.endTime,
             description: params.description,
             location: params.location,
-            people: params.people ? (Array.isArray(params.people) ? params.people : [params.people]) : [],
-            calendar_id: params.calendarId,
-            all_day: params.allDay === 'true' || params.allDay === true,
+            people: params.people ? (Array.isArray(params.people) ? params.people : [params.people]) : undefined,
+            calendarId: params.calendarId,
+            allDay: params.allDay === 'true' || params.allDay === true,
           });
 
-          if (!event?.id) throw new Error('Failed to create event');
-
-          return { toolName: this.name, success: true, result: event.attributes };
+          return { toolName: this.name, success: true, result: event };
         }
 
         case 'list':
@@ -80,24 +80,22 @@ Args:
           if (subcommand === 'listupcoming') {
             const days = parseInt(rest[0] || '7', 10);
             const now = new Date();
-            const future = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
             options.startAfter = now.toISOString();
-            options.endBefore = future.toISOString();
           } else {
             if (params.startAfter) options.startAfter = params.startAfter;
-            if (params.endBefore)  options.endBefore  = params.endBefore;
+            if (params.endBefore) options.endBefore = params.endBefore;
             if (params.calendarId) options.calendarId = params.calendarId;
           }
 
-          const events = await CalendarEvent.findUpcoming(50, options.startAfter);
-          return { toolName: this.name, success: true, result: events.map(e => e.attributes) };
+          const events = await calendarClient.getEvents(options);
+          return { toolName: this.name, success: true, result: events };
         }
 
         case 'get': {
           const id = parseInt(rest[0], 10);
           if (isNaN(id)) throw new Error('Invalid event ID');
-          const event = await CalendarEvent.find(id);
-          return { toolName: this.name, success: !!event, result: event?.attributes || 'Not found' };
+          const event = await calendarClient.get(id);
+          return { toolName: this.name, success: !!event, result: event || 'Not found' };
         }
 
         case 'update': {
@@ -105,40 +103,40 @@ Args:
           if (isNaN(id)) throw new Error('Invalid event ID');
 
           const params = this.argsToObject(rest.slice(1));
-          const evt = await CalendarEvent.find(id);
-          if (!evt) return { toolName: this.name, success: false, result: 'Not found' };
 
-          const currentAttrs = evt.attributes;
-          evt.updateAttributes({
-            title: params.title ?? currentAttrs.title,
-            start_time: params.start ?? params.startTime ?? currentAttrs.start_time,
-            end_time: params.end ?? params.endTime ?? currentAttrs.end_time,
-            description: params.description ?? currentAttrs.description,
-            location: params.location ?? currentAttrs.location,
-            people: params.people ? (Array.isArray(params.people) ? params.people : [params.people]) : currentAttrs.people,
-            calendar_id: params.calendarId ?? currentAttrs.calendar_id,
-            all_day: params.allDay === 'true' || params.allDay === true || currentAttrs.all_day,
+          const updated = await calendarClient.update(id, {
+            title: params.title,
+            start: params.start || params.startTime,
+            end: params.end || params.endTime,
+            description: params.description,
+            location: params.location,
+            people: params.people,
+            calendarId: params.calendarId,
+            allDay: params.allDay === 'true' || params.allDay === true,
           });
 
-          await evt.save();
-
-          return { toolName: this.name, success: true, result: evt.attributes };
+          return { toolName: this.name, success: !!updated, result: updated || 'Not found' };
         }
 
         case 'delete': {
           const id = parseInt(rest[0], 10);
           if (isNaN(id)) throw new Error('Invalid event ID');
-          const evt = await CalendarEvent.find(id);
-          if (!evt) return { toolName: this.name, success: false, result: 'Not found' };
+          const success = await calendarClient.delete(id);
+          return { toolName: this.name, success, result: success ? 'Deleted' : 'Not found' };
+        }
 
-          await evt.delete();
-          return { toolName: this.name, success: true, result: 'Deleted' };
+        case 'cancel': {
+          const id = parseInt(rest[0], 10);
+          if (isNaN(id)) throw new Error('Invalid event ID');
+          const updated = await calendarClient.cancel(id);
+          return { toolName: this.name, success: !!updated, result: updated || 'Not found' };
         }
 
         default:
           return { toolName: this.name, success: false, error: `Unknown subcommand: ${subcommand}` };
       }
     } catch (err: any) {
+      console.error('[CalendarTool] Execution error:', err);
       return { toolName: this.name, success: false, error: err.message || String(err) };
     }
   }
