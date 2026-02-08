@@ -206,6 +206,52 @@ Electron.protocol.registerSchemesAsPrivileged([{ scheme: 'app' }, {
   },
 }]);
 
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// SULLA DESKTOP - START
+////////////////////////////////////////////////////////////////////////////////
+
+import { app } from 'electron';
+const { getDatabaseManager } = require('@pkg/agent/database/DatabaseManager');
+
+app.on('will-quit', async () => {
+  try {
+    await getDatabaseManager().stop();
+    console.log('[Shutdown] Postgres closed');
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.warn('[Shutdown] Postgres close failed:', errorMessage);
+  }
+});
+
+Electron.app.on('before-quit', async () => {
+  try {
+    await getDatabaseManager().stop();
+  } catch {} // swallow any remaining errors
+});
+
+process.on('SIGTERM', async () => {
+  await postgresClient.end();
+  app.quit();
+});
+process.on('SIGINT', async () => {
+  await postgresClient.end();
+  app.quit();
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// SULLA DESKTOP - END
+////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
 Electron.app.whenReady().then(async() => {
   try {
     const commandLineArgs = getCommandLineArgs();
@@ -349,11 +395,6 @@ Electron.app.whenReady().then(async() => {
 
       await SullaIntegrations();
 
-      Electron.app.on('before-quit', async () => {
-        try {
-          await postgresClient.close();
-        } catch {} // swallow any remaining errors
-      });
 
       process.on('unhandledRejection', (reason: any) => {
         if (reason?.code === '57P01') {
@@ -1355,7 +1396,6 @@ function newK8sManager() {
         Steve.getInstance().stop();
       } else {
         // After all background services are initialized
-        const { getDatabaseManager } = require('@pkg/agent/database/DatabaseManager');
         const dbManager = getDatabaseManager();
         await dbManager.initialize().catch((err: any) => {
           // Make database initialization errors quieter during startup

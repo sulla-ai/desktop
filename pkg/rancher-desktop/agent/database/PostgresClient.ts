@@ -1,137 +1,103 @@
-// PostgresClient.ts
-// Singleton wrapper around pg with graceful shutdown handling
+// PostgresClient.ts — upgraded to pg.Pool + proper shutdown
 
-import pg from 'pg';
+import { Pool, PoolClient } from 'pg';
 
 const POSTGRES_URL = 'postgresql://sulla:sulla_dev_password@127.0.0.1:30116/sulla';
 
 export class PostgresClient {
-  private client: pg.Client;
+  private pool: Pool | null = null;
   private connected = false;
 
   constructor() {
-    this.client = new pg.Client({ connectionString: POSTGRES_URL });
-  }
+    this.pool = new Pool({
+      connectionString: POSTGRES_URL,
+      max: 20,                    // max connections in pool
+      idleTimeoutMillis: 30000,   // close idle after 30s
+      connectionTimeoutMillis: 2000,
+    });
 
-  getClient(): pg.Client {
-    return this.client;
-  }
-
-  isConnected(): boolean {
-    return this.connected;
+    // Graceful pool error handling
+    this.pool.on('error', (err, client) => {
+      console.error('[PostgresPool] Unexpected error on idle client', err);
+      this.connected = false;
+    });
   }
 
   async initialize(): Promise<boolean> {
     if (this.connected) return true;
 
     try {
-      await this.client.connect();
-      await this.client.query('SELECT 1');
+      const client = await this.pool!.connect();
+      await client.query('SELECT 1');
+      client.release();
       this.connected = true;
-      console.log('[PostgresClient] Connected to PostgreSQL');
+      console.log('[PostgresClient] Pool connected and healthy');
       return true;
     } catch (error: any) {
-      if (error.code === '57P01') {
-        console.warn('[PostgresClient] Connection terminated by admin during init — retrying once');
-        try {
-          await this.client.connect();
-          this.connected = true;
-          return true;
-        } catch (retryErr) {
-          console.error('[PostgresClient] Retry failed after admin termination:', retryErr);
-          return false;
-        }
-      }
-      // Don't treat "already connected" as an error
-      if (error.message.includes('already been connected')) {
-        this.connected = true;
-        return true;
-      }
-      // Make connection errors quieter during startup
-      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-        // Only log at debug level during startup
-        console.debug('[PostgresClient] Connection refused (PostgreSQL not ready yet)');
-      } else {
-        console.error('[PostgresClient] Connection failed:', error);
-      }
+      console.error('[PostgresClient] Pool init failed:', error.message);
       this.connected = false;
       return false;
     }
   }
 
-  async query<T extends pg.QueryResultRow = any>(text: string, params: any[] = []): Promise<pg.QueryResult<T>> {
+  async getClient(): Promise<PoolClient> {
     if (!this.connected) {
       const ok = await this.initialize();
-      if (!ok) throw new Error('Postgres not connected');
+      if (!ok) throw new Error('Postgres pool not ready');
     }
+    return this.pool!.connect();
+  }
 
+  async query<T = any>(text: string, params: any[] = []): Promise<T[]> {
+    const client = await this.getClient();
     try {
-      return await this.client.query(text, params) as pg.QueryResult<T>;
-    } catch (error: any) {
-      console.log(error);
-      if (error.code === '57P01') {
-        console.warn('[PostgresClient] Connection terminated by admin — reconnecting once');
-        this.connected = false;
-        await this.initialize();
-        return this.client.query(text, params); // retry
-      }
-      console.error(`[PostgresClient] Query failed:`, {
-        query: text,
-        params,
-        error: error.message,
-        code: error.code,
-        severity: error.severity,
-        detail: error.detail,
-        hint: error.hint
-      });
-      throw error;
+      const res = await client.query(text, params);
+      return res.rows;
+    } finally {
+      client.release();
     }
   }
 
-  async queryOne<T extends pg.QueryResultRow = any>(text: string, params: any[] = []): Promise<T | null> {
-    const res = await this.query<T>(text, params);
-    return res.rows[0] ?? null;
+  async queryOne<T = any>(text: string, params: any[] = []): Promise<T | null> {
+    const rows = await this.query<T>(text, params);
+    return rows[0] ?? null;
   }
 
-  async queryAll<T extends pg.QueryResultRow = any>(text: string, params: any[] = []): Promise<T[]> {
-    const res = await this.query<T>(text, params);
-    return res.rows;
+  async queryAll<T = any>(text: string, params: any[] = []): Promise<T[]> {
+    return this.query<T>(text, params);
   }
 
-  async transaction<T>(callback: (txClient: pg.Client) => Promise<T>): Promise<T> {
-    if (!this.connected) await this.initialize();
-
+  async transaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.getClient();
     try {
-      await this.client.query('BEGIN');
-      const result = await callback(this.client);
-      await this.client.query('COMMIT');
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
       return result;
-    } catch (error: any) {
-      await this.client.query('ROLLBACK');
-      if (error.code === '57P01') {
-        console.warn('[PostgresClient] Transaction rolled back due to admin termination — safe');
-      } else {
-        throw error;
-      }
-      throw error; // still propagate if needed
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
   }
 
-  async close(): Promise<void> {
-    if (!this.connected) return;
+  async end(): Promise<void> {
+    if (!this.pool || !this.connected) return;
 
     try {
-      await this.client.end();
-      this.connected = false;
-      console.log('[PostgresClient] Connection closed gracefully');
-    } catch (error: any) {
-      if (error.code === '57P01') {
-        console.warn('[PostgresClient] Connection already terminated by admin during shutdown — ignored');
-      } else {
-        console.error('[PostgresClient] Close failed:', error);
-      }
+      await this.pool.end();
+      console.log('[PostgresClient] Pool ended gracefully');
+    } catch (err: any) {
+      console.warn('[PostgresClient] Pool end warning:', err.message);
+    } finally {
+      this.pool = null;
       this.connected = false;
     }
+  }
+
+  isConnected(): boolean {
+    return this.connected;
   }
 }
 

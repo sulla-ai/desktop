@@ -80,12 +80,12 @@ export class DatabaseManager {
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
     }
-    this.isPolling = false;
+    await postgresClient.end();
   }
 
   private async getExecuted(table: string): Promise<Set<string>> {
     const res = await postgresClient.query(`SELECT name FROM ${table}`);
-    return new Set(res.rows.map((r: TrackedItem) => r.name));
+    return new Set(res.map((r: TrackedItem) => r.name));
   }
 
   private async runMigrations(): Promise<void> {
