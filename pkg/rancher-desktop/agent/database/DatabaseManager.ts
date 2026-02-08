@@ -2,7 +2,7 @@
 // Singleton – runs migrations + seeders once per process after backend is ready
 // Tracks execution in postgres tables
 
-import { postgresClient } from '@pkg/agent/database/PostgresClient';
+import { postgresClient, PostgresClient } from '@pkg/agent/database/PostgresClient';
 import { migrationsRegistry } from './migrations';
 import { seedersRegistry } from './seeders';
 
@@ -29,40 +29,50 @@ export class DatabaseManager {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    if (this.isPolling) return;
 
-    this.isPolling = true;
-    
-    this.pollingInterval = setInterval(async () => {
+    const MAX_ATTEMPTS = 60;          // ~2 minutes total
+    const INITIAL_DELAY = 2000;
+    let attempt = 0;
+
+    while (attempt < MAX_ATTEMPTS) {
+      attempt++;
+      const delay = INITIAL_DELAY * Math.pow(1.5, attempt - 1); // ~3s → ~30s backoff
+
       try {
-        // Test database connection
-        await postgresClient.initialize();
-        console.log('[DB] after postgresClient.initialize');
-        await postgresClient.query('SELECT 1');
-        console.log('[DB] after postgresClient.query');
-        
-        // Stop polling once connected
-        if (this.pollingInterval) {
-          clearInterval(this.pollingInterval);
-          this.pollingInterval = null;
-        }
-        
-        // Run migrations and seeders
+        console.log(`[DB] Attempt ${attempt}/${MAX_ATTEMPTS} — connecting...`);
+
+        // Fresh client each attempt — prevents poisoning
+        const client = new PostgresClient(); // create fresh instance
+        await client.initialize();
+
+        // Real health check
+        await client.query('SELECT 1');
+        console.log('[DB] Connection healthy');
+
+        // One-time setup
         await this.runMigrations();
         await this.runSeeders();
 
         this.initialized = true;
-        this.isPolling = false;
-        console.log('[DB] Database ready');
+        console.log('[DB] Database fully initialized');
+        return;
+
       } catch (err: any) {
-        // Quiet polling - only debug log connection attempts
-        if (err.message && err.message.includes('Postgres not connected')) {
-          console.debug('[DB] Waiting for PostgreSQL to become available...');
-        } else {
-          console.debug('[DB] Connection attempt failed, retrying...');
+        console.debug(`[DB] Attempt ${attempt} failed: ${err.message || err}`);
+
+        if (attempt === MAX_ATTEMPTS) {
+          console.error('[DB] Gave up after max attempts — database unavailable');
+          throw err;
         }
+
+        // Exponential backoff + jitter
+        const jitter = Math.random() * 500;
+        await new Promise(r => setTimeout(r, delay + jitter));
+      } finally {
+        // Clean up any temporary client
+        // (if your client doesn't auto-close, add client.end() here)
       }
-    }, 2000); // Poll every 2 seconds
+    }
   }
 
   async stop(): Promise<void> {
