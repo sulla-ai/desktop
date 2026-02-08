@@ -86,9 +86,13 @@ function buildInitialState(wsChannel: string, threadId?: string): HierarchicalTh
     metadata: {
       threadId: id,
       wsChannel: wsChannel,
+      
+      cycleComplete: false,
+      waitingForUser: false,
+
       llmModel: getCurrentModel(),
       llmLocal: getCurrentMode() === 'local',
-      options: { abort: undefined, confirm: undefined },
+      options: { abort: undefined },
       currentNodeId: 'memory_recall',
       consecutiveSameNode: 0,
       iterations: 0,

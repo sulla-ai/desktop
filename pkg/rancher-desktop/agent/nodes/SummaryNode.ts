@@ -112,6 +112,10 @@ export class SummaryNode extends BaseNode {
       data.entities ?? []
     );
 
-    return { state, decision: { type: 'end' } };
+    // send to the start and pause
+    state.metadata.cycleComplete = true;
+    state.metadata.waitingForUser = true;
+
+    return { state, decision: { type: 'next' } };
   }
 }

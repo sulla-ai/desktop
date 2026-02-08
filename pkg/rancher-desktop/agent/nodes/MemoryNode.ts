@@ -11,19 +11,55 @@ import { BaseNode, JSON_ONLY_RESPONSE_INSTRUCTIONS } from './BaseNode';
 import { Summary } from '../database/models/Summary';
 
 const MEMORY_QUERY_PROMPT = `
-You are a memory retrieval assistant.
+Your job right now is to create a list of search queries based on the user's message so we can search memory.
 
-Given the current user message and recent context, generate 1–4 precise, short search phrases 
-to find relevant past conversation summaries in the knowledge base.
+Your job: Generate the best possible list of search queries to retrieve relevant past conversation summaries.
 
-You must include a "queries" array with 1–4 search phrases.
-You must include a "reasoning" string explaining why these queries.
-If nothing relevant exists, return empty array: {"queries": [], "reasoning": "..."}
+Follow this exact reasoning process:
+
+type UserGoal = "information" | "action" | "planning" | "remembering" | "troubleshooting" | "other";
+
+function identifyGoal(userMsg: string): UserGoal {
+  // Internal heuristic — think step by step
+  if (userMsg.toLowerCase().includes("remember") || userMsg.toLowerCase().includes("recall") || userMsg.toLowerCase().includes("earlier") || userMsg.toLowerCase().includes("before")) 
+    return "remembering";
+  if (userMsg.toLowerCase().includes("how") || userMsg.toLowerCase().includes("what") || userMsg.toLowerCase().includes("explain")) 
+    return "information";
+  if (userMsg.toLowerCase().includes("create") || userMsg.toLowerCase().includes("plan") || userMsg.toLowerCase().includes("milestone") || userMsg.toLowerCase().includes("task")) 
+    return "planning";
+  if (userMsg.toLowerCase().includes("do") || userMsg.toLowerCase().includes("make") || userMsg.toLowerCase().includes("run") || userMsg.toLowerCase().includes("execute")) 
+    return "action";
+  return "other";
+}
+
+function workBackwards(goal: UserGoal, userMsg: string): string[] {
+  // Generate what we need to know to succeed
+  const needed: string[] = [];
+
+  // Core goal
+  needed.push(userMsg.trim());
+
+  // Key entities / specifics
+  if (userMsg.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}/)) needed.push("email or contact");
+  if (userMsg.toLowerCase().includes("file") || userMsg.toLowerCase().includes("path") || userMsg.toLowerCase().includes(".jpg") || userMsg.toLowerCase().includes(".png")) 
+    needed.push("file path", "image", "document");
+
+  // What would make this easier?
+  if (goal === "planning") needed.push("milestone", "task breakdown", "previous plan");
+  if (goal === "remembering") needed.push("previous conversation", "earlier request", "last time we talked");
+  if (goal === "action") needed.push("tool usage", "command executed", "result from last run");
+
+  // Always add 2-4 high-precision variants
+  return [...new Set(needed)].slice(0, 8);
+}
+
+// Final decision
+const goal = identifyGoal("{{userMessage}}");
+const queries = workBackwards(goal, "{{userMessage}}");
 
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
-  "queries": ["exact phrase 1", "phrase 2", ...],
-  "reasoning": "one short sentence explaining why these queries"
+  "query one", "query two", "query three", "query four"
 }`;
 
 /**
@@ -67,9 +103,8 @@ export class MemoryNode extends BaseNode {
   }
 
   async execute(state: BaseThreadState): Promise<NodeResult<BaseThreadState>> {
-
-    // Build prompt — only soul + awareness (memory would be circular here)
-    const enriched = await this.enrichPrompt(MEMORY_QUERY_PROMPT, state, {
+    const prompt = MEMORY_QUERY_PROMPT;
+    const enriched = await this.enrichPrompt(prompt, state, {
       includeSoul: true,
       includeAwareness: true,
       includeMemory: false,
@@ -79,45 +114,64 @@ export class MemoryNode extends BaseNode {
       includeKnowledgebasePlan: false,
     });
 
-    // Use unified chat() from BaseNode
-    const responseJSON = await this.chat(
-      state,
-      enriched,
-      { format: 'json' }
-    );
-    console.log('[MemoryNode] responseJSON', responseJSON);
+    const responseJSON = await this.chat(state, enriched, { format: 'json' });
 
-    // Check if responseJSON exists and has content
-    if (!responseJSON) {
+    const raw = responseJSON;
+    let queries: string[] = [];
+
+    if (Array.isArray(raw)) {
+      // Rare case: LLM returned naked array
+      queries = raw.filter(q => typeof q === 'string' && q.trim().length > 4);
+    } else if (raw && typeof raw === 'object' && Array.isArray(raw.queries)) {
+      // Correct shape
+      queries = raw.queries.filter((q: string) => typeof q === 'string' && q.trim().length > 4);
+    } else if (raw && typeof raw === 'object') {
+      // LLM returned wrong object shape → salvage values
+      queries = Object.keys(raw)
+        .filter((k: string) => typeof raw[k] === 'string' && raw[k].trim().length > 4)
+        .map((k: string) => raw[k]);
+    } else {
+      queries = (responseJSON ?? [])
+        .filter((q: any) => typeof q === 'string' && q.trim().length > 4)
+        .slice(0, 5);
+    }
+
+    console.log('[MemoryNode] Final queries:', queries);
+
+
+    // Search with each query independently + combine top results
+    let docs: any[] = [];
+
+    for (const q of queries) {
+      const res = await Summary.search(q, 6); // 6 per query for diversity
+      docs.push(...res);
+    }
+
+    // Deduplicate by threadId + timestamp, take top 8
+    const uniqueDocs = docs
+      .filter((d, i, arr) => 
+        i === arr.findIndex(t => t.attributes.threadId === d.attributes.threadId)
+      )
+      .sort((a, b) => Number(b.attributes.timestamp) - Number(a.attributes.timestamp))
+      .slice(0, 8);
+
+    if (uniqueDocs.length === 0) {
       return { state, decision: { type: 'next' } };
     }
 
-    // Direct object access — already parsed upstream
-    const data = responseJSON as { queries: string[]; reasoning?: string };
-    const queries = ((data?.queries ?? []).filter((q: any) => typeof q === 'string' && q.trim()));
+    // Build high-signal context block (same format Summary creates)
+    const context = uniqueDocs
+      .map(d => 
+        `[Summary • ${new Date(Number(d.attributes.timestamp)).toLocaleString()} • Thread ${d.attributes.threadId}]\n` +
+        `${d.summary}\n` +
+        `Topics: ${d.topics?.join(', ') || '—'}\n` +
+        `Entities: ${d.entities?.join(', ') || '—'}\n`
+      )
+      .join('\n' + '─'.repeat(60) + '\n');
 
-    if (queries.length === 0) {
-      return { state, decision: { type: 'next' } };
-    }
+    state.metadata.memory.chatSummariesContext = context;
 
-    // Single combined search — Chroma handles OR semantics well
-    const searchTerm = queries.join(' OR ');
-    const results = await Summary.search(searchTerm, 10); // lowered from 12 → tighter relevance
-
-    if (results.length === 0) {
-      return { state, decision: { type: 'next' } };
-    }
-
-    // Format context exactly like previous enrichPrompt expects
-    const memoryContext = results
-      .map((s, i) => `[Summary ${i+1} - Thread ${s.attributes.threadId}]: ${s.summary}\nTopics: ${s.topics.join(', ')}\nEntities: ${s.entities.join(', ')}`)
-      .join('\n\n');
-
-    // Write to canonical location
-    state.metadata.memory = {
-      ...state.metadata.memory,
-      chatSummariesContext: memoryContext,        // duplicate for backward compat if needed
-    };
+    console.log(`[MemoryNode] Attached ${uniqueDocs.length} past summaries`);
 
     return { state, decision: { type: 'next' } };
   }

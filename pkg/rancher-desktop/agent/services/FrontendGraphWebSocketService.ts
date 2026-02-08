@@ -1,5 +1,6 @@
 import type { Ref } from 'vue';
 import type { AgentResponse, SensoryInput } from '../types';
+import type { HierarchicalThreadState } from '../nodes/Graph';
 import { getWebSocketClientService, type WebSocketMessage } from './WebSocketClientService';
 import { AbortService } from './AbortService';
 import { GraphRegistry, nextThreadId, nextMessageId } from './GraphRegistry';
@@ -72,13 +73,12 @@ export class FrontendGraphWebSocketService {
 
   private async processUserInput(userText: string, threadIdFromMsg?: string): Promise<void> {
     const channelId = 'chat-controller';
+    const threadId = threadIdFromMsg || nextThreadId();
+    
+    // Get or create persistent graph for this thread - do this outside try/catch
+    const { graph, state } = GraphRegistry.getOrCreate(channelId, threadId);
 
     try {
-      // Use threadId from WS message if present, else generate new
-      const threadId = threadIdFromMsg || nextThreadId();
-
-      // Get or create persistent graph for this thread
-      const { graph, state } = GraphRegistry.getOrCreate(channelId, threadId);
 
       // === NEW: Notify AgentPersonaService about the threadId ===
       if (!threadIdFromMsg) {
@@ -108,8 +108,12 @@ export class FrontendGraphWebSocketService {
       };
       state.messages.push(newMsg as any);
 
+      // Reset pause flags when real user input comes in
+      state.metadata.cycleComplete = false;
+      state.metadata.waitingForUser = false;
+
       // Execute on the persistent graph
-      await graph.execute(state);
+      await graph.execute(state, 'memory_recall');
 
       // Build response from final state
       const content = state.metadata.finalSummary?.trim() || (state.metadata as any).response?.trim() || '';
@@ -144,6 +148,9 @@ export class FrontendGraphWebSocketService {
         this.emitSystemMessage(`Error: ${err.message || String(err)}`);
       }
     } finally {
+      // Reset here — after graph run completes
+      state.metadata.consecutiveSameNode = 0;
+      state.metadata.iterations = 0;
       this.activeAbort = null;
     }
   }

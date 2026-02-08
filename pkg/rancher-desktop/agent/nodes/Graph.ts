@@ -78,12 +78,15 @@ export interface BaseThreadState {
   metadata: {
     threadId: string;
     wsChannel: string;
+
     llmModel: string;
     llmLocal: boolean;
 
+    cycleComplete: boolean;
+    waitingForUser: boolean;
+
     options: {
       abort?: AbortService;
-      confirm?: (msg: string) => Promise<boolean>;
     };
 
     currentNodeId: string;
@@ -332,25 +335,33 @@ export class Graph<TState = HierarchicalThreadState> {
    */
   async execute(
     initialState: TState,
-    maxIterations = 1_000_000,
-    options?: { abort?: AbortService }
+    entryPointNodeId?: string,
+    options?: { maxIterations: number }
   ): Promise<TState> {
     if (!this.entryPoint) throw new Error('No entry point');
 
-    console.log(`[Graph] Start from ${this.entryPoint}`);
     await this.initialize();
 
     let state = initialState;
-    (state as any).metadata.currentNodeId ??= this.entryPoint;
+    (state as any).metadata.currentNodeId ??= entryPointNodeId ?? this.entryPoint;
+
+    console.log(`[Graph] Start from ${(state as any).metadata.currentNodeId}`);
 
     (state as any).metadata.iterations ??= 0;
     (state as any).metadata.consecutiveSameNode ??= 0;
+
+    const maxIterations = options?.maxIterations ?? 1000000;
 
     try {
       while ((state as any).metadata.iterations < maxIterations) {
         (state as any).metadata.iterations++;
         
         throwIfAborted(state, 'Graph execution aborted');
+
+        if ((state as any).metadata.waitingForUser && (state as any).metadata.currentNodeId === 'memory_recall') {
+          console.log('[Graph] Waiting for user at memory_recall → forcing end');
+          break;
+        }
 
         const node = this.nodes.get((state as any).metadata.currentNodeId);
         if (!node) throw new Error(`Node missing: ${(state as any).metadata.currentNodeId}`);
@@ -359,6 +370,9 @@ export class Graph<TState = HierarchicalThreadState> {
         const result: NodeResult<TState> = await node.execute(state);
 
         state = result.state;
+
+        // yield to event loop
+        await new Promise(r => setTimeout(r, 0));
 
         const nextId = this.resolveNext((state as any).metadata.currentNodeId, result.decision, state);
         console.log(`[Graph] ${result.decision.type} → ${nextId}`);
@@ -559,7 +573,9 @@ export function createInitialThreadState<T extends BaseThreadState>(
       wsChannel: overrides.wsChannel ?? DEFAULT_WS_CHANNEL,
       llmModel: overrides.llmModel ?? getCurrentModel(),
       llmLocal: overrides.llmLocal ?? getCurrentMode() === 'local',
-      options: overrides.options ?? { abort: undefined, confirm: undefined },
+      cycleComplete: false,
+      waitingForUser: false,
+      options: overrides.options ?? { abort: undefined },
       currentNodeId: overrides.currentNodeId ?? 'memory_recall',
       consecutiveSameNode: 0,
       iterations: 0,
@@ -754,33 +770,75 @@ export function createHierarchicalGraph(): Graph<HierarchicalThreadState> {
   graph.addNode(new StrategicCriticNode());
   graph.addNode(new SummaryNode());
 
-  // Flow: Memory → StrategicPlanner (always)
-  graph.addEdge('memory_recall', 'strategic_planner');
+  graph.addConditionalEdge('memory_recall', state => {
+    if (state.metadata.cycleComplete || state.metadata.waitingForUser) {
+      console.log('[Graph] Cycle complete → pausing at memory_recall');
+      state.metadata.options.abort?.pauseForUserInput?.('');
+      return 'end';
+    }
+
+    return 'strategic_planner';
+  });
 
   // Conditional: StrategicPlanner → end (simple) or TacticalPlanner (complex)
-  graph.addConditionalEdge('strategic_planner', state => 
-    state.metadata.plan?.milestones?.length === 0 ? 'end' : 'tactical_planner'
-  );
+  graph.addConditionalEdge('strategic_planner', state => {
+    // After planner ran, we look at what actually happened
 
-  // Static: TacticalPlanner → TacticalExecutor (always)
-  graph.addEdge('tactical_planner', 'tactical_executor');
+    const hasActivePlan = !!state.metadata.plan?.model;
+    const hasMilestones  = !!state.metadata.plan?.milestones?.length;
+
+    if (!hasActivePlan || !hasMilestones) {
+      // send to the start and pause
+      state.metadata.cycleComplete = true;
+      state.metadata.waitingForUser = true;
+
+      // Planner decided no plan needed (or failed to create one)
+      return 'memory_recall';
+    }
+
+    // Valid plan exists → proceed to tactical
+    return 'tactical_planner';
+  });
+
+  graph.addConditionalEdge('tactical_planner', state => {
+    const steps = state.metadata.currentSteps ?? [];
+
+    if (steps.length === 0) {
+      // No work to do → go directly to critic or summary
+      // Prefer summary to avoid critic spam when nothing happened
+      console.log('[Graph] No tactical steps → routing to summary');
+      return 'summary';
+    }
+
+    // Steps exist → execute them
+    return 'tactical_executor';
+  });
 
   // Conditional edge from tactical_executor
   graph.addConditionalEdge('tactical_executor', state => {
-    const idx = state.metadata.activeStepIndex;
     const steps = state.metadata.currentSteps ?? [];
+    const idx = state.metadata.activeStepIndex ?? 0;
 
-    // All previous steps done? (safety check)
-    const allPriorDone = steps.slice(0, idx + 1).every(s => s.done);
+    // Safety: invalid state
+    if (idx >= steps.length || !steps[idx]) {
+      return 'tactical_critic'; // or 'summary'
+    }
 
-    if (!allPriorDone) return 'tactical_critic';  // re-critic current if failed
+    const currentStep = steps[idx];
 
-    if (idx < steps.length - 1) {
-      state.metadata.activeStepIndex = idx + 1;   // advance here
+    // Step not yet marked done → stay here (more tool calls needed)
+    if (!currentStep.done) {
+      return 'tactical_executor'; // continue same step
+    }
+
+    // Step done, but more steps remain → advance & continue executor
+    if (idx + 1 < steps.length) {
+      // activeStepIndex already incremented in node
       return 'tactical_executor';
     }
 
-    return 'tactical_critic';  // done with steps → critic
+    // All steps for this milestone done → go to critic
+    return 'tactical_critic';
   });
 
   // Conditional: TacticalCritic → revise to TacticalPlanner, approve: to TacticalExecutor (more steps) or StrategicCritic
@@ -878,7 +936,7 @@ export function createHierarchicalGraph(): Graph<HierarchicalThreadState> {
   });
 
   // allow looping over again
-  graph.addEdge('summary', 'strategic_planner');
+  graph.addEdge('summary', 'memory_recall');
 
   // Set entry and end points
   graph.setEntryPoint('memory_recall');

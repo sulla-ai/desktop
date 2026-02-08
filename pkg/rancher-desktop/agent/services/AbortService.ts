@@ -57,6 +57,19 @@ export class AbortService {
       }
     }
   }
+
+  /**
+   * Pause the current graph run and signal that we're waiting for user input.
+   * Use this when the agent has completed a cycle and wants to stop.
+   */
+  pauseForUserInput(reason: string = 'Cycle complete - waiting for user input'): void {
+    console.log(`[AbortService] Pausing for user: ${reason}`);
+    
+    // Optional: you can emit a special message here if you want
+    // this.emitPauseMessage?.(reason); // if you add a callback
+
+    this.abort(); // This will trigger throwIfAborted in the graph
+  }
 }
 
 /**

@@ -10,105 +10,77 @@ import { AgentPlanTodo, AgentPlanTodoInterface } from '../database/models/AgentP
 
 const STRATEGIC_PLAN_PROMPT = `
 
-type InquiryComplexity = 'simple' | 'complex';
+type InquiryIntent = 
+  | "direct_answer"          // pure info question, no action needed
+  | "task_or_action"         // user wants something done (search, create, execute...)
+  | "planning_required"      // explicitly needs structure, steps, milestones
+  | "follow_up_or_remember"  // references past, needs memory/context
+  | "clarification_needed";  // ambiguous or incomplete
 
-function classifyInquiry(inquiry: string): InquiryComplexity {
-  // LLM internal heuristic (not real code)
-  if (
-    inquiry.length < 100 &&
-    !inquiry.includes("plan") &&
-    !inquiry.includes("create") &&
-    !inquiry.includes("build") &&
-    !inquiry.includes("implement") &&
-    !inquiry.includes("strategy") &&
-    !inquiry.includes("milestone") &&
-    !inquiry.includes("todo") &&
-    !inquiry.includes("step") &&
-    !inquiry.match(/\d+/) // no numbered steps/tasks
-  ) {
-    return 'simple';
-  }
-  return 'complex';
-}
+function classifyIntent(userMsg: string, recentContext: string): InquiryIntent {
+  // Think step-by-step internally
 
-function decideResponseStrategy(inquiry: string) {
-  const complexity = classifyInquiry(inquiry);
-
-  if (complexity === 'simple') {
-    return {
-      planneeded: false,
-      emit_chat_message: "Direct, complete answer to the user's question.",
-      // All plan fields omitted / null / false / empty
-      responseguidance: {
-        tone: "casual" | "technical" | "friendly" /* choose based on context */,
-        format: "conversational" | "brief"
-      }
-    };
+  // 1. Check for direct questions (what/how/why/who)
+  if (/^(what|how|why|who|when|where)/i.test(userMsg) && userMsg.length < 150) {
+    return "direct_answer";
   }
 
-  // Complex case — must plan
-  return {
-    planneeded: true,
+  // 2. Check for action verbs or file/system interaction
+  if (/(find|search|get|show|display|open|locate|access|look for|image|file|path|jpg|png)/i.test(userMsg)) {
+    return "task_or_action";
+  }
 
-    emit_chat_message: \`
-      Show strong listening: 
-      1. Acknowledge the request.
-      2. Restate the desired outcome in your own words (1–2 sentences).
-      3. Do NOT reveal plan details yet.
-    \`,
+  // 3. Explicit planning words
+  if (/(plan|create|build|make|implement|strategy|milestone|todo|step|break down|organize)/i.test(userMsg)) {
+    return "planning_required";
+  }
 
-    goal: "Short title (5–10 words max)",
+  // 4. Memory/reference words
+  if (/(remember|recall|earlier|before|last time|previous|again)/i.test(userMsg)) {
+    return "follow_up_or_remember";
+  }
 
-    goaldescription: \`
-      [Restated user outcome in clear language] + 
-      [One-sentence high-level plan overview]
-    \`,
-
-    requirestools: true | false /* usually true for real work */,
-
-    estimatedcomplexity: "simple" | "moderate" | "complex",
-
-    milestones: [
-      {
-        id: "m1",
-        title: "Clear, verb-first title",
-        description: "Single sentence — what this milestone achieves",
-        successcriteria: "Specific, measurable, time-bound condition (SMARTER)",
-        dependson: [] // or ["m0", "m-1"] etc.
-      },
-      // 3–6 total, never more
-      // Last milestone usually "validate", "deliver", "review", or "finalize"
-    ],
-
-    responseguidance: {
-      tone: "technical" | "casual" | "formal" | "friendly",
-      format: "brief" | "detailed" | "markdown" | "conversational"
-    }
-  };
+  // Default to action if uncertain — better safe than "okay"
+  return "task_or_action";
 }
 
-// Enforced output contract — LLM MUST produce ONLY this JSON output shape
-type FinalOutput = {
-  emit_chat_message: string;          // always present
+// Then decide:
+const intent = classifyIntent("{{userMessage}}", "{{recentContext}}");
 
-  // only when planneeded === true
-  planneeded: boolean;
-  goal?: string;
-  goaldescription?: string;
-  requirestools?: boolean;
-  estimatedcomplexity?: "simple" | "moderate" | "complex";
-  milestones?: Array<{
-    id: string;
-    title: string;
-    description: string;
-    successcriteria: string;
-    dependson: string[];
-  }>;
-  responseguidance?: {
-    tone: "technical" | "casual" | "formal" | "friendly";
-    format: "brief" | "detailed" | "markdown" | "conversational";
-  };
-}`;
+if (intent === "direct_answer") {
+  planneeded = false;
+  emit_chat_message = "Direct, concise answer.";
+} else {
+  planneeded = true;
+  // ... rest of complex planning output
+}
+  
+// Final output rules — MUST follow exactly, no extra text
+// - If direct_answer: only emit_chat_message + planneeded: false
+// - If anything else: full plan structure
+// - Return ONLY valid JSON. Nothing before or after.
+
+const finalOutput: FinalOutput = {
+  emit_chat_message: intent === "direct_answer" 
+    ? "Direct, concise answer." 
+    : \`Acknowledging request. Planning structured response.\`,
+  planneeded: intent !== "direct_answer",
+};
+
+if (finalOutput.planneeded) {
+  finalOutput.goal = "Short goal title";
+  finalOutput.goaldescription = "Clear restated outcome + 1-sentence plan overview";
+  finalOutput.requirestools = true; // usually true for real work
+  finalOutput.estimatedcomplexity = "moderate"; // adjust as needed
+  finalOutput.milestones = [
+    { id: "m1", title: "First milestone", description: "...", successcriteria: "...", dependson: [] }
+    // ... add more
+  ];
+  finalOutput.responseguidance = { tone: "technical", format: "markdown" };
+}
+
+// Output ONLY this JSON — no markdown, no explanation, no trailing text
+return finalOutput;`;
 
 /**
  * Strategic Planner Node
@@ -167,54 +139,16 @@ export class StrategicPlannerNode extends BaseNode {
     }
 
     const plan = llmResponse as StrategicPlan;
-    const currentPlan = state.metadata.plan?.model;
     
-    // Check if this is a simple response (no plan needed)
-    if (plan && plan.planneeded === false) {
-      console.log('[StrategicPlanner] Simple response detected, no plan needed');
-      if (plan.emit_chat_message?.trim()) {
-        this.wsChatMessage(state, plan.emit_chat_message, 'assistant', 'response');
-      }
-      return { state, decision: { type: 'end' } };
-    }
-    
-    // For complex responses, validate plan structure
-    if (!plan || !plan.goal?.trim()) {
-      console.log('[StrategicPlanner] Invalid or empty plan received from LLM', {
-        hasActivePlan: !!currentPlan,
-        llmResponse,
-        currentPlanId: currentPlan?.attributes?.id
-      });
-      if (plan.emit_chat_message?.trim()) {
-        this.wsChatMessage(state, plan.emit_chat_message, 'assistant', 'response');
-      }
-      return { state, decision: { type: 'next' } }; // continue
-    }
-
     if (plan.emit_chat_message?.trim()) {
       this.wsChatMessage(state, plan.emit_chat_message, 'assistant', 'response');
     }
 
-    // ============================================================================
-    // No complete plan needed
-    // ============================================================================
-
-    if (!plan.planneeded) {
-      return { state, decision: { type: 'end' } }; // end
-    }
-
-    // ============================================================================
-    // Thorough thought processes need to carry out this task
-    // First task is to get or update the plan
-    // ============================================================================
-
-    try {
+    if (plan.planneeded) {
       await this.updatePlan(state, plan);
-      return { state, decision: { type: 'next' } };
-    } catch(err) {
-      console.error('[StrategicPlanner] Plan persistence failed:', err);
-      return { state, decision: { type: 'continue' } }; // continue
     }
+
+    return { state, decision: { type: 'next' } };
   }
 
   /**

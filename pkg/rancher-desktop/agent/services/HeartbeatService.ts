@@ -128,6 +128,8 @@ export class HeartbeatService {
         metadata: {
           threadId,
           wsChannel: 'dreaming-protocol',
+          cycleComplete: false,
+          waitingForUser: false,
           llmModel: this.getHeartbeatModel(),
           llmLocal: this.isHeartbeatLocal(),
           options: {},

@@ -94,23 +94,21 @@ export class TacticalExecutorNode extends BaseNode {
   async execute(state: HierarchicalThreadState): Promise<NodeResult<HierarchicalThreadState>> {
     const plan = state.metadata.plan;
     const steps = state.metadata.currentSteps ?? [];
-    const idx = state.metadata.activeStepIndex ?? 0;
+    const stepIdx = state.metadata.activeStepIndex ?? 0;
 
-    if (idx >= steps.length || !steps[idx]) {
-      console.log('TacticalExecutor: No valid step found', {
-        idx,
-        stepsLength: steps.length,
-        stepExists: !!steps[idx],
-        condition: idx >= steps.length || !steps[idx]
-      });
-      return { state, decision: { type: 'next' } }; // graph should prevent this
+    if (stepIdx >= steps.length || !steps[stepIdx]) {
+      console.log('[TacticalExecutor] Invalid step index — skipping');
+      return { state, decision: { type: 'next' } };
     }
 
-    const step = steps[idx];
+    const step = steps[stepIdx];
     const milestoneIdx = plan?.activeMilestoneIndex ?? 0;
     const currentTodo = plan?.milestones?.[milestoneIdx]?.model as AgentPlanTodo | undefined;
 
-    const enriched = await this.enrichPrompt(TACTICAL_EXECUTOR_PROMPT, state, {
+    // Build prompt with current step context
+    const prompt = TACTICAL_EXECUTOR_PROMPT;
+
+    const enriched = await this.enrichPrompt(prompt, state, {
       includeSoul: true,
       includeAwareness: true,
       includeMemory: true,
@@ -120,49 +118,45 @@ export class TacticalExecutorNode extends BaseNode {
       includeKnowledgebasePlan: false,
     });
 
-    const llmResponse = await this.chat(
-      state,
-      enriched,
-      { format: 'json' }
-    );
-
+    const llmResponse = await this.chat(state, enriched, { format: 'json' });
     if (!llmResponse) {
-      step.done = false; // retry next loop
-      return { state, decision: { type: 'continue' } }; // continue
+      return { state, decision: { type: 'next' } };
     }
 
     const data = llmResponse as { tools: any[]; markDone: boolean };
     const tools = Array.isArray(data.tools) ? data.tools : [];
 
-    // Run tools if any
+    // Execute tools if instructed
     if (tools.length > 0) {
       await this.executeToolCalls(state, tools);
     }
 
-    // Mark step done if LLM says so
+    // Update step status only — no routing
     if (data.markDone === true) {
       step.done = true;
+      step.resultSummary = 'Step completed successfully'; // or parse from last tool result
+
       if (currentTodo) {
         currentTodo.markStatus('done');
         await currentTodo.save();
-        console.log('TacticalExecutor: Marked milestone todo done', currentTodo);
+        console.log('[TacticalExecutor] Milestone todo marked done');
       }
 
-      // Advance step or finish milestone
-      if (idx + 1 < steps.length) {
-        state.metadata.activeStepIndex = idx + 1;
-        return { state, decision: { type: 'continue' } }; // continue
+      // Advance index if more steps exist
+      if (stepIdx + 1 < steps.length) {
+        state.metadata.activeStepIndex = stepIdx + 1;
+      } else {
+        // All steps done for this milestone
+        state.metadata.currentSteps = [];
+        state.metadata.activeStepIndex = 0;
+        if (plan) {
+          plan.activeMilestoneIndex = milestoneIdx + 1;
+          plan.allMilestonesComplete = plan.activeMilestoneIndex >= (plan.milestones?.length ?? 0);
+        }
       }
-
-      if (plan) {
-        state.metadata.plan.activeMilestoneIndex = milestoneIdx + 1;
-        state.metadata.plan.allMilestonesComplete = state.metadata.plan.activeMilestoneIndex >= (state.metadata.plan.milestones?.length ?? 0);
-      }
-
-      return { state, decision: { type: 'next' } }; // next
     }
 
-    // More work needed
-    return { state, decision: { type: 'continue' } }; // continue
+    // Always next — graph decides if more work or critic/summary
+    return { state, decision: { type: 'next' } };
   }
 }

@@ -80,101 +80,68 @@ export class TacticalPlannerNode extends BaseNode {
   async execute(state: HierarchicalThreadState): Promise<NodeResult<HierarchicalThreadState>> {
     const plan = state.metadata.plan;
     if (!plan?.model || !plan.milestones?.length) {
-      console.log('TacticalPlanner: No plan or milestones found', plan);
-      return { state, decision: { type: 'continue' } }; //continue
+      console.log('[TacticalPlanner] No active milestone — skipping generation');
+      return { state, decision: { type: 'next' } };
     }
 
     const idx = plan.activeMilestoneIndex;
-    const currentModel = plan.milestones[idx]?.model as any;
-    
-    
-    let potentialRevisionPrompt: string = '';
-
-    // Already have tactical plan for this milestone?
-    if (state.metadata.currentSteps?.length && state.metadata.activeStepIndex < state.metadata.currentSteps.length) {
-
-      // ============================================================================
-      // We already have steps. Potentially meaning we need to start over, or revise
-      // ============================================================================
-
-      console.log('TacticalPlanner: Checking existing steps', {
-        hasSteps: !!state.metadata.currentSteps?.length,
-        stepsLength: state.metadata.currentSteps?.length,
-        activeStepIndex: state.metadata.activeStepIndex,
-        condition: state.metadata.currentSteps?.length && state.metadata.activeStepIndex < state.metadata.currentSteps.length
-      });
-
-      // set aside the currentSteps in-case of replanning
-      const oldSteps = state.metadata.currentSteps;
-      const oldStepIndex = state.metadata.activeStepIndex;
-
-      // Check for tactical critic verdict to include revision feedback
-      const verdict = state.metadata.tacticalCriticVerdict;
-
-      if (verdict && (verdict.status === 'revise' || verdict.status === 'escalate')) {
-        console.log('TacticalPlanner: Including revision feedback', verdict);
-        potentialRevisionPrompt += `\n\n## Revision Feedback\nStatus: ${verdict.status}\nReason: ${verdict.reason}`;
-        
-        // Attach old steps for context
-        if (oldSteps && oldSteps.length > 0) {
-          potentialRevisionPrompt += `\n\n## Previous Steps Attempted:\n${oldSteps.map((step, idx) => 
-            `${idx + 1}. ${step.description} [${step.done ? 'completed' : 'incomplete'}]`
-          ).join('\n')}`;
-        }
-      }
-
-      // Clear current steps for re-planning
-      state.metadata.currentSteps = [];
-      state.metadata.activeStepIndex = 0;
+    const milestone = plan.milestones[idx]?.model as AgentPlanTodoInterface | undefined;
+    if (!milestone) {
+      console.log('[TacticalPlanner] Milestone model missing');
+      return { state, decision: { type: 'next' } };
     }
 
-    // Generate fresh tactical plan
-    const enriched = await this.enrichPrompt(
-      TACTICAL_PLAN_PROMPT + potentialRevisionPrompt,
-      state,
-      {
-        includeSoul: true,
-        includeAwareness: true,
-        includeMemory: true,
-        includeTools: true,
-        includeStrategicPlan: true,
-        includeTacticalPlan: false,
-        includeKnowledgebasePlan: false,
+    // Build revision context if critic asked to revise
+    let revisionContext = '';
+    const verdict = state.metadata.tacticalCriticVerdict;
+    if (verdict?.status === 'revise' || verdict?.status === 'escalate') {
+      revisionContext = `\n\n## Revision Feedback\nStatus: ${verdict.status}\nReason: ${verdict.reason}`;
+      if (state.metadata.currentSteps?.length) {
+        revisionContext += `\n\nPrevious steps:\n${state.metadata.currentSteps
+          .map((s, i) => `${i+1}. ${s.action} [${s.done ? 'done' : 'pending'}]`)
+          .join('\n')}`;
       }
-    );
+    }
 
-    const llmResponse = await this.chat(
-      state,
-      enriched,
-      { format: 'json' }
-    );
+    // Always clear old steps before generating new ones
+    state.metadata.currentSteps = [];
+    state.metadata.activeStepIndex = 0;
 
+    // Enrich + call LLM
+    const prompt = TACTICAL_PLAN_PROMPT;
+
+    const enriched = await this.enrichPrompt(prompt + revisionContext, state, {
+      includeSoul: true,
+      includeAwareness: true,
+      includeMemory: true,
+      includeTools: true,
+      includeStrategicPlan: true,
+      includeTacticalPlan: false,
+      includeKnowledgebasePlan: false,
+    });
+
+    const llmResponse = await this.chat(state, enriched, { format: 'json' });
     if (!llmResponse) {
-      return { state, decision: { type: 'continue' } }; //continue
+      return { state, decision: { type: 'next' } };
     }
 
-    // Formatting the steps to look exactly like the state object
     const data = llmResponse as { steps: any[] };
-    const steps = (data.steps || []).filter(s => s?.action?.trim()).map((s: any, i: number) => ({
-      id: s.id || `s${i + 1}`,
-      action: s.action.trim(),
-      description: s.description?.trim() || s.action,
-      done: false,
-      resultSummary: s.resultSummary || undefined,
-      toolHints: Array.isArray(s.toolHints) ? s.toolHints.filter((t: unknown) => typeof t === 'string') : [],
-    }));
+    const steps = (data.steps || [])
+      .filter(s => s?.action?.trim())
+      .map((s: any, i: number) => ({
+        id: s.id || `s${i + 1}`,
+        action: s.action.trim(),
+        description: s.description?.trim() || s.action,
+        done: false,
+        resultSummary: undefined,
+        toolHints: Array.isArray(s.toolHints) ? s.toolHints.filter((t: unknown) => typeof t === 'string') : [],
+      }));
 
-    if (steps.length === 0) {
-      console.log('[TacticalPlanner] - No Tactical Steps')
-      return { state, decision: { type: 'continue' } }; //continue
-    }
-
-    // resetting the state object with the steps
     state.metadata.currentSteps = steps;
     state.metadata.activeStepIndex = 0;
 
-    console.log('TacticalPlanner: Generated steps', steps);
+    console.log('[TacticalPlanner] Generated steps:', steps.length);
 
-    return { state, decision: { type: 'next' } }; //next
+    return { state, decision: { type: 'next' } };
   }
 }

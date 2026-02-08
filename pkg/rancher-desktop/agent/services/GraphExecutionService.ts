@@ -30,9 +30,11 @@ function buildInitialState(input: SensoryInput, wsChannel: string, threadId?: st
     metadata: {
       threadId: id,
       wsChannel: wsChannel,
+      cycleComplete: false,
+      waitingForUser: false,
       llmModel: getCurrentModel(),
       llmLocal: getCurrentMode() === 'local',
-      options: { abort: undefined, confirm: undefined },
+      options: { abort: undefined },
       currentNodeId: 'memory_recall',
       consecutiveSameNode: 0,
       iterations: 0,
@@ -111,7 +113,7 @@ export async function runHierarchicalGraph(params: {
     if (params.abort) {
       (state.metadata as any).__abort = params.abort;
     }
-    await graph.execute(state, undefined, { abort: params.abort });
+    await graph.execute(state);
   } catch (err) {
     return null;
   } finally {

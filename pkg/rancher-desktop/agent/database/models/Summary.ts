@@ -76,6 +76,7 @@ export class Summary extends ChromaBaseModel {
   }
 
   // Getters
+  get threadId(): string | undefined { return this.attributes.threadId; }
   get summary(): string | undefined { return this.attributes.document; }  // Now reads from 'document'
   get topics(): string[] { return this.attributes.topics ?? []; }
   get entities(): string[] { return this.attributes.entities ?? []; }
