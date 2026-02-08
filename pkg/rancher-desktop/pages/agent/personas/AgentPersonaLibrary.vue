@@ -11,8 +11,10 @@
         :agent-id="agent.agentId"
         :agent-name="agent.agentName"
         :status="getAgentStatus(agent.agentId)"
-        :tokens-per-second="agent.tokensPerSecond"
-        :temperature="agent.temperature"
+        :total-tokens="getTotalTokens(agent.agentId)"
+        :temperature="getTemperature(agent.agentId)"
+        :input-cost="getInputCost(agent.agentId)"
+        :output-cost="getOutputCost(agent.agentId)"
       />
     </div>
   </div>
@@ -36,6 +38,31 @@ function getAgentStatus(agentId: string): 'online' | 'idle' | 'busy' | 'offline'
   const personaService = registry.getOrCreatePersonaService(agentId);
   // Return 'busy' when graph is running, otherwise use the agent's base status
   return personaService.graphRunning.value ? 'busy' : (registry.state.agents.find(a => a.agentId === agentId)?.status || 'offline');
+}
+
+function getTotalTokens(agentId: string): number {
+  const personaService = registry.getOrCreatePersonaService(agentId);
+  return personaService.state.totalTokensUsed;
+}
+
+function getTemperature(agentId: string): number {
+  const personaService = registry.getOrCreatePersonaService(agentId);
+  return personaService.state.temperature;
+}
+
+function getTotalCost(agentId: string): number {
+  const personaService = registry.getOrCreatePersonaService(agentId);
+  return personaService.state.totalCost;
+}
+
+function getInputCost(agentId: string): number {
+  const personaService = registry.getOrCreatePersonaService(agentId);
+  return personaService.state.totalInputCost;
+}
+
+function getOutputCost(agentId: string): number {
+  const personaService = registry.getOrCreatePersonaService(agentId);
+  return personaService.state.totalOutputCost;
 }
 
 function getPersonaComponent(templateId: PersonaTemplateId) {

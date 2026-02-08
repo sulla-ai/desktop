@@ -127,7 +127,7 @@ export class HeartbeatService {
         }],
         metadata: {
           threadId,
-          wsChannel: 'chat-controller-backend',
+          wsChannel: 'dreaming-protocol',
           llmModel: this.getHeartbeatModel(),
           llmLocal: this.isHeartbeatLocal(),
           options: {},

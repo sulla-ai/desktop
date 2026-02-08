@@ -28,7 +28,7 @@ const TOKEN_PROPERTY = 'bot_token';
 const APP_TOKEN_PROPERTY = 'scopes_token';
 
 const WS_SERVICE = WebSocketClientService.getInstance();
-const SLACK_EVENTS_CHANNEL = 'chat-controller-backend';
+const SLACK_EVENTS_CHANNEL = 'dreaming-protocol';
 
 function generateUUID(): string {
   const bytes = new Uint8Array(16);

@@ -12,7 +12,7 @@ interface CalendarWebSocketMessage {
   channel: string;
 }
 
-const BACKEND_CHANNEL_ID = 'chat-controller-backend';
+const BACKEND_CHANNEL_ID = 'dreaming-protocol';
 const CALENDAR_CHANNEL_ID = 'calendar_event';
 
 let backendGraphWebSocketServiceInstance: BackendGraphWebSocketService | null = null;

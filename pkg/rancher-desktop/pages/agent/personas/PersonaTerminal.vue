@@ -31,9 +31,9 @@
         </div>
       </div>
       <div class="px-4 pb-4 font-mono text-xs">
-        <div class="text-slate-500">> tokens/s: {{ Math.round(tokensPerSecond) }}</div>
-        <div style="color: color-mix(in oklab, var(--persona-primary) 70%, transparent);">> temp: {{ temperature.toFixed(1) }}</div>
-        <div class="text-slate-600 mt-1">-- {{ statusLabel.toLowerCase() }} --</div>
+        <div style="color: color-mix(in oklab, var(--persona-primary) 70%, transparent);">> tokens: {{ totalTokens.toLocaleString() }}</div>
+        <div class="text-slate-500">> cost: ${{ ((inputCost + outputCost) * 1000).toFixed(3) }}k</div>
+        <div class="text-slate-600 mt-1">> temp: {{ temperature.toFixed(1) }}</div>
       </div>
     </div>
   </div>
@@ -46,8 +46,10 @@ const props = defineProps<{
   agentId: string;
   agentName: string;
   status: 'online' | 'idle' | 'busy' | 'offline';
-  tokensPerSecond: number;
+  totalTokens: number;
   temperature: number;
+  inputCost: number;
+  outputCost: number;
 }>();
 
 const statusLabel = computed(() => {
@@ -65,6 +67,8 @@ const statusLabel = computed(() => {
 
 const agentName = computed(() => props.agentName || props.agentId);
 const agentId = computed(() => props.agentId);
-const tokensPerSecond = computed(() => props.tokensPerSecond ?? 0);
+const totalTokens = computed(() => props.totalTokens ?? 0);
 const temperature = computed(() => props.temperature ?? 0);
+const inputCost = computed(() => props.inputCost ?? 0);
+const outputCost = computed(() => props.outputCost ?? 0);
 </script>

@@ -37,12 +37,12 @@
       <div class="px-4 pb-4">
         <div class="grid grid-cols-2 gap-2">
           <div class="persona-panel p-2">
-            <div class="text-[10px] text-slate-400 uppercase">Torque</div>
-            <div class="text-sm font-bold" style="color: var(--persona-strong);">{{ Math.round(tokensPerSecond) }} t/s</div>
+            <div class="text-[10px] text-slate-400 uppercase">Estimate</div>
+            <div class="text-sm font-bold" style="color: var(--persona-strong);">${{ totalCost.toFixed(4) }}</div>
           </div>
           <div class="persona-panel p-2">
-            <div class="text-[10px] text-slate-400 uppercase">Temp</div>
-            <div class="text-sm font-bold" style="color: var(--persona-strong);">{{ temperature.toFixed(1) }}</div>
+            <div class="text-[10px] text-slate-400 uppercase">Total</div>
+            <div class="text-sm font-bold" style="color: var(--persona-strong);">{{ totalTokens }}</div>
           </div>
         </div>
       </div>
@@ -58,12 +58,18 @@ const props = defineProps<{
   agentName: string;
   status: 'online' | 'idle' | 'busy' | 'offline';
   tokensPerSecond: number;
+  totalTokens: number;
   temperature: number;
 }>();
 
 const agentName = computed(() => props.agentName || props.agentId);
 const tokensPerSecond = computed(() => props.tokensPerSecond ?? 0);
+const totalTokens = computed(() => props.totalTokens ?? 0);
 const temperature = computed(() => props.temperature ?? 0);
+
+// Calculate cost based on model (assuming Grok pricing)
+const costPerMillionTokens = 5; // $5 per 1M tokens for Grok
+const totalCost = computed(() => (props.totalTokens * costPerMillionTokens) / 1000000);
 
 const statusLabel = computed(() => {
   switch (props.status) {

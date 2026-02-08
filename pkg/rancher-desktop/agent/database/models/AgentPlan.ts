@@ -29,6 +29,7 @@ export interface AgentPlanInterface {
   save(): Promise<this>;
   delete(): Promise<boolean>;
   deleteAllTodos(): Promise<number>;
+  markAllTodosCompleted(): Promise<number>;
   fill(attributes: Partial<PlanAttributes>): void;
 }
 
@@ -62,6 +63,11 @@ export class AgentPlan extends BaseModel<PlanAttributes> {
   }
 
   async save(): Promise<this> {
+    // If status is being set to completed, mark all todos as completed first
+    if (this.attributes.status === 'completed') {
+      await this.markAllTodosCompleted();
+    }
+
     const result = await super.save();
 
     const threadId = this.attributes.thread_id;
@@ -129,5 +135,27 @@ export class AgentPlan extends BaseModel<PlanAttributes> {
     }
     
     return deletedCount;
+  }
+
+  /**
+   * Load all AgentPlanTodo records for this plan and mark them as completed
+   * @returns Promise<number> - Number of todos marked as completed
+   */
+  async markAllTodosCompleted(): Promise<number> {
+    if (!this.attributes.id) {
+      return 0;
+    }
+    
+    const todos = await AgentPlanTodo.findForPlan(this.attributes.id);
+    let completedCount = 0;
+    
+    for (const todo of todos) {
+      if (todo.attributes.status !== 'done') {
+        await todo.markStatus('done');
+        completedCount++;
+      }
+    }
+    
+    return completedCount;
   }
 }

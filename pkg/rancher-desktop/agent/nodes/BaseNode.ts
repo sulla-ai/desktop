@@ -14,7 +14,7 @@ import { abortIfSignalReceived, throwIfAborted } from '../services/AbortService'
 // DEFAULT SETTINGS
 // ============================================================================
 
-const DEFAULT_WS_CHANNEL = 'chat-controller-backend';
+const DEFAULT_WS_CHANNEL = 'dreaming-protocol';
 
 export const JSON_ONLY_RESPONSE_INSTRUCTIONS = `When you respond it will be parsed as JSON and ONLY the following object will be read.
 Any text outside this exact structure will break downstream parsing.\nRespond ONLY with this valid JSON — nothing before, nothing after, no fences, no commentary:`;
@@ -210,7 +210,7 @@ export abstract class BaseNode {
         systemPrompt: string,
         options: LLMCallOptions = {}
     ): Promise<any | null> {
-        const reply = await this.normaliedChat(state, systemPrompt, options);
+        const reply = await this.normalizedChat(state, systemPrompt, options);
         if (!reply) return null;
         if (options.format === 'json') {
             const parsedReply = this.parseJson(reply.content);
@@ -230,7 +230,7 @@ export abstract class BaseNode {
      * - Parses JSON if format='json'
      * - No raw response logging
      */
-    protected async normaliedChat(
+    protected async normalizedChat(
         state: BaseThreadState,
         systemPrompt: string,
         options: LLMCallOptions = {}
@@ -269,6 +269,9 @@ export abstract class BaseNode {
             // Append to state
             this.appendResponse(state, reply.content);
 
+            // Send token information to AgentPersona
+            this.dispatchTokenInfoToAgentPersona(state, reply);
+            
             return reply;
         } catch (err) {
             if ((err as any)?.name === 'AbortError') throw err;
@@ -527,6 +530,29 @@ export abstract class BaseNode {
         return wsService.isConnected(connectionId);
     }
 
+
+    /**
+     * Dispatch token information to AgentPersona via WebSocket
+     */
+    private dispatchTokenInfoToAgentPersona(state: BaseThreadState, reply: NormalizedResponse): void {
+        const wsChannel = state.metadata.wsChannel || DEFAULT_WS_CHANNEL;
+        const sent = this.dispatchToWebSocket(wsChannel, {
+            type: 'token_info',
+            data: {
+                tokens_used: reply.metadata.tokens_used,
+                prompt_tokens: reply.metadata.prompt_tokens,
+                completion_tokens: reply.metadata.completion_tokens,
+                time_spent: reply.metadata.time_spent,
+                threadId: state.metadata.threadId,
+                nodeId: this.name,
+            },
+            timestamp: Date.now(),
+        });
+
+        if (!sent) {
+            console.warn(`[BaseNode:${this.name}] Failed to send token info via WebSocket`);
+        }
+    }
 
     /**
      * Emit a chat message to the UI dashboard via WebSocket

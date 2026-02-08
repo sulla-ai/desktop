@@ -110,7 +110,7 @@ export class MemoryNode extends BaseNode {
 
     // Format context exactly like previous enrichPrompt expects
     const memoryContext = results
-      .map((s, i) => `[Summary ${i+1} - Thread ${s.threadId}]: ${s.summary}\nTopics: ${s.topics.join(', ')}\nEntities: ${s.entities.join(', ')}`)
+      .map((s, i) => `[Summary ${i+1} - Thread ${s.attributes.threadId}]: ${s.summary}\nTopics: ${s.topics.join(', ')}\nEntities: ${s.entities.join(', ')}`)
       .join('\n\n');
 
     // Write to canonical location

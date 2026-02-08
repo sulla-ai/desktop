@@ -165,6 +165,7 @@ export class TacticalPlannerNode extends BaseNode {
     }));
 
     if (steps.length === 0) {
+      console.log('[TacticalPlanner] - No Tactical Steps')
       return { state, decision: { type: 'continue' } }; //continue
     }
 

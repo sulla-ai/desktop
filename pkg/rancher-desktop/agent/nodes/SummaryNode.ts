@@ -24,7 +24,8 @@ Format:
 
 ${JSON_ONLY_RESPONSE_INSTRUCTIONS}
 {
-  "summary": "concise paragraph...",
+  "emit_chat_message": "give the user a recap of what was done, if anything was left undone, what steps are next, if any",
+  "summary": "concise paragraph for later recall...",
   "topics": ["topic1", "topic2", ...],
   "entities": ["entity1", "entity2", ...]
 }

@@ -78,11 +78,7 @@ export class StrategicCriticNode extends BaseNode {
       includeKnowledgebasePlan: false,
     });
 
-    const llmResponse = await this.chat(
-      state,
-      enriched,
-      { format: 'json' }
-    );
+    const llmResponse = await this.chat(state, enriched, { format: 'json' });
 
     if (!llmResponse) {
       return { state, decision: { type: 'end' } };
@@ -94,72 +90,21 @@ export class StrategicCriticNode extends BaseNode {
       reason: string;
       suggestions?: string;
       triggerKnowledgeBase?: boolean;
-      kbReason?: string;
       killSwitch?: boolean;
     };
 
+    // Just write the facts
     state.metadata.strategicCriticVerdict = {
       status: data.decision,
+      confidence: data.confidence,
       reason: data.reason || (data.decision === 'approve' ? 'Goal achieved' : 'Revision needed'),
       suggestions: data.suggestions,
+      triggerKnowledgeBase: data.triggerKnowledgeBase,
+      killSwitch: data.killSwitch,
       at: Date.now(),
     };
 
-    if (data.killSwitch === true) {
-      // Emergency stop — rare
-      plan.model.setStatus('abandoned');
-      await plan.model.save();
-
-      return { state, decision: { type: 'end' } };
-    }
-
-    if (data.decision === 'approve') {
-      plan.model.setStatus('completed');
-      await plan.model.save();
-
-      // Delete all milestones and then the plan from database
-      console.log('StrategicCritic: Plan approved, deleting milestones and plan');
-      
-      if (plan.milestones && plan.milestones.length > 0) {
-        for (const milestone of plan.milestones) {
-          if (milestone.model) {
-            try {
-              await milestone.model.delete();
-              console.log('StrategicCritic: Deleted milestone:', (milestone.model as any).attributes.id);
-            } catch (err) {
-              console.error('StrategicCritic: Failed to delete milestone:', err);
-            }
-          }
-        }
-      }
-      
-      // Delete the plan itself
-      try {
-        await plan.model.delete();
-        console.log('StrategicCritic: Deleted plan:', plan.model.attributes.id);
-      } catch (err) {
-        console.error('StrategicCritic: Failed to delete plan:', err);
-      }
-
-      // Reset entire plan state to allow for new planning cycles
-      state.metadata.plan = {
-        model: undefined,
-        milestones: [],
-        activeMilestoneIndex: 0,
-        allMilestonesComplete: false,
-      };
-      
-      // Clear tactical steps as well
-      state.metadata.currentSteps = [];
-      state.metadata.activeStepIndex = 0;
-      
-      // Clear critic verdicts
-      state.metadata.strategicCriticVerdict = undefined;
-      state.metadata.tacticalCriticVerdict = undefined;
-
-      return { state, decision: { type: 'end' } };
-    }
-
-    return { state, decision: { type: data.decision } };
+    // Let the conditional edge decide routing
+    return { state, decision: { type: 'next' } };
   }
 }

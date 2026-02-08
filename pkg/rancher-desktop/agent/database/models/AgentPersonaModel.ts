@@ -53,6 +53,20 @@ export type AgentPersonaState = {
 
   tokensPerSecond: number;
   temperature: number;
+  threadId?: string;
+
+  // Token tracking properties
+  totalTokensUsed: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  lastResponseTime: number;
+  averageResponseTime: number;
+  responseCount: number;
+  
+  // Cost tracking properties (XAI Grok pricing)
+  totalInputCost: number;
+  totalOutputCost: number;
+  totalCost: number;
 };
 
 export class AgentPersonaService {
@@ -82,6 +96,19 @@ export class AgentPersonaService {
 
     tokensPerSecond: 847,
     temperature: 0.7,
+
+    // Token tracking initialization
+    totalTokensUsed: 0,
+    totalPromptTokens: 0,
+    totalCompletionTokens: 0,
+    lastResponseTime: 0,
+    averageResponseTime: 0,
+    responseCount: 0,
+    
+    // Cost tracking initialization (XAI Grok pricing)
+    totalInputCost: 0,
+    totalOutputCost: 0,
+    totalCost: 0,
   });
 
   // This service represents ONE agent - single plan state
@@ -105,6 +132,7 @@ export class AgentPersonaService {
       this.state.emotion = agentData.emotion;
       this.state.status = agentData.status;
       this.state.tokensPerSecond = agentData.tokensPerSecond;
+      this.state.totalTokensUsed = agentData.totalTokensUsed;
       this.state.temperature = agentData.temperature;
     }
   }
@@ -141,6 +169,7 @@ export class AgentPersonaService {
       data: {
         role: 'user',
         content,
+        threadId: this.getThreadId(), // Include stored threadId if available
       },
       timestamp: Date.now(),
     });
@@ -150,6 +179,18 @@ export class AgentPersonaService {
     }
 
     return sent;
+  }
+
+  setThreadId(threadId: string): void {
+    this.state.threadId = threadId;
+  }
+
+  getThreadId(): string | undefined {
+    return this.state.threadId;
+  }
+
+  clearThreadId(): void {
+    this.state.threadId = undefined;
   }
 
   emitStopSignal(agentId: string): boolean {
@@ -284,6 +325,7 @@ export class AgentPersonaService {
         // StrategicStateService sends: { type: 'progress', threadId, data: { phase, ... } }
         const data = (msg.data && typeof msg.data === 'object') ? (msg.data as any) : null;
         const phase = data?.phase;
+        
         console.log('[AgentPersonaModel] Progress/plan event:', phase, 'for agent:', agentId, 'type:', msg.type);
         
         // Handle plan-related progress events
@@ -442,9 +484,98 @@ export class AgentPersonaService {
         }
         return;
       }
+      case 'thread_created': {
+        const data = (msg.data && typeof msg.data === 'object') ? (msg.data as any) : {};
+        const threadId = data.threadId;
+
+        if (threadId && typeof threadId === 'string') {
+          this.setThreadId(threadId);
+          console.log(`[AgentPersonaModel] Thread ID received and stored: ${threadId}`);
+        }
+        return;
+      }
+      case 'token_info': {
+        const data = (msg.data && typeof msg.data === 'object') ? (msg.data as any) : {};
+        const tokens_used = data.tokens_used;
+        const prompt_tokens = data.prompt_tokens;
+        const completion_tokens = data.completion_tokens;
+        const time_spent = data.time_spent;
+        const threadId = data.threadId;
+        const nodeId = data.nodeId;
+
+        if (typeof tokens_used === 'number') {
+          console.log(`[AgentPersonaModel] 🎯 TOKEN INFO RECEIVED:`, {
+            type: 'token_info',
+            tokens_used,
+            prompt_tokens,
+            completion_tokens,
+            time_spent,
+            threadId,
+            nodeId,
+            current_total_before: this.state.totalTokensUsed,
+            current_total_after: this.state.totalTokensUsed + tokens_used
+          });
+          
+          // Handle token information from completed LLM response
+          this.handleTokenInfo(tokens_used, prompt_tokens, completion_tokens, time_spent, threadId, nodeId);
+        }
+        return;
+      }
       default:
         console.log('[AgentPersonaModel] Unhandled message type:', msg.type);
     }
+  }
+
+  /**
+   * Handle token information from completed LLM response
+   */
+  private handleTokenInfo(
+    tokens_used: number,
+    prompt_tokens: number,
+    completion_tokens: number,
+    time_spent: number,
+    threadId?: string,
+    nodeId?: string
+  ): void {
+    console.log(`[AgentPersonaModel] 📊 TOKEN INFO PROCESSING:`, {
+      tokens_used,
+      prompt_tokens,
+      completion_tokens,
+      time_spent,
+      threadId,
+      nodeId,
+      state_before: {
+        totalTokensUsed: this.state.totalTokensUsed,
+        totalPromptTokens: this.state.totalPromptTokens,
+        totalCompletionTokens: this.state.totalCompletionTokens,
+        responseCount: this.state.responseCount
+      }
+    });
+    
+    // XAI Grok pricing
+    const costPerMillionInputTokens = 0.50; // $0.50 per 1M input tokens
+    const costPerMillionOutputTokens = 1.50; // $1.50 per 1M output tokens
+    
+    // Calculate costs for this response
+    const inputCost = (prompt_tokens * costPerMillionInputTokens) / 1000000;
+    const outputCost = (completion_tokens * costPerMillionOutputTokens) / 1000000;
+    const totalResponseCost = inputCost + outputCost;
+    
+    // Update token tracking properties
+    this.state.totalTokensUsed += tokens_used;
+    this.state.totalPromptTokens += prompt_tokens;
+    this.state.totalCompletionTokens += completion_tokens;
+    this.state.lastResponseTime = time_spent;
+    this.state.responseCount++;
+    
+    // Update cost tracking properties
+    this.state.totalInputCost += inputCost;
+    this.state.totalOutputCost += outputCost;
+    this.state.totalCost += totalResponseCost;
+    
+    // Calculate rolling average response time
+    this.state.averageResponseTime = 
+      (this.state.averageResponseTime * (this.state.responseCount - 1) + time_spent) / this.state.responseCount;
   }
 
   set emotion(value: PersonaEmotion) {

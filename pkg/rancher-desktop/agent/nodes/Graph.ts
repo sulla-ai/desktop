@@ -13,7 +13,7 @@ import { getCurrentModel, getCurrentMode } from '../languagemodels';
 // DEFAULT SETTINGS
 // ============================================================================
 
-const DEFAULT_WS_CHANNEL = 'chat-controller-backend';
+const DEFAULT_WS_CHANNEL = 'dreaming-protocol';
 const DEFAULT_MAX_ITERATIONS = 10;
 const DEFAULT_MAX_REVISION_COUNT = 3;
 const MAX_CONSECTUIVE_LOOP = 12; //12
@@ -193,8 +193,11 @@ export interface HierarchicalThreadState extends BaseThreadState {
     };
     strategicCriticVerdict?: {
       status: 'approve' | 'revise';
+      confidence?: number;
       reason?: string;
       suggestions?: string;
+      triggerKnowledgeBase?: boolean;
+      killSwitch?: boolean;
       at: number;
     };
 
@@ -396,7 +399,7 @@ export class Graph<TState = HierarchicalThreadState> {
     // Always send completion signal, whether completed naturally or aborted
     console.log('[Graph] Sending graph_execution_complete signal');
     const ws = getWebSocketClientService();
-    const connId = (state as any).metadata.wsChannel || 'chat-controller-backend';
+    const connId = (state as any).metadata.wsChannel || 'dreaming-protocol';
     ws.send(connId, {
       type: 'transfer_data',
       data: { role: 'system', content: 'graph_execution_complete' },
@@ -413,6 +416,8 @@ export class Graph<TState = HierarchicalThreadState> {
    * @returns Next node ID or 'end'
    */
   private resolveNext(current: string, decision: NodeDecision, state: TState): string {
+    console.log(`[Graph] resolveNext: current=${current}, decision=${decision.type}`);
+    
     switch (decision.type) {
       case 'end': return 'end';
       case 'goto':
@@ -424,14 +429,18 @@ export class Graph<TState = HierarchicalThreadState> {
         return this.getReviserFor(current) || 'end';
       case 'next':
         const edges = this.edges.get(current) || [];
+        console.log(`[Graph] resolveNext: found ${edges.length} edges for ${current}`);
         for (const edge of edges) {
           if (typeof edge.to === 'function') {
             const nextId = edge.to(state);
+            console.log(`[Graph] resolveNext: conditional edge resolved to ${nextId}`);
             if (nextId && this.nodes.has(nextId)) return nextId;
           } else if (this.nodes.has(edge.to)) {
+            console.log(`[Graph] resolveNext: static edge to ${edge.to}`);
             return edge.to;
           }
         }
+        console.log(`[Graph] resolveNext: no valid edges found, ending`);
         return 'end';
     }
   }
@@ -799,29 +808,72 @@ export function createHierarchicalGraph(): Graph<HierarchicalThreadState> {
       : 'tactical_planner';
   });
 
-  // Strategic Critic edge: approves → end process | revises → back to StrategicPlanner
+  // Strategic Critic edge — now handles approve/revise/kill-switch fully
   graph.addConditionalEdge('strategic_critic', state => {
-    const verdict = state.metadata.strategicCriticVerdict?.status;
-    const plan = state.metadata.plan;
+    const verdict = state.metadata.strategicCriticVerdict;
 
-    if (verdict === 'revise') {
-      return 'strategic_planner';           // major revision needed
-    }
-
-    // Approve: mark plan complete & end
-    if (plan && plan.model && plan.milestones && plan.milestones.every(m => m.model?.done)) {
-      plan.model.setStatus('completed');
-      plan.model.save();
+    if (!verdict) {
+      console.warn('[Graph] No strategicCriticVerdict — fallback to summary');
       return 'summary';
     }
 
-    // Return to parent if sub-graph, else end
-    if (state.metadata.returnTo) {
-      const returnNode = state.metadata.returnTo;
-      state.metadata.returnTo = null; // clear
-      return returnNode;
+    const plan = state.metadata.plan;
+
+    if (verdict.killSwitch === true) {
+      // Emergency stop — rare, irreversible
+      if (plan?.model) {
+        plan.model.setStatus('abandoned');
+        plan.model.save().catch(err => console.error('Kill-switch save failed:', err));
+      }
+      return 'end';  // true termination
     }
 
+    if (verdict.status === 'approve' && (verdict.confidence ?? 0) >= 90) {
+      // Goal achieved — mark complete, clean up, go to summary
+      if (plan?.model) {
+        plan.model.setStatus('completed');
+        plan.model.save().catch(err => console.error('Approve save failed:', err));
+
+        // Clean up milestones & plan
+        console.log('[Graph] StrategicCritic approved — deleting milestones & plan');
+        for (const m of plan.milestones || []) {
+          m.model?.delete().catch(err => console.error('Milestone delete failed:', err));
+        }
+        plan.model.delete().catch(err => console.error('Plan delete failed:', err));
+      }
+
+      // Reset plan state for next cycle
+      state.metadata.plan = {
+        model: undefined,
+        milestones: [],
+        activeMilestoneIndex: 0,
+        allMilestonesComplete: false
+      };
+      state.metadata.currentSteps = [];
+      state.metadata.activeStepIndex = 0;
+      state.metadata.strategicCriticVerdict = undefined;
+      state.metadata.tacticalCriticVerdict = undefined;
+
+      // Optional: trigger KB async if requested
+      if (verdict.triggerKnowledgeBase === true) {
+        state.metadata.subGraph = {
+          state: 'trigger_subgraph',
+          name: 'knowledge',
+          prompt: `Document successful plan execution for goal: ${plan?.model?.attributes?.goal || 'unknown'}`,
+          response: ''
+        };
+      }
+
+      return 'summary';
+    }
+
+    // Revise — back to planner
+    if (verdict.status === 'revise') {
+      return 'strategic_planner';
+    }
+
+    // Fallback (low confidence, missing verdict, etc.)
+    console.warn('[Graph] StrategicCritic unclear verdict — fallback to summary');
     return 'summary';
   });
 

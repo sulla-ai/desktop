@@ -48,12 +48,12 @@
           <span class="text-xs" style="color: color-mix(in oklab, var(--persona-primary) 80%, transparent);">dendrite_firing</span>
         </div>
         <div class="flex items-center gap-2">
-          <div class="w-1.5 h-1.5 rounded-full" style="background-color: color-mix(in oklab, var(--persona-primary) 50%, transparent);"></div>
-          <span class="text-xs text-slate-400">temp: {{ temperature.toFixed(1) }}</span>
+          <div class="w-1.5 h-1.5 rounded-full" style="background-color: color-mix(in oklab, var(--persona-primary) 35%, transparent);"></div>
+          <span class="text-xs text-slate-400">total: {{ totalTokens }}</span>
         </div>
         <div class="flex items-center gap-2">
           <div class="w-1.5 h-1.5 rounded-full" style="background-color: color-mix(in oklab, var(--persona-primary) 35%, transparent);"></div>
-          <span class="text-xs text-slate-400">tokens/s: {{ Math.round(tokensPerSecond) }}</span>
+          <span class="text-xs text-slate-400">cost: ${{ totalCost.toFixed(4) }}</span>
         </div>
         <div
           class="h-px"
@@ -73,13 +73,19 @@ const props = defineProps<{
   agentName: string;
   status: 'online' | 'idle' | 'busy' | 'offline';
   tokensPerSecond: number;
+  totalTokens: number;
   temperature: number;
 }>();
 
 const agentId = computed(() => props.agentId);
 const agentName = computed(() => props.agentName || props.agentId);
 const tokensPerSecond = computed(() => props.tokensPerSecond ?? 0);
+const totalTokens = computed(() => props.totalTokens ?? 0);
 const temperature = computed(() => props.temperature ?? 0);
+
+// Calculate cost based on model (assuming Grok pricing)
+const costPerMillionTokens = 5; // $5 per 1M tokens for Grok
+const totalCost = computed(() => (props.totalTokens * costPerMillionTokens) / 1000000);
 
 const statusLabel = computed(() => {
   switch (props.status) {

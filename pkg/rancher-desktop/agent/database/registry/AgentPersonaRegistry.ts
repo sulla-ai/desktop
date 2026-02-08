@@ -37,6 +37,7 @@ export type AgentRegistryEntry = {
 
   status: PersonaStatus;
   tokensPerSecond: number;
+  totalTokensUsed: number;
   temperature: number;
 
   messages: ChatMessage[];
@@ -45,7 +46,7 @@ export type AgentRegistryEntry = {
 
 // Registry of AgentPersonaService instances - manages multiple AI personas
 export class AgentPersonaRegistry {
-  private readonly backgroundAgentId = 'chat-controller-backend';
+  private readonly backgroundAgentId = 'dreaming-protocol';
   private readonly activeAgentListeners = new Set<(agent: AgentRegistryEntry | undefined) => void>();
 
   // Per-agent persona services - each service represents ONE agent
@@ -61,18 +62,20 @@ export class AgentPersonaRegistry {
         emotion: 'calm',
         status: 'online',
         tokensPerSecond: 847,
+        totalTokensUsed: 0,
         temperature: 0.7,
         messages: [],
         loading: false,
       },
       {
         isRunning: true,
-        agentId: 'chat-controller-backend',
+        agentId: 'dreaming-protocol',
         agentName: 'Subconscious',
         templateId: 'terminal',
         emotion: 'focus',
         status: 'idle',
         tokensPerSecond: 120,
+        totalTokensUsed: 0,
         temperature: 0.2,
         messages: [],
         loading: false,
@@ -208,7 +211,10 @@ export class AgentPersonaRegistry {
       this.state.agents[idx] = agent;
       return;
     }
-    this.state.agents.push(agent);
+    this.state.agents.push({
+      ...agent,
+      totalTokensUsed: agent.totalTokensUsed ?? 0
+    });
   }
 
   removeAgent(agentId: string): void {

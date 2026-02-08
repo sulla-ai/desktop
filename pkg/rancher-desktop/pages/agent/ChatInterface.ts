@@ -35,7 +35,7 @@ function makeStatusLabel(status: SidebarTodoStatus): string {
 
 export class ChatInterface {
   private readonly frontendChannelId = 'chat-controller';
-  private readonly backendChannelId = 'chat-controller-backend';
+  private readonly backendChannelId = 'dreaming-protocol';
 
   readonly query = ref('');
   readonly transcriptEl = ref<HTMLElement | null>(null);

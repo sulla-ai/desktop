@@ -1,14 +1,12 @@
 import type { Ref } from 'vue';
-
 import type { AgentResponse, SensoryInput } from '../types';
 import { getWebSocketClientService, type WebSocketMessage } from './WebSocketClientService';
-import { runHierarchicalGraph } from './GraphExecutionService';
 import { AbortService } from './AbortService';
+import { GraphRegistry, nextThreadId, nextMessageId } from './GraphRegistry';
 
 export type FrontendGraphWebSocketDeps = {
   currentThreadId: Ref<string | null>;
   sensory: { createTextInput: (text: string) => SensoryInput };
-
   responseHandler: {
     hasErrors: (resp: AgentResponse) => boolean;
     getError: (resp: AgentResponse) => string | null | undefined;
@@ -32,11 +30,7 @@ export class FrontendGraphWebSocketService {
       this.unsubscribe = null;
     }
     if (this.activeAbort) {
-      try {
-        this.activeAbort.abort();
-      } catch {
-        // ignore
-      }
+      this.activeAbort.abort();
       this.activeAbort = null;
     }
   }
@@ -50,32 +44,20 @@ export class FrontendGraphWebSocketService {
 
   private async handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
     if (msg.type === 'stop_run') {
-      console.log('[FrontendGraphWebSocketService] Received stop_run message');
-      if (this.activeAbort && !this.activeAbort.signal.aborted) {
-        try {
-          console.log('[FrontendGraphWebSocketService] Calling abort on active AbortService');
-          this.activeAbort.abort();
-        } catch {
-          // ignore
-        }
-      } else {
-        console.log('[FrontendGraphWebSocketService] No active abort or already aborted');
-      }
+      console.log('[FrontendGraphWS] stop_run received');
+      this.activeAbort?.abort();
       return;
     }
 
-    if (msg.type !== 'user_message') {
-      return;
-    }
+    if (msg.type !== 'user_message') return;
 
     const data = typeof msg.data === 'string' ? { content: msg.data } : (msg.data as any);
-    const content = typeof data?.content === 'string' ? data.content : '';
+    const content = (data?.content ?? '').trim();
+    if (!content) return;
 
-    if (!content.trim()) {
-      return;
-    }
+    const threadIdFromMsg = data?.threadId as string | undefined;
 
-    // Send scheduler acknowledgement if message originated from scheduler
+    // Scheduler ack
     const metadata = data?.metadata;
     if (metadata?.origin === 'scheduler' && typeof metadata?.eventId === 'number') {
       this.wsService.send('chat-controller', {
@@ -85,36 +67,62 @@ export class FrontendGraphWebSocketService {
       });
     }
 
-    await this.processUserInput(content.trim());
+    await this.processUserInput(content, threadIdFromMsg);
   }
 
-  private async processUserInput(userText: string): Promise<void> {
+  private async processUserInput(userText: string, threadIdFromMsg?: string): Promise<void> {
     const channelId = 'chat-controller';
-    if (this.activeAbort) {
-      try {
-        this.activeAbort.abort();
-      } catch {
-        // ignore
-      }
-    }
-    this.activeAbort = new AbortService();
 
     try {
-      const input = this.deps.sensory.createTextInput(userText);
+      // Use threadId from WS message if present, else generate new
+      const threadId = threadIdFromMsg || nextThreadId();
 
-      const response = await runHierarchicalGraph({
-        input,
-        wsChannel: channelId,
-        threadId: this.deps.currentThreadId.value || undefined,
-        onAgentResponse: this.deps.onAgentResponse,
-        abort: this.activeAbort,
-      });
+      // Get or create persistent graph for this thread
+      const { graph, state } = GraphRegistry.getOrCreate(channelId, threadId);
 
-      if (!response) {
-        return;
+      // === NEW: Notify AgentPersonaService about the threadId ===
+      if (!threadIdFromMsg) {
+        this.wsService.send(channelId, {
+          type: 'thread_created',
+          data: {
+            threadId: state.metadata.threadId
+          },
+          timestamp: Date.now()
+        });
       }
 
-      this.deps.currentThreadId.value = response.threadId;
+      // Update local ref (for UI)
+      if (!this.deps.currentThreadId.value) {
+        this.deps.currentThreadId.value = threadId;
+      }
+
+      state.metadata.wsChannel = channelId;
+
+      // Append new user message
+      const newMsg = {
+        id: nextMessageId(),
+        role: 'user',
+        content: userText,
+        timestamp: Date.now(),
+        metadata: { source: 'user' }
+      };
+      state.messages.push(newMsg as any);
+
+      // Execute on the persistent graph
+      await graph.execute(state);
+
+      // Build response from final state
+      const content = state.metadata.finalSummary?.trim() || (state.metadata as any).response?.trim() || '';
+
+      const response: AgentResponse = {
+        id: `resp_${Date.now()}`,
+        threadId: state.metadata.threadId,
+        type: 'text',
+        content,
+        refined: !!state.metadata.strategicCriticVerdict,
+        metadata: { ...state.metadata },
+        timestamp: Date.now()
+      };
 
       if (this.deps.responseHandler.hasErrors(response)) {
         const err = this.deps.responseHandler.getError(response);
@@ -125,9 +133,16 @@ export class FrontendGraphWebSocketService {
       if (formatted.trim()) {
         this.emitAssistantMessage(formatted.trim());
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.emitSystemMessage(`Error: ${message}`);
+
+      this.deps.onAgentResponse?.(response);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('[FrontendGraphWS] Execution aborted');
+        this.emitSystemMessage('Execution stopped.');
+      } else {
+        console.error('[FrontendGraphWS] Error:', err);
+        this.emitSystemMessage(`Error: ${err.message || String(err)}`);
+      }
     } finally {
       this.activeAbort = null;
     }
@@ -136,10 +151,7 @@ export class FrontendGraphWebSocketService {
   private emitAssistantMessage(content: string): void {
     this.wsService.send('chat-controller', {
       type: 'assistant_message',
-      data: {
-        role: 'assistant',
-        content,
-      },
+      data: { role: 'assistant', content },
       timestamp: Date.now(),
     });
   }

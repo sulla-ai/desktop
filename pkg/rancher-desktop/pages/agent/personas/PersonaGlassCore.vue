@@ -42,12 +42,12 @@
         </div>
         <div class="flex items-center gap-3 text-[10px] font-mono pt-1">
           <div class="flex items-center gap-1 text-slate-400">
-            <span style="color: color-mix(in oklab, var(--persona-primary) 60%, transparent);">tokens/s:</span>
-            <span style="color: var(--persona-strong);">{{ Math.round(tokensPerSecond) }}</span>
+            <span style="color: color-mix(in oklab, var(--persona-to) 60%, transparent);">tokens:</span>
+            <span style="color: var(--persona-strong);">{{ totalTokens }}</span>
           </div>
           <div class="flex items-center gap-1 text-slate-400">
-            <span style="color: color-mix(in oklab, var(--persona-to) 60%, transparent);">temp:</span>
-            <span style="color: var(--persona-strong);">{{ temperature.toFixed(1) }}</span>
+            <span style="color: color-mix(in oklab, var(--persona-to) 60%, transparent);">estimate:</span>
+            <span style="color: var(--persona-strong);">${{ totalCost.toFixed(4) }}</span>
           </div>
         </div>
       </div>
@@ -62,13 +62,23 @@ const props = defineProps<{
   agentId: string;
   agentName: string;
   status: 'online' | 'idle' | 'busy' | 'offline';
-  tokensPerSecond: number;
+  totalTokens: number;
   temperature: number;
+  inputCost: number;
+  outputCost: number;
 }>();
 
 const agentName = computed(() => props.agentName || props.agentId);
-const tokensPerSecond = computed(() => props.tokensPerSecond ?? 0);
+const totalTokens = computed(() => {
+  console.log('[PersonaGlassCore] totalTokens computed, value:', props.totalTokens);
+  return props.totalTokens ?? 0;
+});
 const temperature = computed(() => props.temperature ?? 0);
+
+// Use accurate cost data from service
+const totalCost = computed(() => (props.inputCost ?? 0) + (props.outputCost ?? 0));
+const inputCost = computed(() => props.inputCost ?? 0);
+const outputCost = computed(() => props.outputCost ?? 0);
 
 const statusLabel = computed(() => {
   switch (props.status) {
