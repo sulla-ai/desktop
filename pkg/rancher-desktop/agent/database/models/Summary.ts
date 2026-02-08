@@ -10,16 +10,16 @@ export class Summary extends ChromaBaseModel {
 
   protected fillable = [
     'threadId',
-    'summary',
+    'document',  // Changed from 'summary' to 'document' for ChromaBaseModel
     'topics',
     'entities',
     'timestamp',
-    'conversationId', // optional foreign key to conversations.id
+    // Removed 'conversationId' - Chroma doesn't allow null/undefined in metadata
   ];
 
   protected required = [
     'threadId',
-    'summary',
+    'document',  // Changed from 'summary' to 'document'
     'topics',
     'timestamp',
   ];
@@ -27,7 +27,7 @@ export class Summary extends ChromaBaseModel {
   protected defaults = {
     topics: [],
     entities: [],
-    conversationId: null,
+    // Removed 'conversationId: null' - not needed in Chroma metadata
   };
 
   // Convenience methods
@@ -57,18 +57,18 @@ export class Summary extends ChromaBaseModel {
     summaryText: string,
     topics: string[],
     entities: string[],
-    conversationId?: number
+    conversationId?: number  // Keep parameter for API compatibility but don't store in Chroma
   ): Promise<Summary> {
     const summaryDoc = `${summaryText}\n\nTopics: ${topics.join(', ')}\nEntities: ${entities.join(', ')}`;
     
     const summary = new Summary();
     summary.fill({
       threadId,
-      summary: summaryDoc,
+      document: summaryDoc,  // Changed from 'summary' to 'document'
       topics,
       entities,
       timestamp: Date.now(),
-      conversationId,
+      // Removed conversationId - not stored in Chroma metadata
     });
 
     await summary.save();
@@ -76,7 +76,7 @@ export class Summary extends ChromaBaseModel {
   }
 
   // Getters
-  get summary(): string | undefined { return this.attributes.summary; }
+  get summary(): string | undefined { return this.attributes.document; }  // Now reads from 'document'
   get topics(): string[] { return this.attributes.topics ?? []; }
   get entities(): string[] { return this.attributes.entities ?? []; }
   get timestamp(): number | undefined { return this.attributes.timestamp; }

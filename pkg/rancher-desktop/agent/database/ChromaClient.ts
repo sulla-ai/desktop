@@ -6,6 +6,11 @@ const CHROMA_BASE = 'http://127.0.0.1:30115';
 // Simple embedding function similar to ChromaService
 class SimpleEmbeddingFunction implements EmbeddingFunction {
   private simpleEmbed(text: string, dim = 64): number[] {
+    // Guard against undefined/null/empty text
+    if (!text || typeof text !== 'string') {
+      text = '';
+    }
+
     const vec = new Array(dim).fill(0);
 
     for (let i = 0; i < text.length; i++) {
@@ -25,6 +30,12 @@ class SimpleEmbeddingFunction implements EmbeddingFunction {
   }
 
   async generate(texts: string[]): Promise<number[][]> {
+    // Guard against invalid input
+    if (!Array.isArray(texts)) {
+      console.warn('[ChromaClient] generate received non-array:', texts);
+      return [];
+    }
+    
     return texts.map(text => this.simpleEmbed(text));
   }
 }
@@ -119,6 +130,24 @@ class ChromaClient {
    */
   async addDocuments(collectionName: string, documents: string[], metadatas?: Metadata[], ids?: string[]) {
     try {
+      // Defensive checks
+      if (!Array.isArray(documents)) {
+        console.warn(`[ChromaClient] addDocuments received non-array documents:`, documents);
+        return;
+      }
+      
+      if (!documents.length) {
+        console.warn(`[ChromaClient] No documents to add to ${collectionName}`);
+        return;
+      }
+      
+      // Check for null/undefined documents
+      const invalidDocs = documents.filter(d => d == null);
+      if (invalidDocs.length > 0) {
+        console.warn(`[ChromaClient] Found ${invalidDocs.length} null/undefined documents, skipping`);
+        return;
+      }
+
       const collection = await this.getOrCreateCollection(collectionName);
       return await collection.add({
         ids: ids || documents.map((_, i) => `doc_${Date.now()}_${i}`),

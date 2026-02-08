@@ -25,8 +25,11 @@ export abstract class ChromaBaseModel {
     for (const [key, value] of Object.entries(data)) {
       if (this.fillable.includes(key)) {
         this.attributes[key] = value;
-        // Also set as property for TypeScript access
-        (this as any)[key] = value;
+        // Only set as property if there's no getter defined
+        const descriptor = Object.getOwnPropertyDescriptor(this.constructor.prototype, key);
+        if (!descriptor || descriptor.get === undefined) {
+          (this as any)[key] = value;
+        }
       }
     }
   }
@@ -74,13 +77,41 @@ export abstract class ChromaBaseModel {
     }
 
     const document = this.attributes.document;
-    const metadata = { ...this.attributes };
-    delete metadata.document;
+    
+    // Guard against undefined/null document
+    if (document == null) {
+      console.warn(`[ChromaBaseModel] Skipping save - no document content for ${this.constructor.name} with id ${id}`);
+      return;
+    }
+
+    // Create safe metadata by flattening arrays to strings
+    const safeMetadata = { ...this.attributes };
+    delete safeMetadata.document;
+
+    // Convert arrays to comma-separated strings for Chroma compatibility
+    for (const [key, value] of Object.entries(safeMetadata)) {
+      if (Array.isArray(value)) {
+        safeMetadata[key] = value.join(', ');
+      } else if (typeof value === 'object' && value !== null) {
+        // Convert objects to JSON strings if needed
+        safeMetadata[key] = JSON.stringify(value);
+      } else if (value === undefined) {
+        // Convert undefined to explicit null for Chroma
+        safeMetadata[key] = null;
+      } else if (typeof value === 'number') {
+        // Force ALL numbers → strings to avoid enum variant mismatches
+        safeMetadata[key] = String(value);
+      }
+      // Keep strings and booleans as-is, null stays as null
+    }
+
+    // Debug log to verify safe metadata
+    console.log(`[ChromaBaseModel] Saving to ${this.collectionName} with metadata:`, JSON.stringify(safeMetadata, null, 2));
 
     await chromaClient.addDocuments(
       this.collectionName,
-      [document],
-      [metadata],
+      Array.isArray(document) ? document : [document],  // Handle both string and array
+      [safeMetadata],  // Use safeMetadata with flattened arrays
       [id]
     );
   }
